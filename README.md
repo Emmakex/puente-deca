@@ -1,6 +1,8 @@
 # Puente DeCA
 
-Puente DeCA is an API-first transport compliance bridge for generating and managing Spain's electronic Documento de Control Administrativo (DeCA).
+Puente DeCA is the transport-compliance engine behind the **Puente DeCA product inside Kairoseth Platform (kairoseth.com)**. It provides an API-first bridge for generating and managing Spain's electronic Documento de Control Administrativo (DeCA).
+
+It is deliberately **not a separate customer platform**. Customer authentication, organizations, product RBAC, billing/entitlements and workspace UX belong to Kairoseth Platform.
 
 ## Goals
 
@@ -15,6 +17,9 @@ Puente DeCA is an API-first transport compliance bridge for generating and manag
 ## Architecture
 
 ```text
+Kairoseth Platform / kairoseth.com
+  |  customer auth + organization + product RBAC
+  |
 ERP / Ecommerce / TMS / CSV
             |
         Connectors
@@ -45,3 +50,19 @@ The repository follows the same engineering principle as Puente VeriFactu: a sma
 ## Status
 
 Initial foundation in progress.
+
+
+## Kairoseth Platform boundary
+
+Canonical production product identity:
+
+```text
+area        extensions
+product     Puente DeCA
+slug        puente-deca
+platform    Kairoseth Platform
+```
+
+The local organization/API-key store in this repository exists for deterministic development and service-contract testing. It is **not** the production source of truth for customer accounts or organization membership.
+
+Production integration rules are documented in [`docs/kairoseth-platform-integration.md`](docs/kairoseth-platform-integration.md).

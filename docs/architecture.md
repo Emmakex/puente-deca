@@ -2,7 +2,9 @@
 
 ## Product boundary
 
-Puente DeCA is not an ERP or TMS. It is a transport-compliance bridge.
+Puente DeCA is not an ERP, TMS or standalone customer platform. It is the transport-compliance engine for the **Puente DeCA product inside Kairoseth Platform**.
+
+Kairoseth Platform owns customer identity, organizations, product activation, product-scoped RBAC, billing/entitlements and the customer workspace. This repository owns the DeCA transport domain, document engine, connector protocol and compliance evidence.
 
 Source systems remain responsible for commercial and operational data. Puente DeCA normalizes that data into a stable transport model, validates the DeCA requirements, produces compliant documents, preserves evidence and exposes the result back to the source system.
 
@@ -12,8 +14,9 @@ Source systems remain responsible for commercial and operational data. Puente De
 2. **Contracts** — stable API payloads independent from source platforms.
 3. **Core** — transport and DeCA rules.
 4. **Document engine** — native PDF, QR and unique HTTPS access URL.
-5. **Persistence/audit** — organizations, shipments, versions, immutable audit events and retention.
-6. **API** — authentication, idempotency, generation, retrieval and document lifecycle.
+5. **Persistence/audit** — shipments, versions, immutable audit events, retention and service-side organization scoping.
+6. **API** — machine/service authentication, idempotency, generation, retrieval and document lifecycle.
+7. **Kairoseth Platform boundary** — customer authentication, canonical organization identity and product RBAC remain outside this engine.
 
 ## Domain model direction
 
@@ -43,9 +46,22 @@ The initial document engine deliberately avoids external SaaS dependencies:
 
 Full Unicode font embedding and unusually long custom-domain QR payloads remain production-hardening work.
 
+## Kairoseth Platform authority
+
+Production customer authority is resolved by Kairoseth Platform:
+
+```text
+(userId, organizationId, productSlug="puente-deca")
+  -> owner | admin | member | no-access
+```
+
+The canonical production tenant identifier is the Kairoseth Platform organization ID. The engine must never infer browser/user authorization from connector data or create a parallel customer-role model.
+
+Machine credentials used by WooCommerce, PrestaShop and ERP connectors are service credentials scoped to one Kairoseth organization. They do not represent a human role.
+
 ## Persistence
 
-The first persistence implementation is an atomic JSON store intended for development, contract testing and the initial single-process deployment path.
+The first persistence implementation is an atomic JSON store intended for development, contract testing and the initial single-process deployment path. Its local organization records are test/service-scoping fixtures, not the production customer source of truth.
 
 It already enforces the domain behavior that must survive the later PostgreSQL migration:
 
@@ -84,3 +100,33 @@ persistence
   v
 stored domain state
 ```
+
+
+## Production Kairoseth topology
+
+```text
+Browser
+  |
+  v
+kairoseth.com
+  |  Better Auth + organization + product RBAC
+  v
+Kairoseth Puente DeCA workspace/API
+  |  server-to-server authorized organization context
+  v
+Puente DeCA service
+  |-- shipment validation
+  |-- PDF/QR/versioning
+  |-- retention/integrity
+  |-- connector operations
+  v
+document storage
+```
+
+Target public document path after production proxy acceptance:
+
+```text
+https://kairoseth.com/deca/d/<opaque-token>.pdf
+```
+
+That route remains public-by-token for inspection/direct download and must not redirect through the authenticated workspace.

@@ -37,7 +37,9 @@
 
 Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs are production-hardening tasks.
 
-## Phase 3 — Persistence and multi-tenant core
+## Phase 3 — Persistence and service-side tenant core
+
+> Production customer identity/organizations/RBAC are owned by Kairoseth Platform. Local organizations and API credentials in this repository are development/service-contract primitives, not a second customer account system.
 
 - [x] Organizations.
 - [x] API credentials with one-time secret reveal, hashed storage, scopes and revocation.
@@ -72,7 +74,17 @@ Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs
 - [ ] PrestaShop.
 - [x] Reference connector SDK/contract suite.
 
-## Phase 6 — Production hardening
+## Phase 6 — Kairoseth Platform integration + production hardening
+
+- [x] Canonical product identity fixed as `extensions/puente-deca`.
+- [x] Kairoseth Platform declared authoritative for customer auth, organizations and product RBAC.
+- [ ] Server-to-server Kairoseth → Puente DeCA organization context.
+- [ ] Platform UX to issue/revoke organization-scoped connector credentials.
+- [ ] Puente DeCA workspace inside `/app/organizations/:slug/products/puente-deca`.
+- [ ] Production reverse proxy/public route `https://kairoseth.com/deca/d/<token>.pdf`.
+- [ ] Disable standalone customer/bootstrap semantics in production.
+
+### Runtime hardening
 
 - [ ] Production Unicode font embedding.
 - [ ] Dynamic QR sizing for unusually long custom URLs.
