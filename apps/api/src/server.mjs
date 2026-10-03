@@ -232,9 +232,7 @@ export function createServer({
       ) {
         return sendJson(response, 200, {
           status: "ok",
-          service: "puente-deca",
-          operational:
-            Boolean(store && artifactStore)
+          service: "puente-deca"
         });
       }
 
