@@ -36,15 +36,15 @@ This prevents the platform from becoming coupled to a single regulation.
 The initial document engine deliberately avoids external SaaS dependencies:
 
 - document URLs use high-entropy tokens over HTTPS;
-- QR codes are generated locally in byte mode with QR version 8 / error correction M;
+- QR codes use the pinned `qrcode@1.5.4` encoder with automatic QR version selection (1–40) and error correction M;
 - the generated QR is embedded as vector geometry in the PDF, keeping it crisp for print and mobile inspection;
-- the current QR encoder supports up to 152 UTF-8 bytes, covering the intended short Puente DeCA document URLs;
+- the QR layer supports up to the version-40/M byte-mode ceiling (2,331 UTF-8 bytes), while normal Kairoseth public document URLs remain intentionally short;
 - PDFs are generated directly from structured data and include creation/modification metadata;
 - a conservative 5,000,000-byte ceiling is enforced before a PDF can leave the renderer;
 - legal text is never silently transliterated or replaced: unsupported characters make rendering fail closed;
 - the API can return a generated PDF directly through `POST /v1/deca/pdf`.
 
-Full Unicode font embedding and unusually long custom-domain QR payloads remain production-hardening work.
+Full Unicode font embedding remains production-hardening work.
 
 ## Kairoseth Platform authority
 

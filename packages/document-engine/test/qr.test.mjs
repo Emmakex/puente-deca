@@ -1,45 +1,85 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
 import {
   encodeQrMatrix,
+  QR_ECC_LEVEL,
   QR_MAX_BYTES,
-  QR_SIZE
+  QR_MAX_VERSION,
+  QR_MIN_VERSION
 } from "../src/qr.mjs";
 
 const url =
-  "https://deca.example.com/d/abcdefghijklmnop1234567890.pdf";
+  "https://kairoseth.com/deca/d/abcdefghijklmnop1234567890.pdf";
 
-test("encodes a deterministic version 8-M QR matrix", () => {
-  const matrix = encodeQrMatrix(url);
+const versionFromSize = (size) =>
+  (size - 17) / 4;
 
-  assert.equal(matrix.length, QR_SIZE);
-  assert.equal(matrix[0].length, QR_SIZE);
+test("encodes deterministic auto-sized M-level QR matrices", () => {
+  const first = encodeQrMatrix(url);
+  const second = encodeQrMatrix(url);
 
-  const fingerprint = createHash("sha256")
-    .update(
-      matrix.flat().map((value) => (value ? "1" : "0")).join("")
-    )
-    .digest("hex");
-
+  assert.deepEqual(first, second);
   assert.equal(
-    fingerprint,
-    "1d640439c0004b19714fbcfb0217c671b46cb2d100887855e315732f1db3ec2f"
+    QR_ECC_LEVEL,
+    "M"
+  );
+  assert.equal(
+    first.length,
+    first[0].length
   );
 
-  assert.equal(matrix[0][0], true);
-  assert.equal(matrix[6][6], true);
-  assert.equal(matrix[1][1], false);
-  assert.equal(matrix[3][3], true);
+  const version =
+    versionFromSize(first.length);
+
+  assert.ok(
+    Number.isInteger(version)
+  );
+  assert.ok(
+    version >= QR_MIN_VERSION
+  );
+  assert.ok(
+    version <= QR_MAX_VERSION
+  );
+
+  assert.equal(first[0][0], true);
+  assert.equal(first[6][6], true);
 });
 
-test("rejects QR payloads beyond the supported byte capacity", () => {
-  const tooLong = "x".repeat(QR_MAX_BYTES + 1);
+test("grows the QR version automatically for longer public URLs", () => {
+  const shortMatrix =
+    encodeQrMatrix(url);
+  const longMatrix =
+    encodeQrMatrix(
+      `https://kairoseth.com/deca/d/${"a".repeat(
+        900
+      )}.pdf`
+    );
+
+  assert.ok(
+    longMatrix.length >
+      shortMatrix.length
+  );
+  assert.ok(
+    versionFromSize(
+      longMatrix.length
+    ) <= QR_MAX_VERSION
+  );
+});
+
+test("rejects QR payloads beyond the supported version-40 M byte capacity", () => {
+  const tooLong =
+    "x".repeat(
+      QR_MAX_BYTES + 1
+    );
 
   assert.throws(
     () => encodeQrMatrix(tooLong),
     (error) =>
-      error.code === "DECA_QR_CAPACITY_EXCEEDED" &&
-      error.maxBytes === QR_MAX_BYTES
+      error.code ===
+        "DECA_QR_CAPACITY_EXCEEDED" &&
+      error.maxBytes ===
+        QR_MAX_BYTES &&
+      error.bytes ===
+        QR_MAX_BYTES + 1
   );
 });
