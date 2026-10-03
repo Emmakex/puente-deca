@@ -7,7 +7,7 @@ final class PDECA_Woo_Settings {
 
     public static function get() {
         $defaults = array(
-            'endpoint'                      => '',
+            'endpoint'                      => 'https://kairoseth.com/api/deca',
             'shipper_name'                  => '',
             'shipper_tax_id'                => '',
             'shipper_address'               => '',
@@ -37,8 +37,8 @@ final class PDECA_Woo_Settings {
     public static function menu() {
         add_submenu_page(
             'woocommerce',
-            __( 'Puente DeCA', 'puente-deca-woocommerce' ),
-            __( 'Puente DeCA', 'puente-deca-woocommerce' ),
+            __( 'Kairoseth Cargo · DeCA', 'puente-deca-woocommerce' ),
+            __( 'Kairoseth Cargo · DeCA', 'puente-deca-woocommerce' ),
             'manage_woocommerce',
             'puente-deca',
             array( __CLASS__, 'render' )
@@ -123,13 +123,13 @@ final class PDECA_Woo_Settings {
         settings_errors( 'pdeca_woo' );
         ?>
         <div class="wrap">
-            <h1><?php esc_html_e( 'Puente DeCA', 'puente-deca-woocommerce' ); ?></h1>
-            <p><?php esc_html_e( 'WooCommerce sends transport data to Puente DeCA. The plugin does not reproduce compliance rules inside WordPress.', 'puente-deca-woocommerce' ); ?></p>
+            <h1><?php esc_html_e( 'Kairoseth Cargo · DeCA', 'puente-deca-woocommerce' ); ?></h1>
+            <p><?php esc_html_e( 'Connect your WooCommerce orders with Kairoseth Cargo to create, update and keep DeCA transport documents linked to each shipment.', 'puente-deca-woocommerce' ); ?></p>
             <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
                 <input type="hidden" name="action" value="pdeca_woo_save_settings">
                 <?php wp_nonce_field( 'pdeca_woo_save_settings' ); ?>
                 <table class="form-table" role="presentation">
-                    <tr><th><label for="pdeca-endpoint"><?php esc_html_e( 'Puente URL', 'puente-deca-woocommerce' ); ?></label></th><td><input class="regular-text" id="pdeca-endpoint" name="endpoint" type="url" required value="<?php echo esc_attr( $settings['endpoint'] ); ?>" placeholder="https://deca.example.com"></td></tr>
+                    <tr><th><label for="pdeca-endpoint"><?php esc_html_e( 'Puente URL', 'puente-deca-woocommerce' ); ?></label></th><td><input class="regular-text" id="pdeca-endpoint" name="endpoint" type="url" required value="<?php echo esc_attr( $settings['endpoint'] ); ?>" placeholder="https://kairoseth.com/api/deca"></td></tr>
                     <tr><th><label for="pdeca-api-key"><?php esc_html_e( 'API key', 'puente-deca-woocommerce' ); ?></label></th><td><input class="regular-text" id="pdeca-api-key" name="api_key" type="password" autocomplete="new-password" value="" placeholder="<?php echo esc_attr( PDECA_Woo_Secret_Store::get() ? __( 'Stored securely — leave blank to keep it', 'puente-deca-woocommerce' ) : __( 'Not configured', 'puente-deca-woocommerce' ) ); ?>"><br><label><input type="checkbox" name="clear_api_key" value="1"> <?php esc_html_e( 'Remove stored API key', 'puente-deca-woocommerce' ); ?></label></td></tr>
                     <tr><th><label for="pdeca-shipper-name"><?php esc_html_e( 'Contractual shipper name', 'puente-deca-woocommerce' ); ?></label></th><td><input class="regular-text" id="pdeca-shipper-name" name="shipper_name" type="text" value="<?php echo esc_attr( $settings['shipper_name'] ); ?>"></td></tr>
                     <tr><th><label for="pdeca-shipper-tax"><?php esc_html_e( 'Contractual shipper tax ID', 'puente-deca-woocommerce' ); ?></label></th><td><input class="regular-text" id="pdeca-shipper-tax" name="shipper_tax_id" type="text" value="<?php echo esc_attr( $settings['shipper_tax_id'] ); ?>"></td></tr>

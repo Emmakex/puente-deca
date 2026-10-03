@@ -1,6 +1,10 @@
 import http from "node:http";
 import { createHash, timingSafeEqual } from "node:crypto";
 import {
+  createConnectorPackage,
+  supportedConnectorPackage
+} from "./connector-package.mjs";
+import {
   importCsvText
 } from "../../../connectors/file-import/src/import.mjs";
 import {
@@ -48,6 +52,22 @@ const sendJson = (response, status, body) => {
     "content-length": Buffer.byteLength(data)
   });
   response.end(data);
+};
+
+const sendZip = (
+  response,
+  { filename, bytes, sha256 }
+) => {
+  response.writeHead(200, {
+    ...commonSecurityHeaders(),
+    "content-type": "application/zip",
+    "content-length": bytes.length,
+    "content-disposition":
+      `attachment; filename="${filename}"`,
+    "cache-control": "private, no-store",
+    "x-connector-sha256": sha256
+  });
+  response.end(bytes);
 };
 
 const sendPdf = (
@@ -869,6 +889,47 @@ export function createServer({
             organization.connectorAccessUntil ??
             validUntil.toISOString()
         });
+      }
+
+      const connectorPackageMatch =
+        /^\/v1\/connectors\/(woocommerce|prestashop)\/package$/.exec(
+          url.pathname
+        );
+
+      if (
+        request.method === "GET" &&
+        connectorPackageMatch
+      ) {
+        if (!requireStore(response, store)) return;
+
+        const platform =
+          await authenticatePlatformService(
+            request,
+            response,
+            store,
+            platformServiceSecret,
+            rateLimiter
+          );
+        if (!platform) return;
+
+        const connector =
+          connectorPackageMatch[1];
+
+        if (!supportedConnectorPackage(connector)) {
+          return sendJson(response, 404, {
+            error: "connector_package_not_found",
+            message:
+              "Connector package was not found"
+          });
+        }
+
+        const packageArtifact =
+          await createConnectorPackage(connector);
+
+        return sendZip(
+          response,
+          packageArtifact
+        );
       }
 
       if (

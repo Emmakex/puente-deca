@@ -27,6 +27,8 @@ COPY --from=dependencies --chown=node:node /app/node_modules ./node_modules
 
 COPY --chown=node:node package.json package-lock.json ./
 COPY --chown=node:node apps/api ./apps/api
+COPY --chown=node:node connectors/woocommerce ./connectors/woocommerce
+COPY --chown=node:node connectors/prestashop ./connectors/prestashop
 COPY --chown=node:node packages/contracts ./packages/contracts
 COPY --chown=node:node packages/core ./packages/core
 COPY --chown=node:node packages/document-engine ./packages/document-engine

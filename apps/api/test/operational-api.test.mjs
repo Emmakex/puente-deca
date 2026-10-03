@@ -818,6 +818,55 @@ test("connector access lease disables existing Bearer keys after expiry", async 
   );
 });
 
+test("Kairoseth downloads connector packages through platform authentication", async () => {
+  await withOperationalServer(
+    async ({
+      baseUrl,
+      organization,
+      platformServiceSecret
+    }) => {
+      const headers = {
+        "x-kairoseth-service-secret":
+          platformServiceSecret,
+        "x-kairoseth-organization-id":
+          organization.organizationId
+      };
+
+      const woo = await fetch(
+        `${baseUrl}/v1/connectors/woocommerce/package`,
+        { headers }
+      );
+      assert.equal(woo.status, 200);
+      assert.equal(
+        woo.headers.get("content-type"),
+        "application/zip"
+      );
+      assert.match(
+        woo.headers.get("content-disposition") ?? "",
+        /puente-deca-woocommerce-0\.1\.0\.zip/
+      );
+      assert.match(
+        woo.headers.get("x-connector-sha256") ?? "",
+        /^[0-9a-f]{64}$/
+      );
+      const wooBytes =
+        Buffer.from(await woo.arrayBuffer());
+      assert.equal(
+        wooBytes.readUInt32LE(0),
+        0x04034b50
+      );
+
+      const unauthenticated = await fetch(
+        `${baseUrl}/v1/connectors/prestashop/package`
+      );
+      assert.equal(
+        unauthenticated.status,
+        401
+      );
+    }
+  );
+});
+
 test("operational routes reject missing API credentials", async () => {
   await withOperationalServer(
     async ({ baseUrl }) => {
