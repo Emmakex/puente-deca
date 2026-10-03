@@ -846,6 +846,53 @@ export class JsonStore {
   }
 
 
+  async countDocumentVersions({
+    organizationId,
+    from,
+    to
+  }) {
+    const normalizedOrganizationId = requireText(
+      organizationId,
+      "organizationId"
+    );
+    const fromDate =
+      from instanceof Date ? from : new Date(from);
+    const toDate =
+      to instanceof Date ? to : new Date(to);
+
+    if (
+      Number.isNaN(fromDate.getTime()) ||
+      Number.isNaN(toDate.getTime()) ||
+      fromDate >= toDate
+    ) {
+      throw new TypeError(
+        "from/to must define a valid ascending time window"
+      );
+    }
+
+    const state = await this.#readState();
+
+    return Object.values(state.documentVersions ?? {})
+      .filter((version) => {
+        if (
+          version.organizationId !==
+          normalizedOrganizationId
+        ) {
+          return false;
+        }
+
+        const storedAt =
+          new Date(version.storedAt);
+
+        return (
+          !Number.isNaN(storedAt.getTime()) &&
+          storedAt >= fromDate &&
+          storedAt < toDate
+        );
+      })
+      .length;
+  }
+
   async probe() {
     await this.#readState();
 

@@ -116,6 +116,60 @@ test("scopes shipments to their organization", async () => {
   });
 });
 
+test("counts document versions by organization and half-open time window", async () => {
+  await withStore(async ({ store }) => {
+    const first = await store.createOrganization({
+      name: "First"
+    });
+    const second = await store.createOrganization({
+      name: "Second"
+    });
+
+    const firstShipment = await store.createShipment({
+      organizationId: first.organizationId,
+      externalReference: "FIRST-1",
+      data: shipmentData()
+    });
+    const secondShipment = await store.createShipment({
+      organizationId: second.organizationId,
+      externalReference: "SECOND-1",
+      data: shipmentData()
+    });
+
+    await store.appendDocumentVersion({
+      organizationId: first.organizationId,
+      shipmentId: firstShipment.shipmentId,
+      snapshot: snapshot({
+        documentId: "deca_usage_first"
+      })
+    });
+    await store.appendDocumentVersion({
+      organizationId: second.organizationId,
+      shipmentId: secondShipment.shipmentId,
+      snapshot: snapshot({
+        documentId: "deca_usage_second"
+      })
+    });
+
+    assert.equal(
+      await store.countDocumentVersions({
+        organizationId: first.organizationId,
+        from: new Date("2026-10-03T00:00:00.000Z"),
+        to: new Date("2026-10-04T00:00:00.000Z")
+      }),
+      1
+    );
+    assert.equal(
+      await store.countDocumentVersions({
+        organizationId: first.organizationId,
+        from: new Date("2026-10-04T00:00:00.000Z"),
+        to: new Date("2026-10-05T00:00:00.000Z")
+      }),
+      0
+    );
+  });
+});
+
 test("replays identical idempotent shipment creates and rejects conflicts", async () => {
   await withStore(async ({ store }) => {
     const organization =

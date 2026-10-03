@@ -1216,6 +1216,40 @@ export class MongoStore {
   }
 
 
+  async countDocumentVersions({
+    organizationId,
+    from,
+    to
+  }) {
+    const normalizedOrganizationId =
+      requireText(
+        organizationId,
+        "organizationId"
+      );
+    const fromDate =
+      from instanceof Date ? from : new Date(from);
+    const toDate =
+      to instanceof Date ? to : new Date(to);
+
+    if (
+      Number.isNaN(fromDate.getTime()) ||
+      Number.isNaN(toDate.getTime()) ||
+      fromDate >= toDate
+    ) {
+      throw new TypeError(
+        "from/to must define a valid ascending time window"
+      );
+    }
+
+    return this.#documents.countDocuments({
+      organizationId: normalizedOrganizationId,
+      storedAt: {
+        $gte: fromDate,
+        $lt: toDate
+      }
+    });
+  }
+
   async probe() {
     await this.#database.command({
       ping: 1
