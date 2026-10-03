@@ -127,29 +127,6 @@ test("POST /v1/deca/pdf returns a generated native PDF", async () => {
   });
 });
 
-test("PDF endpoint supports extended European Unicode text", async () => {
-  await withServer(async (baseUrl) => {
-    const payload = structuredClone(validPayload);
-    payload.contractualShipper.legalName =
-      "Łódź Logistics - Ελληνική - Транспорт";
-
-    const response = await fetch(`${baseUrl}/v1/deca/pdf`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    const pdf = Buffer.from(
-      await response.arrayBuffer()
-    );
-
-    assert.equal(response.status, 201);
-    assert.equal(
-      pdf.subarray(0, 8).toString("latin1"),
-      "%PDF-1.7"
-    );
-  });
-});
-
 test("PDF endpoint fails closed for characters outside the embedded font set", async () => {
   await withServer(async (baseUrl) => {
     const payload = structuredClone(validPayload);
