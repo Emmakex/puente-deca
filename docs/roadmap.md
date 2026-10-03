@@ -36,7 +36,7 @@
 ## Phase 3 — Persistence and multi-tenant core
 
 - [x] Organizations.
-- [ ] API credentials.
+- [x] API credentials with one-time secret reveal, hashed storage, scopes and revocation.
 - [x] Shipments.
 - [x] Document versions.
 - [x] Immutable audit events through the persistence API.

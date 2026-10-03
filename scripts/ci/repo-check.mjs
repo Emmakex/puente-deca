@@ -13,6 +13,7 @@ const requiredPaths = [
   "packages/document-engine/src/qr.mjs",
   "packages/document-engine/src/pdf.mjs",
   "packages/persistence/src/json-store.mjs",
+  "packages/persistence/test/api-credentials.test.mjs",
   "docs/architecture.md",
   "docs/legal-traceability.md",
   "docs/roadmap.md",
