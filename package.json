@@ -8,7 +8,7 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "check": "node scripts/ci/repo-check.mjs && node scripts/ci/openapi-check.mjs && node scripts/ci/woocommerce-check.mjs && node scripts/ci/prestashop-check.mjs && node scripts/ci/mongodb-check.mjs && node scripts/ci/artifact-storage-check.mjs && node scripts/ci/shared-mongo-client-check.mjs && node scripts/ci/retention-check.mjs && node scripts/ci/operations-check.mjs && node scripts/ci/rate-limit-check.mjs && node scripts/ci/production-preflight-check.mjs && node scripts/ci/release-package-check.mjs && node scripts/ci/security-review-check.mjs && node scripts/ci/atlas-gridfs-smoke-check.mjs && node scripts/ci/public-pdf-smoke-check.mjs && node scripts/ci/kairoseth-health-smoke-check.mjs && node scripts/ci/container-check.mjs && node scripts/ci/release-evidence-check.mjs && node scripts/ci/go-live-check.mjs && node scripts/ci/backup-restore-check.mjs",
+    "check": "node scripts/ci/repo-check.mjs && node scripts/ci/openapi-check.mjs && node scripts/ci/woocommerce-check.mjs && node scripts/ci/prestashop-check.mjs && node scripts/ci/mongodb-check.mjs && node scripts/ci/artifact-storage-check.mjs && node scripts/ci/shared-mongo-client-check.mjs && node scripts/ci/retention-check.mjs && node scripts/ci/operations-check.mjs && node scripts/ci/rate-limit-check.mjs && node scripts/ci/production-preflight-check.mjs && node scripts/ci/release-package-check.mjs && node scripts/ci/security-review-check.mjs && node scripts/ci/atlas-gridfs-smoke-check.mjs && node scripts/ci/public-pdf-smoke-check.mjs && node scripts/ci/kairoseth-health-smoke-check.mjs && node scripts/ci/container-check.mjs && node scripts/ci/release-evidence-check.mjs && node scripts/ci/go-live-check.mjs && node scripts/ci/backup-restore-check.mjs && node scripts/ci/engine-origin-smoke-check.mjs",
     "test": "node --test",
     "start": "node apps/api/src/main.mjs",
     "server": "node apps/api/src/main.mjs",
@@ -39,6 +39,8 @@
     "production:public-pdf-smoke": "node scripts/production/public-pdf-smoke.mjs",
     "check:public-pdf-smoke": "node scripts/ci/public-pdf-smoke-check.mjs",
     "production:kairoseth-health-smoke": "node scripts/production/kairoseth-health-smoke.mjs",
+    "production:engine-origin-smoke": "node scripts/production/engine-origin-smoke.mjs",
+    "check:engine-origin-smoke": "node scripts/ci/engine-origin-smoke-check.mjs",
     "check:kairoseth-health-smoke": "node scripts/ci/kairoseth-health-smoke-check.mjs",
     "check:container": "node scripts/ci/container-check.mjs",
     "release:sbom": "node scripts/release/generate-sbom.mjs",
