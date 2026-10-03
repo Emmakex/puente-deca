@@ -254,6 +254,29 @@ export class GridFsArtifactStore {
     return Buffer.concat(chunks, size);
   }
 
+  async listStorageKeys() {
+    const files = await this.#database
+      .collection(`${this.#bucketName}.files`)
+      .find(
+        {},
+        {
+          projection: {
+            _id: 0,
+            filename: 1
+          }
+        }
+      )
+      .sort({ filename: 1 })
+      .toArray();
+
+    return files
+      .map((file) => file.filename)
+      .filter(
+        (filename) =>
+          typeof filename === "string"
+      );
+  }
+
   async remove(storageKey) {
     const normalizedStorageKey =
       safeStorageKey(storageKey);

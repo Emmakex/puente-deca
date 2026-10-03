@@ -49,7 +49,7 @@ Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs
 - [x] Per-artifact retention floor recorded from the transport date.
 - [x] Organization-scoped idempotency keys.
 - [x] Atomic JSON store for development and contract tests.
-- [ ] Enforced retention-aware deletion policy.
+- [x] Retention-aware PDF purge policy with dry-run default, explicit confirmation, immutable metadata and audit evidence.
 - [x] MongoDB Atlas production adapter aligned with Kairoseth Platform.
 - [ ] Live MongoDB Atlas transaction/index smoke acceptance.
 
@@ -98,8 +98,10 @@ Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs
 - [ ] Production Atlas transaction/index smoke acceptance.
 - [ ] GridFS backup/restore acceptance.
 - [x] MongoDB Atlas GridFS PDF artifact storage aligned with Kairoseth Platform.
+- [x] Artifact reconciliation tooling for premature loss, post-retention loss, orphans and incomplete purges.
 - [ ] Live GridFS upload/read/delete and orphan-reconciliation smoke acceptance.
-- [ ] Backups/restore drill.
+- [x] MongoDB Atlas + GridFS backup/restore runbook.
+- [ ] Live backup/restore drill against a staging/DR Atlas target.
 - [ ] Rate limits.
 - [ ] Metrics and health/readiness.
 - [ ] Deployment runbook.

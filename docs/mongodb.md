@@ -22,6 +22,7 @@ deca_shipments
 deca_document_versions
 deca_idempotency
 deca_audit_events
+deca_artifact_purges
 ```
 
 `deca_organizations` is service metadata only. It does not replace the Kairoseth organizations collection and is never used to resolve human access.
@@ -71,8 +72,10 @@ The adapter creates idempotent indexes for:
 - unique document ID;
 - unique shipment + document version lineage;
 - unique public access path;
+- retention-floor lookup by artifact retention date;
 - unique idempotency scope;
-- audit lookup by organization/shipment and time.
+- audit lookup by organization/shipment and time;
+- unique artifact-purge evidence by document/storage key.
 
 ## Atomicity
 
@@ -103,5 +106,5 @@ Before declaring production readiness:
 2. verify index creation with the service database user;
 3. run concurrent idempotency and document-version smoke tests;
 4. verify backup/restore procedures;
-5. confirm retention-aware deletion controls;
-6. move PDF artifacts off local filesystem (GridFS or an approved object store).
+5. run retention dry-run/purge/reconciliation acceptance;
+6. validate GridFS backup and restore together with DeCA metadata.

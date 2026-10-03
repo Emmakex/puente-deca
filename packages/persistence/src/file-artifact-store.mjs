@@ -1,6 +1,7 @@
 import {
   mkdir,
   readFile,
+  readdir,
   unlink,
   writeFile
 } from "node:fs/promises";
@@ -85,6 +86,26 @@ export class FileArtifactStore {
     return readFile(
       join(this.#rootDirectory, safeStorageKey(storageKey))
     );
+  }
+
+  async listStorageKeys() {
+    const entries = await readdir(
+      this.#rootDirectory,
+      {
+        withFileTypes: true
+      }
+    );
+
+    return entries
+      .filter(
+        (entry) =>
+          entry.isFile() &&
+          /^[A-Za-z0-9_.-]+\.pdf$/.test(
+            entry.name
+          )
+      )
+      .map((entry) => entry.name)
+      .sort();
   }
 
   async remove(storageKey) {
