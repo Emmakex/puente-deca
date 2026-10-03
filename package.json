@@ -1,0 +1,15 @@
+{
+  "name": "puente-deca",
+  "version": "0.1.0",
+  "private": true,
+  "description": "API-first bridge for Spain DeCA transport compliance",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "check": "node scripts/ci/repo-check.mjs",
+    "test": "node --test",
+    "server": "node apps/api/src/main.mjs"
+  }
+}

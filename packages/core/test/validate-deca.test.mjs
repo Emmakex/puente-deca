@@ -1,0 +1,91 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { validateDecaRequest } from "../src/validate-deca.mjs";
+
+const validPayload = () => ({
+  externalReference: "SHIP-2026-0001",
+  contractualShipper: {
+    legalName: "Example Shipper SL",
+    taxId: "B12345678",
+    address: "Calle Ejemplo 1, Madrid"
+  },
+  effectiveCarrier: {
+    legalName: "Example Carrier SL",
+    taxId: "B87654321"
+  },
+  route: {
+    origin: "Madrid",
+    destination: "Barcelona"
+  },
+  goods: {
+    nature: "Furniture",
+    weight: {
+      value: 420,
+      unit: "kg"
+    }
+  },
+  transport: {
+    date: "2026-10-05",
+    vehicle: {
+      tractorRegistration: "1234ABC",
+      trailerRegistration: null
+    },
+    specialTrafficAuthorization: null
+  },
+  observations: null
+});
+
+test("accepts a complete DeCA payload", () => {
+  const result = validateDecaRequest(validPayload());
+  assert.equal(result.valid, true);
+  assert.deepEqual(result.errors, []);
+});
+
+test("rejects missing shipper identity and address", () => {
+  const payload = validPayload();
+  payload.contractualShipper = {};
+
+  const result = validateDecaRequest(payload);
+
+  assert.equal(result.valid, false);
+  assert.deepEqual(
+    result.errors.map((error) => error.path),
+    [
+      "contractualShipper.legalName",
+      "contractualShipper.taxId",
+      "contractualShipper.address"
+    ]
+  );
+});
+
+test("accepts an alternative measure when exact weight is unavailable", () => {
+  const payload = validPayload();
+  delete payload.goods.weight;
+  payload.goods.alternativeMeasure = {
+    value: 8,
+    unit: "pallets"
+  };
+
+  const result = validateDecaRequest(payload);
+  assert.equal(result.valid, true);
+});
+
+test("requires tractor registration and a valid transport date", () => {
+  const payload = validPayload();
+  payload.transport.date = "05/10/2026";
+  payload.transport.vehicle.tractorRegistration = "";
+
+  const result = validateDecaRequest(payload);
+
+  assert.equal(result.valid, false);
+  assert.equal(
+    result.errors.some((error) => error.path === "transport.date"),
+    true
+  );
+  assert.equal(
+    result.errors.some(
+      (error) => error.path === "transport.vehicle.tractorRegistration"
+    ),
+    true
+  );
+});
