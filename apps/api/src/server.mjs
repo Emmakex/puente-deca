@@ -417,6 +417,87 @@ export function createServer({
       }
 
       if (
+        request.method === "PUT" &&
+        shipmentMatch
+      ) {
+        if (
+          !requireOperationalStores(
+            response,
+            store,
+            artifactStore
+          )
+        ) {
+          return;
+        }
+
+        const credential = await authenticate(
+          request,
+          response,
+          store,
+          "shipments:write"
+        );
+        if (!credential) return;
+
+        const shipmentId =
+          decodeURIComponent(
+            shipmentMatch[1]
+          );
+        const existing =
+          await store.getShipment({
+            organizationId:
+              credential.organizationId,
+            shipmentId
+          });
+
+        if (!existing) {
+          return sendJson(response, 404, {
+            error: "shipment_not_found",
+            message: "Shipment was not found"
+          });
+        }
+
+        const payload = await readJson(request);
+        const normalized =
+          normalizeDecaRequest(payload);
+        const validation =
+          validateDecaRequest(normalized);
+
+        if (!validation.valid) {
+          return sendJson(
+            response,
+            422,
+            validation
+          );
+        }
+
+        if (
+          normalized.externalReference !==
+          existing.externalReference
+        ) {
+          return sendJson(response, 409, {
+            error:
+              "external_reference_immutable",
+            message:
+              "Shipment externalReference cannot be changed"
+          });
+        }
+
+        const updated =
+          await store.updateShipment({
+            organizationId:
+              credential.organizationId,
+            shipmentId,
+            data: normalized
+          });
+
+        return sendJson(
+          response,
+          200,
+          updated
+        );
+      }
+
+      if (
         request.method === "GET" &&
         shipmentMatch
       ) {
