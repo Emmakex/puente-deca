@@ -5,6 +5,7 @@ const requiredPaths = [
   "package.json",
   "apps/api/src/main.mjs",
   "apps/api/src/server.mjs",
+  "apps/api/test/operational-api.test.mjs",
   "packages/contracts/src/deca.mjs",
   "packages/core/src/canonical-json.mjs",
   "packages/core/src/validate-deca.mjs",

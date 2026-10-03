@@ -51,11 +51,11 @@ Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs
 
 ## Phase 4 — Operational API
 
-- [ ] POST /v1/shipments.
-- [ ] POST /v1/shipments/:id/deca.
-- [ ] GET /v1/shipments/:id.
-- [ ] GET /v1/deca/:id.
-- [ ] Driver-friendly document endpoint.
+- [x] POST /v1/shipments.
+- [x] POST /v1/shipments/:id/deca.
+- [x] GET /v1/shipments/:id.
+- [x] GET /v1/deca/:id.
+- [x] Driver/inspection direct PDF endpoint at the QR URL (no login).
 - [ ] OpenAPI contract.
 
 ## Phase 5 — First connectors
