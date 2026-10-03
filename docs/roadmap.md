@@ -110,6 +110,7 @@ Characters outside the embedded font set continue to fail closed rather than bei
 - [x] Per-organization/per-credential authenticated API rate limiting with 429 + Retry-After.
 - [ ] Edge/reverse-proxy volumetric protection for public QR and unauthenticated abuse.
 - [x] Separate liveness/readiness probes plus protected low-cardinality Prometheus process metrics.
+- [x] Credentialed live Kairoseth→Puente DeCA protected-health smoke command.
 - [x] Production preflight and deployment/runback acceptance runbook.
 - [x] Local Kairoseth↔engine E2E contract: tenant-scoped shipment → DeCA → public PDF → SHA-256 → cross-organization isolation.
 - [ ] Live deployment acceptance on the chosen internal service runtime.

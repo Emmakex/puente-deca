@@ -121,7 +121,16 @@ Call Kairoseth's protected:
 
 with the existing operations-health authorization. Expected: engine `ready`.
 
-### 4. Organization isolation
+### 4. External Kairoseth → engine health smoke
+
+```bash
+OPERATIONS_HEALTH_SECRET='<configured secret>' \
+npm run production:kairoseth-health-smoke
+```
+
+Expected: `status=ok` and `engine=ready`.
+
+### 5. Organization isolation
 
 From two Kairoseth test organizations:
 
@@ -130,7 +139,7 @@ From two Kairoseth test organizations:
 - issue distinct connector credentials;
 - verify credential revocation in one organization does not affect the other.
 
-### 5. End-to-end DeCA
+### 6. End-to-end DeCA
 
 For a controlled shipment:
 
@@ -142,7 +151,7 @@ For a controlled shipment:
 6. confirm direct PDF download without login/intermediate HTML;
 7. compare downloaded PDF SHA-256 with document metadata.
 
-### 6. Public Kairoseth PDF smoke
+### 7. Public Kairoseth PDF smoke
 
 Using an already-generated controlled DeCA and its immutable artifact SHA-256:
 
@@ -154,11 +163,11 @@ npm run production:public-pdf-smoke
 
 Expected: `status=ok`, direct PDF, checksum match and all privacy headers green.
 
-### 7. Connector smoke
+### 8. Connector smoke
 
 Run one WooCommerce and one PrestaShop controlled flow with organization-scoped connector keys.
 
-### 8. Reconciliation
+### 9. Reconciliation
 
 ```bash
 npm run artifacts:reconcile
@@ -172,7 +181,7 @@ orphanedArtifacts = 0
 purgedArtifactsStillPresent = 0
 ```
 
-### 9. Backup/restore
+### 10. Backup/restore
 
 Complete the staging/DR drill in `docs/backup-restore.md` and verify a restored PDF through its document metadata and SHA-256.
 
