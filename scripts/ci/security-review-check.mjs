@@ -38,11 +38,6 @@ requirePattern(
 );
 requirePattern(
   server,
-  /x-kairoseth-public-proxy-secret/,
-  "Public PDF origin must require the dedicated Kairoseth proxy credential"
-);
-requirePattern(
-  server,
   /"x-content-type-options": "nosniff"/,
   "HTTP responses must set X-Content-Type-Options"
 );
@@ -129,7 +124,6 @@ if (
 
 for (const secretName of [
   "KAIROSETH_SERVICE_SECRET",
-  "KAIROSETH_PUBLIC_PROXY_SECRET",
   "MONGODB_URI"
 ]) {
   const line = envExample

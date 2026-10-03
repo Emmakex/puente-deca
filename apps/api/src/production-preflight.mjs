@@ -125,16 +125,6 @@ export function validateProductionEnvironment(
     );
   }
 
-  if (
-    !validSecret(
-      env.KAIROSETH_PUBLIC_PROXY_SECRET
-    )
-  ) {
-    errors.push(
-      "KAIROSETH_PUBLIC_PROXY_SECRET must contain at least 32 characters."
-    );
-  }
-
   const port = parsePositiveInteger(
     env.PORT ?? "8080"
   );

@@ -411,8 +411,6 @@ export function createServer({
   artifactStore = null,
   platformServiceSecret =
     process.env.KAIROSETH_SERVICE_SECRET ?? null,
-  publicProxySecret =
-    process.env.KAIROSETH_PUBLIC_PROXY_SECRET ?? null,
   runtimeMetrics =
     createRuntimeMetrics(),
   rateLimiter =
@@ -446,22 +444,6 @@ export function createServer({
         request.method === "GET" &&
         isPublicDocumentPath(url.pathname)
       ) {
-        if (
-          publicProxySecret &&
-          !secureSecretEqual(
-            request.headers[
-              "x-kairoseth-public-proxy-secret"
-            ],
-            publicProxySecret
-          )
-        ) {
-          return sendJson(response, 401, {
-            error: "unauthorized",
-            message:
-              "Kairoseth public proxy authentication is required"
-          });
-        }
-
         if (
           !requireOperationalStores(
             response,

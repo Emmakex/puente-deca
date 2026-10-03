@@ -43,14 +43,13 @@ ALLOW_JSON_STORE_IN_PRODUCTION=0
 ALLOW_FILE_ARTIFACTS_IN_PRODUCTION=0
 
 KAIROSETH_SERVICE_SECRET=<same high-entropy secret configured in Kairoseth>
-KAIROSETH_PUBLIC_PROXY_SECRET=<dedicated high-entropy public-proxy secret>
 
 RATE_LIMIT_WINDOW_MS=60000
 RATE_LIMIT_MAX_REQUESTS=600
 RATE_LIMIT_MAX_ENTRIES=10000
 ```
 
-Neither secret may be exposed to browser code or connector plugins. `KAIROSETH_SERVICE_SECRET` authenticates operational server-to-server API calls. `KAIROSETH_PUBLIC_PROXY_SECRET` is a separate least-privilege credential used only by Kairoseth's public PDF proxy when it fetches bytes from the engine origin.
+The service secret must never be exposed to browser code, connector plugins or public QR routes.
 
 ## Preflight
 
@@ -88,50 +87,11 @@ See `docs/container-deployment.md`.
 
 ## Start
 
-Managed Node.js platforms should use the canonical production command:
-
 ```bash
-npm start
+npm run server
 ```
-
-`npm run server` remains an equivalent development/operator alias.
 
 The process opens one shared MongoDB client/pool for both metadata and GridFS.
-
-## Hostinger managed Node deployment
-
-Puente DeCA can be deployed as a separate Hostinger Node.js Web App connected directly to this repository. Use the repository root, Node.js 22 and the standard `npm start` command. Configure the production environment above in hPanel and attach an HTTPS hostname reachable by the Kairoseth server.
-
-The engine hostname is infrastructure only: QR codes and customer-facing links remain pinned to `https://kairoseth.com/deca`.
-
-After the engine is live, configure Kairoseth Platform with:
-
-```text
-PUENTE_DECA_SERVICE_URL=https://<engine-host>
-PUENTE_DECA_SERVICE_SECRET=<same KAIROSETH_SERVICE_SECRET>
-PUENTE_DECA_PUBLIC_PROXY_SECRET=<same KAIROSETH_PUBLIC_PROXY_SECRET>
-```
-
-The engine public-document origin rejects requests that do not carry the dedicated proxy secret, so exposing the engine through an HTTPS hostname does not create a second public QR surface.
-
-### Live engine-origin acceptance
-
-Once the Hostinger engine hostname and production variables are active, run from a trusted operator environment:
-
-```bash
-DECA_ENGINE_SMOKE_BASE_URL='https://<engine-host>' \
-DECA_ENGINE_SMOKE_PROXY_SECRET='<same KAIROSETH_PUBLIC_PROXY_SECRET>' \
-npm run production:engine-origin-smoke
-```
-
-A green result proves all four conditions against the deployed origin:
-
-1. `/health` reports the Puente DeCA process alive;
-2. `/ready` reports both MongoDB metadata and GridFS artifacts ready;
-3. direct access to an engine `/deca/d/*` URL is rejected with HTTP 401;
-4. the same reserved missing-document probe with the dedicated proxy credential reaches persistence and returns the controlled HTTP 404 `document_not_found`.
-
-The reserved probe never creates a shipment, document, GridFS artifact or retention record.
 
 ## Pre-deployment contract gate
 
