@@ -348,6 +348,17 @@ const enforceRateLimit = (
   return false;
 };
 
+const normalizeCredentialExpiry = (value) => {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? undefined
+    : date;
+};
+
 const CONNECTOR_SCOPES = [
   "shipments:read",
   "shipments:write",
@@ -863,11 +874,16 @@ export function createServer({
           normalizeConnectorScopes(
             payload?.scopes
           );
+        const expiresAt =
+          normalizeCredentialExpiry(
+            payload?.expiresAt
+          );
 
         if (
           !name ||
           name.length > 120 ||
-          !scopes
+          !scopes ||
+          expiresAt === undefined
         ) {
           return sendJson(response, 422, {
             error: "invalid_credential_request",
@@ -882,7 +898,8 @@ export function createServer({
               organizationId:
                 platform.organizationId,
               name,
-              scopes
+              scopes,
+              expiresAt
             });
 
           return sendJson(response, 201, {
@@ -903,6 +920,50 @@ export function createServer({
           }
           throw error;
         }
+      }
+
+      if (
+        request.method === "PATCH" &&
+        url.pathname === "/v1/credentials"
+      ) {
+        if (!requireStore(response, store)) return;
+
+        const platform =
+          await authenticatePlatformService(
+            request,
+            response,
+            store,
+            platformServiceSecret,
+            rateLimiter
+          );
+        if (!platform) return;
+
+        const payload = await readJson(request);
+        const expiresAt =
+          normalizeCredentialExpiry(
+            payload?.expiresAt
+          );
+
+        if (
+          expiresAt === undefined ||
+          typeof store.setApiCredentialExpiryForOrganization !==
+            "function"
+        ) {
+          return sendJson(response, 422, {
+            error: "invalid_credential_expiry",
+            message:
+              "expiresAt must be null or a valid ISO date-time"
+          });
+        }
+
+        const result =
+          await store.setApiCredentialExpiryForOrganization({
+            organizationId:
+              platform.organizationId,
+            expiresAt
+          });
+
+        return sendJson(response, 200, result);
       }
 
       if (

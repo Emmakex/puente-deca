@@ -16,6 +16,7 @@ const requiredPaths = [
   "/v1/shipments/{shipmentId}",
   "/v1/shipments/{shipmentId}/deca",
   "/v1/deca/{documentId}",
+  "/v1/credentials",
   "/v1/usage/documents",
   "/v1/access/connectors",
   "/d/{token}.pdf"
@@ -35,6 +36,29 @@ const publicDownload =
 if (publicDownload?.security) {
   throw new Error(
     "QR PDF endpoint must not require API authentication"
+  );
+}
+
+const credentialCollection =
+  document.paths["/v1/credentials"];
+
+if (!credentialCollection?.patch) {
+  throw new Error(
+    "Credential expiry synchronization route is missing"
+  );
+}
+
+const credentialExpiry =
+  credentialCollection?.post?.requestBody?.content?.[
+    "application/json"
+  ]?.schema?.properties?.expiresAt;
+
+if (
+  !credentialExpiry ||
+  credentialExpiry.format !== "date-time"
+) {
+  throw new Error(
+    "Credential create contract must expose expiresAt"
   );
 }
 
