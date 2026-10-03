@@ -509,6 +509,70 @@ export class MongoStore {
     };
   }
 
+  async setOrganizationConnectorAccessUntil({
+    organizationId,
+    validUntil
+  }) {
+    const normalizedOrganizationId =
+      requireText(
+        organizationId,
+        "organizationId"
+      );
+    const validUntilDate =
+      validUntil instanceof Date
+        ? validUntil
+        : new Date(validUntil);
+
+    if (Number.isNaN(validUntilDate.getTime())) {
+      throw new TypeError(
+        "validUntil must be a valid date"
+      );
+    }
+
+    const at = this.#nowDate();
+    const result =
+      await this.#organizations.findOneAndUpdate(
+        {
+          organizationId:
+            normalizedOrganizationId
+        },
+        {
+          $set: {
+            connectorAccessUntil:
+              validUntilDate,
+            updatedAt: at
+          }
+        },
+        { returnDocument: "after" }
+      );
+
+    if (!result) {
+      throw conflict(
+        "Organization does not exist",
+        "ORGANIZATION_NOT_FOUND"
+      );
+    }
+
+    await this.#appendAudit({
+      organizationId:
+        normalizedOrganizationId,
+      type:
+        "organization.connector_access_updated",
+      at
+    });
+
+    return {
+      organizationId: result.organizationId,
+      name: result.name,
+      externalReference:
+        result.externalReference ?? null,
+      connectorAccessUntil:
+        iso(result.connectorAccessUntil),
+      createdAt: iso(result.createdAt),
+      updatedAt: iso(result.updatedAt)
+    };
+  }
+
   async createApiCredential({
     organizationId,
     name,
@@ -549,6 +613,15 @@ export class MongoStore {
       }
 
       const at = this.#nowDate();
+      if (
+        !organization.connectorAccessUntil ||
+        organization.connectorAccessUntil <= at
+      ) {
+        throw conflict(
+          "Organization connector access is inactive",
+          "ORGANIZATION_CONNECTOR_ACCESS_INACTIVE"
+        );
+      }
       const credentialId =
         `cred_${this.#idFactory()}`;
 
@@ -615,9 +688,23 @@ export class MongoStore {
         revokedAt: null
       });
 
-    return document
-      ? publicCredential(document)
-      : null;
+    if (!document) return null;
+
+    const organization =
+      await this.#organizations.findOne({
+        organizationId:
+          document.organizationId
+      });
+
+    if (
+      !organization?.connectorAccessUntil ||
+      organization.connectorAccessUntil <=
+        this.#nowDate()
+    ) {
+      return null;
+    }
+
+    return publicCredential(document);
   }
 
   async revokeApiCredential({
