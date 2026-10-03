@@ -105,7 +105,8 @@ Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs
 - [x] Per-organization/per-credential authenticated API rate limiting with 429 + Retry-After.
 - [ ] Edge/reverse-proxy volumetric protection for public QR and unauthenticated abuse.
 - [x] Separate liveness/readiness probes plus protected low-cardinality Prometheus process metrics.
-- [ ] Deployment runbook.
+- [x] Production preflight and deployment/runback acceptance runbook.
+- [ ] Live deployment acceptance on the chosen internal service runtime.
 - [ ] Security review.
 
 ## Phase 7 — Transport Compliance Engine
