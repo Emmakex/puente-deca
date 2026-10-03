@@ -35,13 +35,15 @@
 
 ## Phase 3 — Persistence and multi-tenant core
 
-- [ ] Organizations.
+- [x] Organizations.
 - [ ] API credentials.
-- [ ] Shipments.
-- [ ] Document versions.
-- [ ] Immutable audit events.
+- [x] Shipments.
+- [x] Document versions.
+- [x] Immutable audit events through the persistence API.
 - [ ] Configurable storage with minimum legal retention safeguards.
-- [ ] Idempotency keys.
+- [x] Organization-scoped idempotency keys.
+- [x] Atomic JSON store for development and contract tests.
+- [ ] PostgreSQL production adapter.
 
 ## Phase 4 — Operational API
 

@@ -41,6 +41,21 @@ The initial document engine deliberately avoids external SaaS dependencies:
 
 For unusually long custom domains/paths, dynamic QR-version selection remains a production-hardening task.
 
+## Persistence
+
+The first persistence implementation is an atomic JSON store intended for development, contract testing and the initial single-process deployment path.
+
+It already enforces the domain behavior that must survive the later PostgreSQL migration:
+
+- organization/tenant ownership;
+- shipment isolation between organizations;
+- immutable document-version records;
+- append-only audit events through the store API;
+- organization-scoped idempotency keys for create operations;
+- atomic replace-on-write to avoid partially written state files.
+
+The storage interface deliberately keeps the domain independent from PostgreSQL. Production hardening will replace the backing store without changing the shipment/document contracts.
+
 ## Current flow
 
 ```text
@@ -57,6 +72,12 @@ native PDF renderer
   |---- PDF metadata
   |---- embedded QR
   |---- 5 MB size guard
+  |
+persistence
+  |---- organization
+  |---- shipment
+  |---- document version
+  |---- audit event
   v
-document bytes
+stored domain state
 ```
