@@ -63,7 +63,7 @@ Machine credentials used by WooCommerce, PrestaShop and ERP connectors are servi
 
 The first persistence implementation is an atomic JSON store intended for development, contract testing and the initial single-process deployment path. Its local organization records are test/service-scoping fixtures, not the production customer source of truth.
 
-It already enforces the domain behavior that must survive the later PostgreSQL migration:
+It already enforces the domain behavior shared by the development JSON store and the production MongoDB Atlas adapter:
 
 - organization/tenant ownership;
 - shipment isolation between organizations;
@@ -72,7 +72,9 @@ It already enforces the domain behavior that must survive the later PostgreSQL m
 - organization-scoped idempotency keys for create operations;
 - atomic replace-on-write to avoid partially written state files.
 
-The storage interface deliberately keeps the domain independent from PostgreSQL. Production hardening will replace the backing store without changing the shipment/document contracts.
+Production metadata persistence uses MongoDB Atlas, matching Kairoseth Platform. Product/service data is isolated in `deca_*` collections and keyed by the canonical Kairoseth `organizationId`. Human users, memberships and product RBAC remain exclusively in Kairoseth Platform.
+
+The storage interface keeps the domain independent from the selected driver, so shipment/document contracts stay unchanged between JSON development tests and MongoDB production.
 
 ## Current flow
 
@@ -130,3 +132,6 @@ https://kairoseth.com/deca/d/<opaque-token>.pdf
 ```
 
 That route remains public-by-token for inspection/direct download and must not redirect through the authenticated workspace.
+
+
+MongoDB production configuration and collection/index details are documented in [`docs/mongodb.md`](mongodb.md).
