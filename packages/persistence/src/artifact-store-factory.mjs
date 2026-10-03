@@ -16,7 +16,8 @@ export const resolveArtifactDriver = (
 };
 
 export async function openArtifactStore({
-  env = process.env
+  env = process.env,
+  mongoClient = null
 } = {}) {
   const driver = resolveArtifactDriver(env);
 
@@ -43,7 +44,8 @@ export async function openArtifactStore({
     );
 
     return GridFsArtifactStore.open({
-      uri: env.MONGODB_URI,
+      uri: mongoClient ? undefined : env.MONGODB_URI,
+      client: mongoClient,
       databaseName:
         env.MONGODB_DB_NAME?.trim() ||
         "kairoseth",

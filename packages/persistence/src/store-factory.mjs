@@ -22,7 +22,8 @@ export async function openOperationalStore({
   env = process.env,
   now,
   idFactory,
-  apiKeyFactory
+  apiKeyFactory,
+  mongoClient = null
 } = {}) {
   const driver = resolvePersistenceDriver(env);
 
@@ -52,10 +53,13 @@ export async function openOperationalStore({
     );
 
     return MongoStore.open({
-      uri: requireText(
-        env.MONGODB_URI,
-        "MONGODB_URI"
-      ),
+      uri: mongoClient
+        ? undefined
+        : requireText(
+            env.MONGODB_URI,
+            "MONGODB_URI"
+          ),
+      client: mongoClient,
       databaseName:
         env.MONGODB_DB_NAME?.trim() ||
         "kairoseth",
