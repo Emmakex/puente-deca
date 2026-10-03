@@ -1,5 +1,11 @@
 import http from "node:http";
 import { createHash, timingSafeEqual } from "node:crypto";
+import {
+  importCsvText
+} from "../../../connectors/file-import/src/import.mjs";
+import {
+  importXlsx
+} from "../../../connectors/file-import/src/xlsx.mjs";
 import { normalizeDecaRequest } from "../../../packages/core/src/normalize-deca.mjs";
 import { validateDecaRequest } from "../../../packages/core/src/validate-deca.mjs";
 import {
@@ -789,6 +795,89 @@ export function createServer({
           validUntil:
             organization.connectorAccessUntil ??
             validUntil.toISOString()
+        });
+      }
+
+      if (
+        request.method === "POST" &&
+        url.pathname === "/v1/import/preview"
+      ) {
+        if (!requireStore(response, store)) return;
+
+        const platform =
+          await authenticatePlatformService(
+            request,
+            response,
+            store,
+            platformServiceSecret,
+            rateLimiter
+          );
+        if (!platform) return;
+
+        const payload = await readJson(request);
+        const format = payload?.format;
+        const dataBase64 = payload?.dataBase64;
+
+        if (
+          (format !== "csv" && format !== "xlsx") ||
+          typeof dataBase64 !== "string" ||
+          dataBase64.length === 0 ||
+          dataBase64.length % 4 !== 0 ||
+          !/^[A-Za-z0-9+/]*={0,2}$/.test(dataBase64)
+        ) {
+          return sendJson(response, 422, {
+            error: "invalid_import_payload",
+            message:
+              "format must be csv/xlsx and dataBase64 must be valid base64"
+          });
+        }
+
+        const bytes = Buffer.from(
+          dataBase64,
+          "base64"
+        );
+
+        if (
+          bytes.length === 0 ||
+          bytes.length > 512 * 1024
+        ) {
+          return sendJson(response, 413, {
+            error: "import_file_size_limit",
+            message:
+              "Import file must be 512 KiB or smaller"
+          });
+        }
+
+        let result;
+        try {
+          result =
+            format === "csv"
+              ? importCsvText(
+                  bytes.toString("utf8")
+                )
+              : await importXlsx(bytes);
+        } catch {
+          return sendJson(response, 422, {
+            error: "invalid_import_file",
+            message:
+              "The import file could not be parsed"
+          });
+        }
+
+        if (result.total > 500) {
+          return sendJson(response, 422, {
+            error: "import_row_limit",
+            message:
+              "Import files may contain at most 500 data rows"
+          });
+        }
+
+        return sendJson(response, 200, {
+          format,
+          total: result.total,
+          valid: result.valid,
+          invalid: result.invalid,
+          records: result.records
         });
       }
 
