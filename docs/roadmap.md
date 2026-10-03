@@ -96,7 +96,9 @@ Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs
 - [ ] PrestaShop reproducible ZIP packaging and real 1.7.8/8.x compatibility matrix.
 - [x] MongoDB Atlas metadata store aligned with Kairoseth Platform.
 - [ ] Production Atlas transaction/index smoke acceptance.
-- [ ] Object storage.
+- [ ] GridFS backup/restore acceptance.
+- [x] MongoDB Atlas GridFS PDF artifact storage aligned with Kairoseth Platform.
+- [ ] Live GridFS upload/read/delete and orphan-reconciliation smoke acceptance.
 - [ ] Backups/restore drill.
 - [ ] Rate limits.
 - [ ] Metrics and health/readiness.

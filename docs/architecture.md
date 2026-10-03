@@ -122,7 +122,9 @@ Puente DeCA service
   |-- retention/integrity
   |-- connector operations
   v
-document storage
+MongoDB Atlas
+  |-- deca_* metadata collections
+  +-- deca_pdf GridFS bucket
 ```
 
 Target public document path after production proxy acceptance:
@@ -135,3 +137,12 @@ That route remains public-by-token for inspection/direct download and must not r
 
 
 MongoDB production configuration and collection/index details are documented in [`docs/mongodb.md`](mongodb.md).
+
+
+## PDF artifact persistence
+
+Production PDF bytes use MongoDB Atlas GridFS in the namespaced `deca_pdf` bucket. Local filesystem storage is retained only for development/tests and is rejected by default when `NODE_ENV=production`.
+
+Artifact metadata remains in the immutable document-version record and includes storage key, size, SHA-256 checksum, content type and legal retention floor. The public QR route verifies the persisted bytes against that checksum before returning the PDF.
+
+See [`docs/artifact-storage.md`](artifact-storage.md).
