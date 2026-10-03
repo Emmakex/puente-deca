@@ -91,9 +91,11 @@ Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs
 
 - [ ] Production Unicode font embedding.
 - [ ] Dynamic QR sizing for unusually long custom URLs.
-- [ ] Dependency lockfile / reproducible install for the XLSX adapter.
-- [ ] WooCommerce release ZIP packaging and live-store smoke test.
-- [ ] PrestaShop reproducible ZIP packaging and real 1.7.8/8.x compatibility matrix.
+- [x] Dependency lockfile, npm cache and reproducible `npm ci` install for runtime/XLSX dependencies.
+- [x] WooCommerce deterministic release ZIP packaging with SHA-256 manifest.
+- [ ] WooCommerce live-store smoke test.
+- [x] PrestaShop deterministic release ZIP packaging with SHA-256 manifest.
+- [ ] PrestaShop real 1.7.8/8.x compatibility matrix.
 - [x] MongoDB Atlas metadata store aligned with Kairoseth Platform.
 - [ ] Production Atlas transaction/index smoke acceptance.
 - [ ] GridFS backup/restore acceptance.
