@@ -36,6 +36,15 @@ The Resolution of 5 June 2026 (BOE-A-2026-12784) drives the document-engine inva
 - the road-inspection download URL may be disabled seven natural days after the service has ended;
 - the generated electronic files must be retained for at least one year by the obligated parties under the rules in the resolution.
 
+## Modification strategy
+
+The resolution permits two modification strategies during the service:
+
+1. modify the existing PDF, keeping the same URL/QR and retaining old values in the file as invalidated history; or
+2. generate a new PDF with all current data, give that new file a new URL/QR, and retain the original for traceability.
+
+Puente DeCA initially implements strategy 2 because it maps cleanly to immutable document versions and audit evidence. Each new file therefore gets its own creation timestamp, document identifier and access URL, while the snapshot lineage links it to the previous version.
+
 ## Engineering rule
 
 Every compliance rule introduced into `packages/core` or the document engine must be traceable to:

@@ -61,7 +61,9 @@ export function createDocumentSnapshot(
     state: "prepared",
     createdAt: instant,
     modifiedAt: instant,
+    lineageCreatedAt: instant,
     previousVersionId: null,
+    revisionMethod: "new-file",
     contentHash: contentHash(normalized),
     accessUrl: buildDocumentAccessUrl({
       baseUrl,
@@ -100,7 +102,7 @@ export function reviseDocumentSnapshot(
     throw validationError(validation);
   }
 
-  const modifiedAt = toIsoInstant(now());
+  const instant = toIsoInstant(now());
 
   return {
     schemaVersion: DECA_CONTRACT_VERSION,
@@ -108,9 +110,12 @@ export function reviseDocumentSnapshot(
     documentId: `deca_${idFactory()}`,
     version: previous.version + 1,
     state: "prepared",
-    createdAt: previous.createdAt,
-    modifiedAt,
+    createdAt: instant,
+    modifiedAt: instant,
+    lineageCreatedAt:
+      previous.lineageCreatedAt ?? previous.createdAt,
     previousVersionId: previous.documentId,
+    revisionMethod: "new-file",
     contentHash: contentHash(normalized),
     accessUrl: buildDocumentAccessUrl({
       baseUrl,

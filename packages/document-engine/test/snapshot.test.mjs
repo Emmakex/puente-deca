@@ -53,6 +53,8 @@ test("creates a canonical first document snapshot", () => {
   assert.equal(snapshot.version, 1);
   assert.equal(snapshot.createdAt, "2026-10-03T05:00:00.000Z");
   assert.equal(snapshot.modifiedAt, snapshot.createdAt);
+  assert.equal(snapshot.lineageCreatedAt, snapshot.createdAt);
+  assert.equal(snapshot.revisionMethod, "new-file");
   assert.equal(
     snapshot.accessUrl,
     "https://deca.example.com/d/abcdefghijklmnop1234567890.pdf"
@@ -81,7 +83,7 @@ test("content hash is stable for semantically identical normalized data", () => 
   assert.equal(first.contentHash, second.contentHash);
 });
 
-test("revision increments the version and keeps original creation time", () => {
+test("new-file revision gets its own creation time, URL and lineage link", () => {
   const first = createDocumentSnapshot(payload(), {
     baseUrl: "https://deca.example.com",
     now: () => new Date("2026-10-03T05:00:00.000Z"),
@@ -100,9 +102,11 @@ test("revision increments the version and keeps original creation time", () => {
   });
 
   assert.equal(revised.version, 2);
-  assert.equal(revised.createdAt, first.createdAt);
-  assert.equal(revised.modifiedAt, "2026-10-03T06:00:00.000Z");
+  assert.equal(revised.createdAt, "2026-10-03T06:00:00.000Z");
+  assert.equal(revised.modifiedAt, revised.createdAt);
+  assert.equal(revised.lineageCreatedAt, first.createdAt);
   assert.equal(revised.previousVersionId, first.documentId);
+  assert.equal(revised.revisionMethod, "new-file");
   assert.notEqual(revised.documentId, first.documentId);
   assert.notEqual(revised.accessUrl, first.accessUrl);
   assert.notEqual(revised.contentHash, first.contentHash);

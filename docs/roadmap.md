@@ -23,13 +23,14 @@
 ## Phase 2 — Document engine
 
 - [x] Canonical document snapshot.
-- [ ] Native PDF generation.
-- [ ] QR generation.
+- [x] Native PDF generation.
+- [ ] QR generation and embedding.
 - [x] Unique HTTPS download URL.
-- [ ] Maximum-size enforcement.
-- [x] Creation/modification timestamps.
-- [x] Document versioning.
+- [x] Maximum-size enforcement (5,000,000-byte conservative ceiling).
+- [x] Creation/modification timestamps in snapshot and PDF metadata.
+- [x] New-file document versioning with immutable lineage.
 - [x] Deterministic content fingerprint for audit/reconciliation.
+- [ ] Production Unicode font embedding.
 
 ## Phase 3 — Persistence and multi-tenant core
 

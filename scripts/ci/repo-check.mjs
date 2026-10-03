@@ -9,6 +9,7 @@ const requiredPaths = [
   "packages/core/src/validate-deca.mjs",
   "packages/document-engine/src/access-url.mjs",
   "packages/document-engine/src/snapshot.mjs",
+  "packages/document-engine/src/pdf.mjs",
   "docs/architecture.md",
   "docs/legal-traceability.md",
   "docs/roadmap.md",
