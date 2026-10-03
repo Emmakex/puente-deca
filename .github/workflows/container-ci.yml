@@ -1,0 +1,64 @@
+name: container-ci
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - .nvmrc
+      - package.json
+      - package-lock.json
+      - .npmrc
+      - .github/workflows/container-ci.yml
+    tags:
+      - "engine-v*"
+
+concurrency:
+  group: container-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build production image
+        run: docker build --tag puente-deca:ci .
+
+      - name: Verify non-root image contract
+        run: |
+          test "$(docker image inspect puente-deca:ci --format '{{.Config.User}}')" = "node"
+          docker image inspect puente-deca:ci --format '{{json .Config.Healthcheck.Test}}' | grep -F '/ready'
+
+      - name: Start hardened local smoke container
+        run: |
+          docker run --detach             --name puente-deca-container-smoke             --read-only             --tmpfs /tmp:rw,noexec,nosuid,size=32m             --cap-drop ALL             --security-opt no-new-privileges             --init             --publish 18080:8080             --env NODE_ENV=test             --env PORT=8080             --env PERSISTENCE_DRIVER=json             --env STORE_PATH=/tmp/store.json             --env ARTIFACT_DRIVER=file             --env ARTIFACT_DIR=/tmp/documents             --env PUBLIC_BASE_URL=https://deca.example.com             puente-deca:ci
+
+      - name: Verify readiness from the built image
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error               http://127.0.0.1:18080/ready               | grep -F '"status":"ready"'; then
+              exit 0
+            fi
+            sleep 1
+          done
+
+          docker logs puente-deca-container-smoke
+          exit 1
+
+      - name: Verify container is non-root at runtime
+        run: |
+          test "$(docker exec puente-deca-container-smoke id -u)" != "0"
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker rm --force puente-deca-container-smoke >/dev/null 2>&1 || true

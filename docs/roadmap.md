@@ -114,6 +114,8 @@ Characters outside the embedded font set continue to fail closed rather than bei
 - [x] Credentialed live Kairoseth→Puente DeCA protected-health smoke command.
 - [x] Production preflight and deployment/runback acceptance runbook.
 - [x] Local Kairoseth↔engine E2E contract: tenant-scoped shipment → DeCA → public PDF → SHA-256 → cross-organization isolation.
+- [x] Production container contract: exact Node runtime, locked production deps, non-root user, minimal runtime copy and `/ready` healthcheck.
+- [x] Dedicated container build/smoke workflow with read-only root filesystem and dropped capabilities.
 - [ ] Live deployment acceptance on the chosen internal service runtime.
 - [x] Static application-security review with CI regression guard.
 - [ ] Live infrastructure security acceptance and focused external penetration test.

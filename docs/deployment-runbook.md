@@ -63,6 +63,28 @@ A failed preflight blocks deployment. It validates the canonical Kairoseth URL, 
 
 The preflight result never prints the MongoDB URI or service secret.
 
+## Container image
+
+Build:
+
+```bash
+docker build -t puente-deca:local .
+```
+
+The container uses Node 22.23.3, runs as the non-root `node` user and uses `/ready` for Docker health.
+
+Recommended production runtime controls:
+
+```text
+read-only root filesystem
+no-new-privileges
+drop all Linux capabilities
+init process
+runtime-injected secrets only
+```
+
+See `docs/container-deployment.md`.
+
 ## Start
 
 ```bash
