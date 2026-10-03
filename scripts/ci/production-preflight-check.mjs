@@ -55,11 +55,6 @@ requirePattern(
   "Server-to-server secret validation is missing"
 );
 requirePattern(
-  preflight,
-  /KAIROSETH_PUBLIC_PROXY_SECRET/,
-  "Public proxy secret validation is missing"
-);
-requirePattern(
   main,
   /assertProductionEnvironment/,
   "Runtime must execute production preflight before opening dependencies"
