@@ -1,3 +1,4 @@
+import "regenerator-runtime/runtime.js";
 import { readFile } from "node:fs/promises";
 import fontkit from "@pdf-lib/fontkit";
 import {
