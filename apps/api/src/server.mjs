@@ -7,6 +7,22 @@ import {
   reviseDocumentSnapshot
 } from "../../../packages/document-engine/src/snapshot.mjs";
 import { renderNativeDecaPdf } from "../../../packages/document-engine/src/pdf.mjs";
+import {
+  createRuntimeMetrics
+} from "./metrics.mjs";
+
+const sendText = (
+  response,
+  status,
+  body,
+  contentType = "text/plain; version=0.0.4; charset=utf-8"
+) => {
+  response.writeHead(status, {
+    "content-type": contentType,
+    "content-length": Buffer.byteLength(body)
+  });
+  response.end(body);
+};
 
 const sendJson = (response, status, body) => {
   const data = JSON.stringify(body);
@@ -311,9 +327,19 @@ export function createServer({
   store = null,
   artifactStore = null,
   platformServiceSecret =
-    process.env.KAIROSETH_SERVICE_SECRET ?? null
+    process.env.KAIROSETH_SERVICE_SECRET ?? null,
+  runtimeMetrics =
+    createRuntimeMetrics()
 } = {}) {
   return http.createServer(async (request, response) => {
+    const finishMetrics =
+      runtimeMetrics.beginRequest();
+
+    response.once(
+      "finish",
+      () => finishMetrics(response.statusCode)
+    );
+
     try {
       const url = new URL(
         request.url,
@@ -387,6 +413,91 @@ export function createServer({
           status: "ok",
           service: "puente-deca"
         });
+      }
+
+      if (
+        request.method === "GET" &&
+        url.pathname === "/ready"
+      ) {
+        if (
+          !store ||
+          !artifactStore ||
+          typeof store.probe !== "function" ||
+          typeof artifactStore.probe !== "function"
+        ) {
+          return sendJson(response, 503, {
+            status: "not_ready",
+            service: "puente-deca",
+            components: {
+              metadata: "unavailable",
+              artifacts: "unavailable"
+            }
+          });
+        }
+
+        const [metadata, artifacts] =
+          await Promise.allSettled([
+            store.probe(),
+            artifactStore.probe()
+          ]);
+
+        const metadataReady =
+          metadata.status === "fulfilled";
+        const artifactsReady =
+          artifacts.status === "fulfilled";
+        const ready =
+          metadataReady && artifactsReady;
+
+        return sendJson(
+          response,
+          ready ? 200 : 503,
+          {
+            status:
+              ready
+                ? "ready"
+                : "not_ready",
+            service: "puente-deca",
+            components: {
+              metadata:
+                metadataReady
+                  ? "ok"
+                  : "unavailable",
+              artifacts:
+                artifactsReady
+                  ? "ok"
+                  : "unavailable"
+            }
+          }
+        );
+      }
+
+      if (
+        request.method === "GET" &&
+        url.pathname === "/metrics"
+      ) {
+        const serviceSecret =
+          request.headers[
+            "x-kairoseth-service-secret"
+          ];
+
+        if (
+          !secureSecretEqual(
+            serviceSecret,
+            platformServiceSecret
+          )
+        ) {
+          return sendJson(response, 401, {
+            error: "unauthorized",
+            message:
+              "Kairoseth service authentication is required"
+          });
+        }
+
+        return sendText(
+          response,
+          200,
+          runtimeMetrics.renderPrometheus()
+        );
       }
 
       if (

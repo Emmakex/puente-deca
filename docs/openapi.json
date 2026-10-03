@@ -485,6 +485,46 @@
           }
         }
       }
+    },
+    "/ready": {
+      "get": {
+        "operationId": "getReadiness",
+        "summary": "Operational readiness",
+        "responses": {
+          "200": {
+            "description": "Metadata and artifact storage are ready"
+          },
+          "503": {
+            "description": "At least one operational dependency is unavailable"
+          }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "operationId": "getMetrics",
+        "summary": "Protected low-cardinality process metrics",
+        "security": [
+          {
+            "platformServiceSecret": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Prometheus-compatible process metrics",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kairoseth service authentication required"
+          }
+        }
+      }
     }
   },
   "components": {

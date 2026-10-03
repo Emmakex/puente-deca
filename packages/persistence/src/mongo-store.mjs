@@ -1216,6 +1216,17 @@ export class MongoStore {
   }
 
 
+  async probe() {
+    await this.#database.command({
+      ping: 1
+    });
+
+    return {
+      ok: true,
+      driver: "mongodb"
+    };
+  }
+
   async listArtifactReferences() {
     const documents = await this.#documents
       .find(

@@ -846,6 +846,15 @@ export class JsonStore {
   }
 
 
+  async probe() {
+    await this.#readState();
+
+    return {
+      ok: true,
+      driver: "json"
+    };
+  }
+
   async listArtifactReferences() {
     const state = await this.#readState();
 

@@ -725,3 +725,71 @@ test("credential API rejects unsupported scopes", async () => {
     }
   );
 });
+
+
+test("operational readiness probes metadata and artifact stores", async () => {
+  await withOperationalServer(
+    async ({ baseUrl }) => {
+      const response = await fetch(
+        `${baseUrl}/ready`
+      );
+      const body = await response.json();
+
+      assert.equal(response.status, 200);
+      assert.deepEqual(body, {
+        status: "ready",
+        service: "puente-deca",
+        components: {
+          metadata: "ok",
+          artifacts: "ok"
+        }
+      });
+    }
+  );
+});
+
+test("metrics are Prometheus-compatible and protected by Kairoseth service auth", async () => {
+  await withOperationalServer(
+    async ({
+      baseUrl,
+      platformServiceSecret
+    }) => {
+      await fetch(`${baseUrl}/health`);
+
+      const response = await fetch(
+        `${baseUrl}/metrics`,
+        {
+          headers: {
+            "x-kairoseth-service-secret":
+              platformServiceSecret
+          }
+        }
+      );
+      const body = await response.text();
+
+      assert.equal(response.status, 200);
+      assert.match(
+        response.headers.get(
+          "content-type"
+        ),
+        /text\/plain/
+      );
+      assert.match(
+        body,
+        /puente_deca_requests_total/
+      );
+      assert.match(
+        body,
+        /puente_deca_active_requests/
+      );
+      assert.match(
+        body,
+        /puente_deca_responses_2xx_total/
+      );
+      assert.doesNotMatch(
+        body,
+        /organization|shipment|credential/i
+      );
+    }
+  );
+});

@@ -88,6 +88,15 @@ export class FileArtifactStore {
     );
   }
 
+  async probe() {
+    await readdir(this.#rootDirectory);
+
+    return {
+      ok: true,
+      driver: "file"
+    };
+  }
+
   async listStorageKeys() {
     const entries = await readdir(
       this.#rootDirectory,
