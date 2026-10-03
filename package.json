@@ -48,6 +48,7 @@
     "check:go-live": "node scripts/ci/go-live-check.mjs",
     "production:backup": "node scripts/production/backup-deca.mjs",
     "production:restore-drill": "node scripts/production/restore-drill.mjs",
+    "production:backup-restore-drill": "node scripts/production/backup-restore-acceptance.mjs",
     "check:backup-restore": "node scripts/ci/backup-restore-check.mjs"
   },
   "dependencies": {
