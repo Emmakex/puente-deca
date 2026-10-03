@@ -241,6 +241,23 @@ The resulting `dist/release-manifest.json` identifies the exact source commit, N
 
 See `docs/release-candidate-evidence.md`.
 
+## Automated core go-live command
+
+With the production environment and a controlled existing DeCA document configured:
+
+```bash
+OPERATIONS_HEALTH_SECRET='<configured secret>' \
+DECA_SMOKE_PUBLIC_URL='https://kairoseth.com/deca/d/<token>.pdf' \
+DECA_SMOKE_EXPECTED_SHA256='sha256:<immutable hash>' \
+npm run production:go-live
+```
+
+This runs preflight, Atlas/GridFS smoke, protected Kairoseth health, public PDF integrity and artifact reconciliation in a fixed order with no skip switches.
+
+A green command still reports the manual/external release gates that remain outstanding.
+
+See `docs/go-live-acceptance.md`.
+
 ## Go-live gate
 
 Do not declare Puente DeCA production-ready until all are green:
