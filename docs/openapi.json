@@ -465,6 +465,14 @@
                         "documents:write"
                       ]
                     }
+                  },
+                  "expiresAt": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date-time",
+                    "description": "Optional commercial expiry applied to the connector credential."
                   }
                 }
               }
@@ -478,8 +486,57 @@
           "401": {
             "description": "Kairoseth service authentication required"
           },
+          "403": {
+            "description": "Organization connector access is inactive"
+          },
           "422": {
-            "description": "Invalid name or scope"
+            "description": "Invalid name, scope, or credential expiry"
+          },
+          "429": {
+            "description": "Authenticated subject exceeded the per-process request limit"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "synchronizeConnectorCredentialExpiry",
+        "summary": "Set the expiry timestamp on all active organization connector credentials",
+        "security": [
+          {
+            "platformServiceSecret": [],
+            "platformOrganizationId": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "expiresAt"
+                ],
+                "properties": {
+                  "expiresAt": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date-time"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Active connector credential expiry synchronized"
+          },
+          "401": {
+            "description": "Kairoseth service authentication required"
+          },
+          "422": {
+            "description": "Invalid expiry timestamp"
           },
           "429": {
             "description": "Authenticated subject exceeded the per-process request limit"
