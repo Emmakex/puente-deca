@@ -97,6 +97,7 @@ Characters outside the embedded font set continue to fail closed rather than bei
 - [x] Dependency lockfile, npm cache and reproducible `npm ci` install for runtime/XLSX dependencies.
 - [x] WooCommerce deterministic release ZIP packaging with SHA-256 manifest.
 - [x] Dedicated reproducible connector release workflow with uploaded ZIP/checksum bundle.
+- [x] Release-candidate evidence bundle with deterministic CycloneDX SBOM and SHA-256 release manifest.
 - [ ] WooCommerce live-store smoke test.
 - [x] PrestaShop deterministic release ZIP packaging with SHA-256 manifest.
 - [ ] PrestaShop real 1.7.8/8.x compatibility matrix.

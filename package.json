@@ -8,7 +8,7 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "check": "node scripts/ci/repo-check.mjs && node scripts/ci/openapi-check.mjs && node scripts/ci/woocommerce-check.mjs && node scripts/ci/prestashop-check.mjs && node scripts/ci/mongodb-check.mjs && node scripts/ci/artifact-storage-check.mjs && node scripts/ci/shared-mongo-client-check.mjs && node scripts/ci/retention-check.mjs && node scripts/ci/operations-check.mjs && node scripts/ci/rate-limit-check.mjs && node scripts/ci/production-preflight-check.mjs && node scripts/ci/release-package-check.mjs && node scripts/ci/security-review-check.mjs && node scripts/ci/atlas-gridfs-smoke-check.mjs && node scripts/ci/public-pdf-smoke-check.mjs && node scripts/ci/kairoseth-health-smoke-check.mjs && node scripts/ci/container-check.mjs",
+    "check": "node scripts/ci/repo-check.mjs && node scripts/ci/openapi-check.mjs && node scripts/ci/woocommerce-check.mjs && node scripts/ci/prestashop-check.mjs && node scripts/ci/mongodb-check.mjs && node scripts/ci/artifact-storage-check.mjs && node scripts/ci/shared-mongo-client-check.mjs && node scripts/ci/retention-check.mjs && node scripts/ci/operations-check.mjs && node scripts/ci/rate-limit-check.mjs && node scripts/ci/production-preflight-check.mjs && node scripts/ci/release-package-check.mjs && node scripts/ci/security-review-check.mjs && node scripts/ci/atlas-gridfs-smoke-check.mjs && node scripts/ci/public-pdf-smoke-check.mjs && node scripts/ci/kairoseth-health-smoke-check.mjs && node scripts/ci/container-check.mjs && node scripts/ci/release-evidence-check.mjs",
     "test": "node --test",
     "server": "node apps/api/src/main.mjs",
     "file-import:demo": "node connectors/file-import/src/cli.mjs examples/file-import/shipments.csv",
@@ -39,7 +39,11 @@
     "check:public-pdf-smoke": "node scripts/ci/public-pdf-smoke-check.mjs",
     "production:kairoseth-health-smoke": "node scripts/production/kairoseth-health-smoke.mjs",
     "check:kairoseth-health-smoke": "node scripts/ci/kairoseth-health-smoke-check.mjs",
-    "check:container": "node scripts/ci/container-check.mjs"
+    "check:container": "node scripts/ci/container-check.mjs",
+    "release:sbom": "node scripts/release/generate-sbom.mjs",
+    "release:manifest": "node scripts/release/create-release-manifest.mjs",
+    "release:verify": "node scripts/release/verify-release-manifest.mjs",
+    "check:release-evidence": "node scripts/ci/release-evidence-check.mjs"
   },
   "dependencies": {
     "read-excel-file": "9.3.10",

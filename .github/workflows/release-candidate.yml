@@ -1,0 +1,74 @@
+name: release-candidate
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/release/**
+      - .github/workflows/release-candidate.yml
+      - package.json
+      - package-lock.json
+      - Dockerfile
+      - docs/openapi.json
+    tags:
+      - "rc-v*"
+
+concurrency:
+  group: release-candidate-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Fast repository gates
+        run: |
+          npm run check
+          npm test
+          npm run contract:kairoseth
+
+      - name: Build deterministic connector packages
+        run: npm run release:connectors
+
+      - name: Generate deterministic CycloneDX SBOM
+        run: npm run release:sbom
+
+      - name: Generate release manifest
+        run: npm run release:manifest
+
+      - name: Verify release manifest and connector checksums
+        run: |
+          npm run release:verify
+          sha256sum --check dist/SHA256SUMS
+
+      - name: Upload release candidate evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: puente-deca-rc-${{ github.sha }}
+          path: |
+            dist/puente-deca-woocommerce-0.1.0.zip
+            dist/puentedeca-prestashop-0.1.0.zip
+            dist/SHA256SUMS
+            dist/sbom.cdx.json
+            dist/release-manifest.json
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
