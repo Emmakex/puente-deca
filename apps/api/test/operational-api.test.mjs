@@ -473,6 +473,63 @@ test("Kairoseth usage endpoint rejects invalid or excessive time windows", async
   );
 });
 
+test("Kairoseth can read the organization connector-access lease for acceptance evidence", async () => {
+  await withOperationalServer(
+    async ({
+      baseUrl,
+      organization,
+      platformServiceSecret
+    }) => {
+      const headers = {
+        "x-kairoseth-service-secret":
+          platformServiceSecret,
+        "x-kairoseth-organization-id":
+          organization.organizationId,
+        "content-type": "application/json"
+      };
+
+      const before = await fetch(
+        `${baseUrl}/v1/access/connectors`,
+        { headers }
+      );
+      assert.equal(before.status, 200);
+      const initial = await before.json();
+      assert.equal(
+        initial.organizationId,
+        organization.organizationId
+      );
+
+      const updated = await fetch(
+        `${baseUrl}/v1/access/connectors`,
+        {
+          method: "PUT",
+          headers,
+          body: JSON.stringify({
+            validUntil:
+              "2031-01-02T03:04:05.000Z"
+          })
+        }
+      );
+      assert.equal(updated.status, 200);
+
+      const after = await fetch(
+        `${baseUrl}/v1/access/connectors`,
+        { headers }
+      );
+      assert.equal(after.status, 200);
+      assert.deepEqual(
+        await after.json(),
+        {
+          organizationId:
+            organization.organizationId,
+          validUntil:
+            "2031-01-02T03:04:05.000Z"
+        }
+      );
+    }
+  );
+});
+
 test("connector access lease disables existing Bearer keys after expiry", async () => {
   await withOperationalServer(
     async ({

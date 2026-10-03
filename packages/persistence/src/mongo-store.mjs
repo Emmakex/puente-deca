@@ -507,6 +507,9 @@ export class MongoStore {
       organizationId: document.organizationId,
       name: document.name,
       externalReference: document.externalReference ?? null,
+      connectorAccessUntil: document.connectorAccessUntil
+        ? iso(document.connectorAccessUntil)
+        : null,
       createdAt: iso(document.createdAt),
       updatedAt: iso(document.updatedAt)
     };

@@ -708,6 +708,43 @@ export function createServer({
       }
 
       if (
+        request.method === "GET" &&
+        url.pathname === "/v1/access/connectors"
+      ) {
+        if (!requireStore(response, store)) return;
+
+        const platform =
+          await authenticatePlatformService(
+            request,
+            response,
+            store,
+            platformServiceSecret,
+            rateLimiter
+          );
+        if (!platform) return;
+
+        const organization =
+          await store.getOrganization(
+            platform.organizationId
+          );
+
+        if (!organization) {
+          return sendJson(response, 404, {
+            error: "organization_not_found",
+            message: "Organization does not exist"
+          });
+        }
+
+        return sendJson(response, 200, {
+          organizationId:
+            platform.organizationId,
+          validUntil:
+            organization.connectorAccessUntil ??
+            null
+        });
+      }
+
+      if (
         request.method === "PUT" &&
         url.pathname === "/v1/access/connectors"
       ) {
