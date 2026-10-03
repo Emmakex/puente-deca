@@ -254,6 +254,24 @@ export class GridFsArtifactStore {
     return Buffer.concat(chunks, size);
   }
 
+  async probe() {
+    await this.#database
+      .collection(`${this.#bucketName}.files`)
+      .findOne(
+        {},
+        {
+          projection: {
+            _id: 1
+          }
+        }
+      );
+
+    return {
+      ok: true,
+      driver: "gridfs"
+    };
+  }
+
   async listStorageKeys() {
     const files = await this.#database
       .collection(`${this.#bucketName}.files`)

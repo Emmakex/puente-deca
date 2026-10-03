@@ -103,7 +103,7 @@ Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs
 - [x] MongoDB Atlas + GridFS backup/restore runbook.
 - [ ] Live backup/restore drill against a staging/DR Atlas target.
 - [ ] Rate limits.
-- [ ] Metrics and health/readiness.
+- [x] Separate liveness/readiness probes plus protected low-cardinality Prometheus process metrics.
 - [ ] Deployment runbook.
 - [ ] Security review.
 

@@ -140,3 +140,73 @@ test("PDF endpoint rejects unsupported characters instead of corrupting them", a
     assert.equal(body.character, "Ł");
   });
 });
+
+
+test("GET /ready fails closed when operational stores are not configured", async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(
+      `${baseUrl}/ready`
+    );
+    const body = await response.json();
+
+    assert.equal(response.status, 503);
+    assert.equal(
+      body.status,
+      "not_ready"
+    );
+  });
+});
+
+test("GET /ready hides dependency errors and reports unavailable", async () => {
+  const server = createServer({
+    store: {
+      async probe() {
+        throw new Error(
+          "mongodb secret host detail"
+        );
+      }
+    },
+    artifactStore: {
+      async probe() {
+        return { ok: true };
+      }
+    }
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+
+  try {
+    const address = server.address();
+    const response = await fetch(
+      `http://127.0.0.1:${address.port}/ready`
+    );
+    const body = await response.json();
+
+    assert.equal(response.status, 503);
+    assert.deepEqual(body, {
+      status: "not_ready",
+      service: "puente-deca",
+      components: {
+        metadata: "unavailable",
+        artifacts: "ok"
+      }
+    });
+    assert.doesNotMatch(
+      JSON.stringify(body),
+      /mongodb secret host detail/
+    );
+  } finally {
+    server.close();
+    await once(server, "close");
+  }
+});
+
+test("GET /metrics requires server-to-server authentication", async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(
+      `${baseUrl}/metrics`
+    );
+
+    assert.equal(response.status, 401);
+  });
+});
