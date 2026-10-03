@@ -65,10 +65,11 @@ Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs
 
 ## Phase 5 — First connectors
 
-- [ ] CSV/Excel batch import.
+- [x] CSV batch import with row-level validation.
+- [ ] Excel (.xlsx) batch import.
 - [ ] WooCommerce.
 - [ ] PrestaShop.
-- [ ] Reference connector SDK/contract suite.
+- [x] Reference connector SDK/contract suite.
 
 ## Phase 6 — Production hardening
 

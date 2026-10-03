@@ -1,0 +1,3 @@
+external_reference,shipper_name,shipper_tax_id,shipper_address,carrier_name,carrier_tax_id,origin,destination,goods_nature,weight_value,weight_unit,alternative_measure_value,alternative_measure_unit,transport_date,tractor_registration,trailer_registration,special_traffic_authorization,observations
+SHIP-CSV-001,Example Shipper SL,B12345678,"Calle Ejemplo 1, Madrid",Example Carrier SL,B87654321,Madrid,Barcelona,Furniture,420,kg,,,2026-10-05,1234ABC,,,"Handle carefully"
+SHIP-CSV-002,Example Shipper SL,B12345678,"Calle Ejemplo 1, Madrid",Example Carrier SL,B87654321,Madrid,Valencia,Palletized goods,,,8,pallets,2026-10-06,5678DEF,,,
