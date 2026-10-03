@@ -83,6 +83,13 @@ const withOperationalServer = async (
     await store.createOrganization({
       name: "Organization 001"
     });
+  await store.setOrganizationConnectorAccessUntil({
+    organizationId:
+      organization.organizationId,
+    validUntil:
+      new Date("2030-01-01T00:00:00.000Z")
+  });
+
   const createdCredential =
     await store.createApiCredential({
       organizationId:
@@ -462,6 +469,73 @@ test("Kairoseth usage endpoint rejects invalid or excessive time windows", async
         { headers }
       );
       assert.equal(excessive.status, 400);
+    }
+  );
+});
+
+test("connector access lease disables existing Bearer keys after expiry", async () => {
+  await withOperationalServer(
+    async ({
+      baseUrl,
+      apiKey,
+      organization,
+      platformServiceSecret
+    }) => {
+      const platformHeaders = {
+        "x-kairoseth-service-secret":
+          platformServiceSecret,
+        "x-kairoseth-organization-id":
+          organization.organizationId,
+        "content-type": "application/json"
+      };
+
+      const leaseResponse = await fetch(
+        `${baseUrl}/v1/access/connectors`,
+        {
+          method: "PUT",
+          headers: platformHeaders,
+          body: JSON.stringify({
+            validUntil:
+              "2020-01-01T00:00:00.000Z"
+          })
+        }
+      );
+      assert.equal(leaseResponse.status, 200);
+
+      const denied = await fetch(
+        `${baseUrl}/v1/shipments`,
+        {
+          headers: {
+            authorization:
+              `Bearer ${apiKey}`
+          }
+        }
+      );
+      assert.equal(denied.status, 401);
+
+      const restored = await fetch(
+        `${baseUrl}/v1/access/connectors`,
+        {
+          method: "PUT",
+          headers: platformHeaders,
+          body: JSON.stringify({
+            validUntil:
+              "2030-01-01T00:00:00.000Z"
+          })
+        }
+      );
+      assert.equal(restored.status, 200);
+
+      const allowed = await fetch(
+        `${baseUrl}/v1/shipments`,
+        {
+          headers: {
+            authorization:
+              `Bearer ${apiKey}`
+          }
+        }
+      );
+      assert.equal(allowed.status, 200);
     }
   );
 });
