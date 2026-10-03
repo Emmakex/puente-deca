@@ -114,6 +114,7 @@ Characters outside the embedded font set continue to fail closed rather than bei
 - [x] Separate liveness/readiness probes plus protected low-cardinality Prometheus process metrics.
 - [x] Credentialed live Kairoseth→Puente DeCA protected-health smoke command.
 - [x] Production preflight and deployment/runback acceptance runbook.
+- [x] One-command automated core go-live acceptance with no skip/bypass controls and explicit remaining manual gates.
 - [x] Local Kairoseth↔engine E2E contract: tenant-scoped shipment → DeCA → public PDF → SHA-256 → cross-organization isolation.
 - [x] Production container contract: exact Node runtime, locked production deps, non-root user, minimal runtime copy and `/ready` healthcheck.
 - [x] Dedicated container build/smoke workflow with read-only root filesystem and dropped capabilities.
