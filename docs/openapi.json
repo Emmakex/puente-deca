@@ -669,6 +669,67 @@
         }
       }
     },
+    "/v1/import/shipments": {
+      "post": {
+        "operationId": "importShipmentsFromFile",
+        "summary": "Validate and create CSV/XLSX shipment imports idempotently",
+        "security": [
+          {
+            "platformServiceSecret": [],
+            "platformOrganizationId": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "format",
+                  "dataBase64"
+                ],
+                "properties": {
+                  "format": {
+                    "type": "string",
+                    "enum": [
+                      "csv",
+                      "xlsx"
+                    ]
+                  },
+                  "dataBase64": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "All shipments were idempotent replays"
+          },
+          "201": {
+            "description": "One or more shipments were created"
+          },
+          "401": {
+            "description": "Kairoseth service authentication required"
+          },
+          "409": {
+            "description": "One or more rows conflicted with a previous idempotent import"
+          },
+          "413": {
+            "description": "Import file exceeded the size limit"
+          },
+          "422": {
+            "description": "Import file or one or more rows are invalid"
+          },
+          "429": {
+            "description": "Authenticated subject exceeded the per-process request limit"
+          }
+        }
+      }
+    },
     "/v1/import/preview": {
       "post": {
         "operationId": "previewShipmentFileImport",
