@@ -14,6 +14,12 @@ import {
   createFixedWindowRateLimiter
 } from "./rate-limit.mjs";
 
+const commonSecurityHeaders = () => ({
+  "cache-control": "no-store",
+  "x-content-type-options": "nosniff",
+  "referrer-policy": "no-referrer"
+});
+
 const sendText = (
   response,
   status,
@@ -21,6 +27,7 @@ const sendText = (
   contentType = "text/plain; version=0.0.4; charset=utf-8"
 ) => {
   response.writeHead(status, {
+    ...commonSecurityHeaders(),
     "content-type": contentType,
     "content-length": Buffer.byteLength(body)
   });
@@ -30,6 +37,7 @@ const sendText = (
 const sendJson = (response, status, body) => {
   const data = JSON.stringify(body);
   response.writeHead(status, {
+    ...commonSecurityHeaders(),
     "content-type": "application/json; charset=utf-8",
     "content-length": Buffer.byteLength(data)
   });
@@ -43,6 +51,7 @@ const sendPdf = (
   { status = 200 } = {}
 ) => {
   response.writeHead(status, {
+    ...commonSecurityHeaders(),
     "content-type": "application/pdf",
     "content-length": pdf.length,
     "content-disposition":
