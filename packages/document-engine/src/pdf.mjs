@@ -27,7 +27,8 @@ const FONT_SUBSETS = [
   "devanagari"
 ];
 
-let fontSourcesPromise = null;
+const fontSourcePromises =
+  new Map();
 
 const normalizePdfText = (value) =>
   String(value ?? "")
@@ -37,24 +38,46 @@ const normalizePdfText = (value) =>
 const fontPath = (subset) =>
   `@fontsource/noto-sans/files/noto-sans-${subset}-400-normal.woff2`;
 
-const loadFontSources = async () => {
-  fontSourcesPromise ??= Promise.all(
-    FONT_SUBSETS.map(async (subset) => {
-      const resolved =
-        import.meta.resolve(
-          fontPath(subset)
-        );
+const loadFontSource = (
+  subset
+) => {
+  if (
+    !FONT_SUBSETS.includes(
+      subset
+    )
+  ) {
+    throw new TypeError(
+      `Unknown DeCA font subset: ${subset}`
+    );
+  }
 
-      return {
-        subset,
-        bytes: await readFile(
-          new URL(resolved)
-        )
-      };
-    })
+  if (
+    !fontSourcePromises.has(
+      subset
+    )
+  ) {
+    fontSourcePromises.set(
+      subset,
+      (async () => {
+        const resolved =
+          import.meta.resolve(
+            fontPath(subset)
+          );
+
+        return {
+          subset,
+          bytes:
+            await readFile(
+              new URL(resolved)
+            )
+        };
+      })()
+    );
+  }
+
+  return fontSourcePromises.get(
+    subset
   );
-
-  return fontSourcesPromise;
 };
 
 const unsupportedCharacter = (
@@ -143,12 +166,11 @@ const embedUnicodeFonts = async (
   selectedSubsets
 ) => {
   const sources =
-    (await loadFontSources())
-      .filter((source) =>
-        selectedSubsets.includes(
-          source.subset
-        )
-      );
+    await Promise.all(
+      selectedSubsets.map(
+        loadFontSource
+      )
+    );
   const entries = [];
 
   for (const source of sources) {
