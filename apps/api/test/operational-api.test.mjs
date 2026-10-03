@@ -6,6 +6,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "../src/server.mjs";
 import {
+  createFixedWindowRateLimiter
+} from "../src/rate-limit.mjs";
+import {
   JsonStore
 } from "../../../packages/persistence/src/json-store.mjs";
 import {
@@ -48,7 +51,10 @@ const payload = {
 const PLATFORM_SERVICE_SECRET =
   "kairoseth-ci-service-secret-0123456789abcdef";
 
-const withOperationalServer = async (fn) => {
+const withOperationalServer = async (
+  fn,
+  serverOptions = {}
+) => {
   const directory = await mkdtemp(
     join(tmpdir(), "puente-deca-api-")
   );
@@ -90,7 +96,8 @@ const withOperationalServer = async (fn) => {
     store,
     artifactStore,
     platformServiceSecret:
-      PLATFORM_SERVICE_SECRET
+      PLATFORM_SERVICE_SECRET,
+    ...serverOptions
   });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -791,5 +798,122 @@ test("metrics are Prometheus-compatible and protected by Kairoseth service auth"
         /organization|shipment|credential/i
       );
     }
+  );
+});
+
+
+test("authenticated connector requests are rate limited per credential", async () => {
+  const rateLimiter =
+    createFixedWindowRateLimiter({
+      windowMs: 60_000,
+      maxRequests: 2,
+      now: () => 1_000
+    });
+
+  await withOperationalServer(
+    async ({ baseUrl, apiKey }) => {
+      const first = await fetch(
+        `${baseUrl}/v1/shipments`,
+        {
+          headers: {
+            authorization:
+              `Bearer ${apiKey}`
+          }
+        }
+      );
+      const second = await fetch(
+        `${baseUrl}/v1/shipments`,
+        {
+          headers: {
+            authorization:
+              `Bearer ${apiKey}`
+          }
+        }
+      );
+      const third = await fetch(
+        `${baseUrl}/v1/shipments`,
+        {
+          headers: {
+            authorization:
+              `Bearer ${apiKey}`
+          }
+        }
+      );
+      const body = await third.json();
+
+      assert.equal(first.status, 200);
+      assert.equal(second.status, 200);
+      assert.equal(third.status, 429);
+      assert.equal(
+        third.headers.get("retry-after"),
+        "60"
+      );
+      assert.equal(
+        body.error,
+        "rate_limited"
+      );
+    },
+    { rateLimiter }
+  );
+});
+
+test("rate limit subjects isolate connector credentials", async () => {
+  const rateLimiter =
+    createFixedWindowRateLimiter({
+      windowMs: 60_000,
+      maxRequests: 1,
+      now: () => 5_000
+    });
+
+  await withOperationalServer(
+    async ({
+      baseUrl,
+      apiKey,
+      store,
+      organization
+    }) => {
+      const secondCredential =
+        await store.createApiCredential({
+          organizationId:
+            organization.organizationId,
+          name: "second connector"
+        });
+
+      const first = await fetch(
+        `${baseUrl}/v1/shipments`,
+        {
+          headers: {
+            authorization:
+              `Bearer ${apiKey}`
+          }
+        }
+      );
+      const firstBlocked = await fetch(
+        `${baseUrl}/v1/shipments`,
+        {
+          headers: {
+            authorization:
+              `Bearer ${apiKey}`
+          }
+        }
+      );
+      const second = await fetch(
+        `${baseUrl}/v1/shipments`,
+        {
+          headers: {
+            authorization:
+              `Bearer ${secondCredential.apiKey}`
+          }
+        }
+      );
+
+      assert.equal(first.status, 200);
+      assert.equal(
+        firstBlocked.status,
+        429
+      );
+      assert.equal(second.status, 200);
+    },
+    { rateLimiter }
   );
 });
