@@ -35,7 +35,7 @@
 
 **Phase 2 status: complete for the initial production-safe character set.**
 
-Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs are production-hardening tasks. Until then, unsupported characters fail closed and intended Puente DeCA URLs remain within the fixed QR capacity.
+Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs are production-hardening tasks.
 
 ## Phase 3 — Persistence and multi-tenant core
 
@@ -44,9 +44,10 @@ Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs
 - [x] Shipments.
 - [x] Document versions.
 - [x] Immutable audit events through the persistence API.
-- [ ] Configurable storage with minimum legal retention safeguards.
+- [x] Per-artifact retention floor recorded from the transport date.
 - [x] Organization-scoped idempotency keys.
 - [x] Atomic JSON store for development and contract tests.
+- [ ] Enforced retention-aware deletion policy.
 - [ ] PostgreSQL production adapter.
 
 ## Phase 4 — Operational API
@@ -56,11 +57,16 @@ Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs
 - [x] GET /v1/shipments/:id.
 - [x] GET /v1/deca/:id.
 - [x] Driver/inspection direct PDF endpoint at the QR URL (no login).
-- [x] OpenAPI 3.1 contract with CI validation.\n\n**Phase 4 status: complete for the first operational API.**
+- [x] Public QR endpoint supports a path prefix in PUBLIC_BASE_URL.
+- [x] Repeated generation reuses the current document when shipment content is unchanged.
+- [x] OpenAPI 3.1 contract with CI validation.
+
+**Phase 4 status: complete for the first operational API.**
 
 ## Phase 5 — First connectors
 
-- [x] CSV batch import with row-level validation.\n- [ ] Excel (.xlsx) batch import.
+- [x] CSV batch import with row-level validation.
+- [ ] Excel (.xlsx) batch import.
 - [ ] WooCommerce.
 - [ ] PrestaShop.
 - [x] Reference connector SDK/contract suite.
