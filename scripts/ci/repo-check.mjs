@@ -26,12 +26,21 @@ const requiredPaths = [
   "packages/connector-contract-suite/src/contract.mjs",
   "connectors/reference/contract.mjs",
   "connectors/file-import/contract.mjs",
+  "connectors/woocommerce/contract.mjs",
+  "connectors/woocommerce/puente-deca-woocommerce.php",
+  "connectors/woocommerce/includes/class-pdeca-woo-secret-store.php",
+  "connectors/woocommerce/includes/class-pdeca-woo-settings.php",
+  "connectors/woocommerce/includes/class-pdeca-woo-client.php",
+  "connectors/woocommerce/includes/class-pdeca-woo-order-payload.php",
+  "connectors/woocommerce/includes/class-pdeca-woo-connector.php",
+  "scripts/ci/woocommerce-check.mjs",
   "docs/architecture.md",
   "docs/openapi.json",
   "scripts/ci/openapi-check.mjs",
   "docs/legal-traceability.md",
   "docs/roadmap.md",
-  "examples/deca-request.json"
+  "examples/deca-request.json",
+  "examples/connectors/woocommerce.json"
 ];
 
 for (const path of requiredPaths) {
