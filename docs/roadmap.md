@@ -108,6 +108,7 @@ Characters outside the embedded font set continue to fail closed rather than bei
 - [ ] Edge/reverse-proxy volumetric protection for public QR and unauthenticated abuse.
 - [x] Separate liveness/readiness probes plus protected low-cardinality Prometheus process metrics.
 - [x] Production preflight and deployment/runback acceptance runbook.
+- [x] Local Kairoseth↔engine E2E contract: tenant-scoped shipment → DeCA → public PDF → SHA-256 → cross-organization isolation.
 - [ ] Live deployment acceptance on the chosen internal service runtime.
 - [x] Static application-security review with CI regression guard.
 - [ ] Live infrastructure security acceptance and focused external penetration test.
