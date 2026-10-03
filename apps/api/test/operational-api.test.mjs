@@ -598,6 +598,107 @@ test("Kairoseth previews CSV and XLSX imports through the canonical validator", 
   );
 });
 
+test("Kairoseth commits validated CSV imports idempotently and refuses invalid files before creation", async () => {
+  await withOperationalServer(
+    async ({
+      baseUrl,
+      organization,
+      store,
+      platformServiceSecret
+    }) => {
+      const headers = {
+        "content-type": "application/json",
+        "x-kairoseth-service-secret":
+          platformServiceSecret,
+        "x-kairoseth-organization-id":
+          organization.organizationId
+      };
+      const validCsv = [
+        "external_reference,shipper_name,shipper_tax_id,shipper_address,carrier_name,carrier_tax_id,origin,destination,goods_nature,weight_value,weight_unit,alternative_measure_value,alternative_measure_unit,transport_date,tractor_registration,trailer_registration,special_traffic_authorization,observations",
+        "SHIP-COMMIT-001,Example Shipper SL,B12345678,Madrid,Example Carrier SL,B87654321,Madrid,Barcelona,Furniture,420,kg,,,2026-10-05,1234ABC,,,Handle carefully"
+      ].join("\n");
+
+      const first = await fetch(
+        `${baseUrl}/v1/import/shipments`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            format: "csv",
+            dataBase64:
+              Buffer.from(validCsv).toString("base64")
+          })
+        }
+      );
+      assert.equal(first.status, 201);
+      const firstBody = await first.json();
+      assert.equal(firstBody.created, 1);
+      assert.equal(firstBody.replayed, 0);
+      assert.equal(firstBody.conflicts, 0);
+
+      const second = await fetch(
+        `${baseUrl}/v1/import/shipments`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            format: "csv",
+            dataBase64:
+              Buffer.from(validCsv).toString("base64")
+          })
+        }
+      );
+      assert.equal(second.status, 200);
+      const secondBody = await second.json();
+      assert.equal(secondBody.created, 0);
+      assert.equal(secondBody.replayed, 1);
+      assert.equal(secondBody.conflicts, 0);
+
+      const beforeInvalid =
+        await store.listShipments({
+          organizationId:
+            organization.organizationId,
+          limit: 100
+        });
+
+      const invalidCsv = [
+        "external_reference,transport_date",
+        ",not-a-date"
+      ].join("\n");
+      const invalid = await fetch(
+        `${baseUrl}/v1/import/shipments`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            format: "csv",
+            dataBase64:
+              Buffer.from(invalidCsv).toString("base64")
+          })
+        }
+      );
+      assert.equal(invalid.status, 422);
+      const invalidBody = await invalid.json();
+      assert.equal(
+        invalidBody.error,
+        "import_validation_failed"
+      );
+      assert.equal(invalidBody.invalid, 1);
+
+      const afterInvalid =
+        await store.listShipments({
+          organizationId:
+            organization.organizationId,
+          limit: 100
+        });
+      assert.equal(
+        afterInvalid.total,
+        beforeInvalid.total
+      );
+    }
+  );
+});
+
 test("Kairoseth import preview keeps invalid rows and rejects malformed payloads", async () => {
   await withOperationalServer(
     async ({
