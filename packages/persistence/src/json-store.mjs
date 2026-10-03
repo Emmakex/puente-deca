@@ -81,7 +81,8 @@ const publicCredential = (credential) => ({
   keyPrefix: credential.keyPrefix,
   scopes: [...credential.scopes],
   createdAt: credential.createdAt,
-  revokedAt: credential.revokedAt
+  revokedAt: credential.revokedAt,
+  expiresAt: credential.expiresAt ?? null
 });
 
 export class JsonStore {
@@ -360,7 +361,8 @@ export class JsonStore {
       "shipments:write",
       "documents:read",
       "documents:write"
-    ]
+    ],
+    expiresAt = null
   }) {
     const normalizedOrganizationId = requireText(
       organizationId,
@@ -372,6 +374,17 @@ export class JsonStore {
       this.#apiKeyFactory(),
       "generated apiKey"
     );
+    const normalizedExpiresAt =
+      expiresAt === null
+        ? null
+        : new Date(expiresAt);
+
+    if (
+      normalizedExpiresAt &&
+      Number.isNaN(normalizedExpiresAt.getTime())
+    ) {
+      throw new TypeError("expiresAt must be a valid date");
+    }
 
     return this.#mutate((state) => {
       const organization =
@@ -410,7 +423,11 @@ export class JsonStore {
         keyHash: hashApiKey(apiKey),
         scopes: normalizedScopes,
         createdAt: at,
-        revokedAt: null
+        revokedAt: null,
+        expiresAt:
+          normalizedExpiresAt
+            ? normalizedExpiresAt.toISOString()
+            : null
       };
 
       state.apiCredentials[credentialId] = credential;
@@ -467,6 +484,13 @@ export class JsonStore {
       )
     ) {
       if (credential.revokedAt) continue;
+      if (
+        credential.expiresAt &&
+        new Date(credential.expiresAt).getTime() <=
+          new Date(this.#nowIso()).getTime()
+      ) {
+        continue;
+      }
 
       const organization =
         state.organizations[credential.organizationId];
@@ -494,6 +518,59 @@ export class JsonStore {
     }
 
     return null;
+  }
+
+  async setApiCredentialExpiryForOrganization({
+    organizationId,
+    expiresAt
+  }) {
+    const normalizedOrganizationId = requireText(
+      organizationId,
+      "organizationId"
+    );
+    const normalizedExpiresAt =
+      expiresAt === null
+        ? null
+        : new Date(expiresAt);
+
+    if (
+      normalizedExpiresAt &&
+      Number.isNaN(normalizedExpiresAt.getTime())
+    ) {
+      throw new TypeError("expiresAt must be a valid date");
+    }
+
+    return this.#mutate((state) => {
+      state.apiCredentials ??= {};
+      let updated = 0;
+      const normalizedValue =
+        normalizedExpiresAt
+          ? normalizedExpiresAt.toISOString()
+          : null;
+
+      for (
+        const credential of Object.values(
+          state.apiCredentials
+        )
+      ) {
+        if (
+          credential.organizationId !==
+            normalizedOrganizationId ||
+          credential.revokedAt
+        ) {
+          continue;
+        }
+        credential.expiresAt = normalizedValue;
+        updated += 1;
+      }
+
+      return {
+        organizationId:
+          normalizedOrganizationId,
+        expiresAt: normalizedValue,
+        updated
+      };
+    });
   }
 
   async revokeApiCredential({
