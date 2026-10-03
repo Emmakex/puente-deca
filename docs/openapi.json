@@ -730,6 +730,51 @@
         }
       }
     },
+    "/v1/connectors/{connector}/package": {
+      "get": {
+        "operationId": "downloadConnectorPackage",
+        "summary": "Download a Kairoseth-managed ecommerce connector package",
+        "security": [
+          {
+            "platformServiceSecret": [],
+            "platformOrganizationId": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "connector",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "woocommerce",
+                "prestashop"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deterministic connector installation ZIP",
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kairoseth service authentication required"
+          },
+          "429": {
+            "description": "Authenticated subject exceeded the per-process request limit"
+          }
+        }
+      }
+    },
     "/v1/import/preview": {
       "post": {
         "operationId": "previewShipmentFileImport",
