@@ -102,7 +102,8 @@ Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs
 - [ ] Live GridFS upload/read/delete and orphan-reconciliation smoke acceptance.
 - [x] MongoDB Atlas + GridFS backup/restore runbook.
 - [ ] Live backup/restore drill against a staging/DR Atlas target.
-- [ ] Rate limits.
+- [x] Per-organization/per-credential authenticated API rate limiting with 429 + Retry-After.
+- [ ] Edge/reverse-proxy volumetric protection for public QR and unauthenticated abuse.
 - [x] Separate liveness/readiness probes plus protected low-cardinality Prometheus process metrics.
 - [ ] Deployment runbook.
 - [ ] Security review.

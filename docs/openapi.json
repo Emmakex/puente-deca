@@ -136,6 +136,9 @@
           },
           "422": {
             "description": "Invalid shipment data"
+          },
+          "429": {
+            "description": "Authenticated subject exceeded the per-process request limit"
           }
         }
       },
@@ -173,6 +176,9 @@
           },
           "403": {
             "description": "Scope missing"
+          },
+          "429": {
+            "description": "Authenticated subject exceeded the per-process request limit"
           }
         }
       }
@@ -207,6 +213,9 @@
           },
           "404": {
             "description": "Shipment not found"
+          },
+          "429": {
+            "description": "Authenticated subject exceeded the per-process request limit"
           }
         }
       },
@@ -255,6 +264,9 @@
           },
           "422": {
             "description": "Invalid shipment data"
+          },
+          "429": {
+            "description": "Authenticated subject exceeded the per-process request limit"
           }
         }
       }
@@ -292,6 +304,9 @@
           },
           "422": {
             "description": "Document generation rejected"
+          },
+          "429": {
+            "description": "Authenticated subject exceeded the per-process request limit"
           }
         }
       }
@@ -326,6 +341,9 @@
           },
           "404": {
             "description": "Document not found"
+          },
+          "429": {
+            "description": "Authenticated subject exceeded the per-process request limit"
           }
         }
       }
@@ -394,6 +412,9 @@
           },
           "401": {
             "description": "Kairoseth service authentication required"
+          },
+          "429": {
+            "description": "Authenticated subject exceeded the per-process request limit"
           }
         }
       },
@@ -449,6 +470,9 @@
           },
           "422": {
             "description": "Invalid name or scope"
+          },
+          "429": {
+            "description": "Authenticated subject exceeded the per-process request limit"
           }
         }
       }
@@ -482,6 +506,9 @@
           },
           "404": {
             "description": "Credential not found"
+          },
+          "429": {
+            "description": "Authenticated subject exceeded the per-process request limit"
           }
         }
       }
@@ -522,6 +549,9 @@
           },
           "401": {
             "description": "Kairoseth service authentication required"
+          },
+          "429": {
+            "description": "Authenticated subject exceeded the per-process request limit"
           }
         }
       }

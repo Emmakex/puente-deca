@@ -10,6 +10,9 @@ import { renderNativeDecaPdf } from "../../../packages/document-engine/src/pdf.m
 import {
   createRuntimeMetrics
 } from "./metrics.mjs";
+import {
+  createFixedWindowRateLimiter
+} from "./rate-limit.mjs";
 
 const sendText = (
   response,
@@ -152,7 +155,8 @@ const authenticatePlatformService = async (
   request,
   response,
   store,
-  platformServiceSecret
+  platformServiceSecret,
+  rateLimiter = null
 ) => {
   const serviceSecret =
     request.headers["x-kairoseth-service-secret"];
@@ -193,7 +197,7 @@ const authenticatePlatformService = async (
     externalReference: organizationId
   });
 
-  return {
+  const credential = {
     credentialId: "kairoseth-platform",
     organizationId,
     scopes: [
@@ -204,6 +208,18 @@ const authenticatePlatformService = async (
     ],
     source: "kairoseth-platform"
   };
+
+  if (
+    !enforceRateLimit(
+      response,
+      rateLimiter,
+      credential
+    )
+  ) {
+    return null;
+  }
+
+  return credential;
 };
 
 const authenticate = async (
@@ -211,7 +227,8 @@ const authenticate = async (
   response,
   store,
   requiredScope,
-  platformServiceSecret = null
+  platformServiceSecret = null,
+  rateLimiter = null
 ) => {
   const serviceSecret =
     request.headers["x-kairoseth-service-secret"];
@@ -223,7 +240,8 @@ const authenticate = async (
       request,
       response,
       store,
-      platformServiceSecret
+      platformServiceSecret,
+      rateLimiter
     );
   }
 
@@ -262,7 +280,63 @@ const authenticate = async (
     return null;
   }
 
+  if (
+    !enforceRateLimit(
+      response,
+      rateLimiter,
+      credential
+    )
+  ) {
+    return null;
+  }
+
   return credential;
+};
+
+const enforceRateLimit = (
+  response,
+  rateLimiter,
+  credential
+) => {
+  if (
+    !rateLimiter ||
+    typeof rateLimiter.consume !== "function"
+  ) {
+    return true;
+  }
+
+  const key =
+    credential.source ===
+    "kairoseth-platform"
+      ? `platform:${credential.organizationId}`
+      : `connector:${credential.credentialId}`;
+
+  const limit = rateLimiter.consume(key);
+
+  if (limit.allowed) {
+    return true;
+  }
+
+  response.setHeader(
+    "retry-after",
+    String(limit.retryAfterSeconds)
+  );
+  response.setHeader(
+    "x-ratelimit-limit",
+    String(limit.limit)
+  );
+  response.setHeader(
+    "x-ratelimit-remaining",
+    "0"
+  );
+
+  sendJson(response, 429, {
+    error: "rate_limited",
+    message:
+      "Too many authenticated requests"
+  });
+
+  return false;
 };
 
 const CONNECTOR_SCOPES = [
@@ -329,7 +403,16 @@ export function createServer({
   platformServiceSecret =
     process.env.KAIROSETH_SERVICE_SECRET ?? null,
   runtimeMetrics =
-    createRuntimeMetrics()
+    createRuntimeMetrics(),
+  rateLimiter =
+    createFixedWindowRateLimiter({
+      windowMs:
+        process.env.RATE_LIMIT_WINDOW_MS,
+      maxRequests:
+        process.env.RATE_LIMIT_MAX_REQUESTS,
+      maxEntries:
+        process.env.RATE_LIMIT_MAX_ENTRIES
+    })
 } = {}) {
   return http.createServer(async (request, response) => {
     const finishMetrics =
@@ -595,7 +678,8 @@ export function createServer({
             request,
             response,
             store,
-            platformServiceSecret
+            platformServiceSecret,
+            rateLimiter
           );
         if (!platform) return;
 
@@ -620,7 +704,8 @@ export function createServer({
             request,
             response,
             store,
-            platformServiceSecret
+            platformServiceSecret,
+            rateLimiter
           );
         if (!platform) return;
 
@@ -671,7 +756,8 @@ export function createServer({
             request,
             response,
             store,
-            platformServiceSecret
+            platformServiceSecret,
+            rateLimiter
           );
         if (!platform) return;
 
@@ -723,7 +809,8 @@ export function createServer({
           response,
           store,
           "shipments:read",
-          platformServiceSecret
+          platformServiceSecret,
+          rateLimiter
         );
         if (!credential) return;
 
@@ -773,7 +860,8 @@ export function createServer({
           response,
           store,
           "shipments:write",
-          platformServiceSecret
+          platformServiceSecret,
+          rateLimiter
         );
         if (!credential) return;
 
@@ -863,7 +951,8 @@ export function createServer({
           response,
           store,
           "shipments:write",
-          platformServiceSecret
+          platformServiceSecret,
+          rateLimiter
         );
         if (!credential) return;
 
@@ -945,7 +1034,8 @@ export function createServer({
           response,
           store,
           "shipments:read",
-          platformServiceSecret
+          platformServiceSecret,
+          rateLimiter
         );
         if (!credential) return;
 
@@ -992,7 +1082,8 @@ export function createServer({
           response,
           store,
           "documents:write",
-          platformServiceSecret
+          platformServiceSecret,
+          rateLimiter
         );
         if (!credential) return;
 
@@ -1121,7 +1212,8 @@ export function createServer({
           response,
           store,
           "documents:read",
-          platformServiceSecret
+          platformServiceSecret,
+          rateLimiter
         );
         if (!credential) return;
 
