@@ -26,3 +26,9 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm run check
       - run: npm test
+      - name: Emit Unicode PDF visual smoke
+        run: |
+          node scripts/ci/unicode-pdf-visual-smoke.mjs /tmp/puente-deca-unicode-smoke.pdf
+          printf 'UNICODE_PDF_BASE64='
+          base64 -w0 /tmp/puente-deca-unicode-smoke.pdf
+          echo

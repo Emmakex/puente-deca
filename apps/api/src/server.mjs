@@ -96,7 +96,7 @@ const pdfErrorResponse = (response, error) => {
     sendJson(response, 422, {
       error: "unsupported_pdf_character",
       message:
-        "The current PDF font cannot represent all supplied characters",
+        "The embedded DeCA font set cannot represent all supplied characters",
       character: error.character,
       codePoint: error.codePoint
     });
@@ -662,7 +662,7 @@ export function createServer({
             publicBaseUrl
           );
           const pdf =
-            renderNativeDecaPdf(snapshot);
+            await renderNativeDecaPdf(snapshot);
 
           return sendPdf(
             response,
@@ -1178,7 +1178,7 @@ export function createServer({
             : candidate;
 
           const pdf =
-            renderNativeDecaPdf(snapshot);
+            await renderNativeDecaPdf(snapshot);
           const storedArtifact =
             await artifactStore.save({
               documentId:

@@ -1,11 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { PDFDocument } from "pdf-lib";
 import {
   MAX_DECA_PDF_BYTES,
-  renderNativeDecaPdf
+  renderNativeDecaPdf,
+  requiresUnicodePdfEmbedding
 } from "../src/pdf.mjs";
 
-const snapshot = {
+const baseSnapshot = {
   schemaVersion: "2026-06",
   documentType: "DECA",
   documentId: "deca_demo",
@@ -18,16 +20,20 @@ const snapshot = {
   contentHash:
     "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   accessUrl:
-    "https://deca.example.com/d/abcdefghijklmnop1234567890.pdf",
+    "https://kairoseth.com/deca/d/abcdefghijklmnop1234567890.pdf",
   data: {
-    externalReference: "SHIP-2026-0001",
+    externalReference:
+      "SHIP-2026-0001",
     contractualShipper: {
-      legalName: "Ejemplo Cargador SL",
+      legalName:
+        "Example Shipper SL",
       taxId: "B12345678",
-      address: "Carrer d'Àngel Guimerà 1, Sabadell"
+      address:
+        "Carrer Angel Guimera 1, Sabadell"
     },
     effectiveCarrier: {
-      legalName: "Transports Núñez SL",
+      legalName:
+        "Example Carrier SL",
       taxId: "B87654321"
     },
     route: {
@@ -35,7 +41,7 @@ const snapshot = {
       destination: "Barcelona"
     },
     goods: {
-      nature: "Mobiliari",
+      nature: "Furniture",
       weight: {
         value: 420,
         unit: "kg"
@@ -44,64 +50,136 @@ const snapshot = {
     transport: {
       date: "2026-10-05",
       vehicle: {
-        tractorRegistration: "1234ABC",
+        tractorRegistration:
+          "1234ABC",
         trailerRegistration: null
       },
-      specialTrafficAuthorization: null
+      specialTrafficAuthorization:
+        null
     },
-    observations: "Manipular amb precaució"
+    observations:
+      "Handle with care"
   }
 };
 
-test("renders a native PDF with metadata and embedded vector QR", () => {
-  const pdf = renderNativeDecaPdf(snapshot);
-  const text = pdf.toString("latin1");
+const unicodeSnapshot =
+  structuredClone(baseSnapshot);
+unicodeSnapshot.data
+  .contractualShipper
+  .legalName =
+    "Łódź Logística Ελληνική";
+unicodeSnapshot.data
+  .contractualShipper
+  .address =
+    "Carrer d'Àngel Guimerà 1, Sabadell";
+unicodeSnapshot.data
+  .effectiveCarrier
+  .legalName =
+    "Транспорт Núñez SL";
+unicodeSnapshot.data.goods.nature =
+  "Mobiliari Việt Nam";
+unicodeSnapshot.data.observations =
+  "Manipular amb precaució - भारत";
+
+test("selects the lightweight path for Latin-1 and Unicode embedding only when needed", () => {
+  assert.equal(
+    requiresUnicodePdfEmbedding(
+      baseSnapshot
+    ),
+    false
+  );
+  assert.equal(
+    requiresUnicodePdfEmbedding(
+      unicodeSnapshot
+    ),
+    true
+  );
+});
+
+test("renders a native Unicode PDF with metadata, ToUnicode mapping and vector QR", async () => {
+  const pdf =
+    await renderNativeDecaPdf(
+      unicodeSnapshot
+    );
+  const loaded =
+    await PDFDocument.load(
+      pdf,
+      { updateMetadata: false }
+    );
 
   assert.equal(
-    pdf.subarray(0, 8).toString("latin1"),
+    pdf.subarray(0, 8)
+      .toString("latin1"),
     "%PDF-1.7"
   );
-  assert.match(
-    text,
-    /\/CreationDate \(D:20261003050000Z\)/
+  assert.equal(
+    loaded.getTitle(),
+    "DeCA deca_demo"
   );
-  assert.match(
-    text,
-    /\/ModDate \(D:20261003061530Z\)/
+  assert.equal(
+    loaded.getSubject(),
+    "Documento electrónico de Control Administrativo"
   );
-  assert.match(text, /Cargador contractual/);
-  assert.match(text, /B12345678/);
-  assert.match(text, /Núñez/);
-  assert.match(text, /precaució/);
-  assert.match(
-    text,
-    /https:\/\/deca\.example\.com\/d\//
+  assert.equal(
+    loaded.getProducer(),
+    "Puente DeCA"
+  );
+  assert.equal(
+    loaded.getCreationDate()
+      .toISOString(),
+    unicodeSnapshot.createdAt
+  );
+  assert.equal(
+    loaded.getModificationDate()
+      .toISOString(),
+    unicodeSnapshot.modifiedAt
+  );
+  assert.equal(
+    loaded.getPageCount(),
+    1
   );
   assert.ok(
-    (text.match(/ re f/g) ?? []).length > 500,
-    "expected QR vector modules in PDF content"
+    pdf.includes(
+      Buffer.from("/ToUnicode")
+    ),
+    "expected Unicode character mapping in embedded font"
   );
-  assert.ok(pdf.length < MAX_DECA_PDF_BYTES);
-  assert.match(text, /%%EOF/);
-});
-
-test("fails instead of silently corrupting unsupported PDF text", () => {
-  const unsupported = structuredClone(snapshot);
-  unsupported.data.contractualShipper.legalName = "Łódź Logistics";
-
-  assert.throws(
-    () => renderNativeDecaPdf(unsupported),
-    (error) =>
-      error.code === "DECA_PDF_UNSUPPORTED_CHARACTER" &&
-      error.character === "Ł"
+  assert.ok(
+    pdf.length <
+      MAX_DECA_PDF_BYTES
   );
 });
 
-test("enforces the configured PDF byte ceiling", () => {
-  assert.throws(
-    () => renderNativeDecaPdf(snapshot, { maxBytes: 500 }),
+test("fails closed for supplementary symbols outside the embedded Noto Sans font set before rendering", async () => {
+  const unsupported =
+    structuredClone(baseSnapshot);
+  unsupported.data
+    .contractualShipper
+    .legalName =
+      "Transporte 🚚";
+
+  await assert.rejects(
+    () =>
+      renderNativeDecaPdf(
+        unsupported
+      ),
     (error) =>
-      error.code === "DECA_PDF_TOO_LARGE" &&
+      error.code ===
+        "DECA_PDF_UNSUPPORTED_CHARACTER" &&
+      error.character === "🚚"
+  );
+});
+
+test("enforces the configured PDF byte ceiling on the fast path", async () => {
+  await assert.rejects(
+    () =>
+      renderNativeDecaPdf(
+        baseSnapshot,
+        { maxBytes: 500 }
+      ),
+    (error) =>
+      error.code ===
+        "DECA_PDF_TOO_LARGE" &&
       error.maxBytes === 500 &&
       error.size > 500
   );

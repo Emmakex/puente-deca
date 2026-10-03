@@ -33,9 +33,9 @@
 - [x] Fail-safe character handling: never silently alter unsupported legal text.
 - [x] API endpoint returning the generated PDF.
 
-**Phase 2 status: complete for the initial production-safe character set.**
+**Phase 2 status: complete for the production Noto Sans Unicode coverage used by Puente DeCA.**
 
-Full Unicode font embedding remains a production-hardening task.
+Characters outside the embedded font set continue to fail closed rather than being transliterated or replaced.
 
 ## Phase 3 — Persistence and service-side tenant core
 
@@ -89,7 +89,7 @@ Full Unicode font embedding remains a production-hardening task.
 
 ### Runtime hardening
 
-- [ ] Production Unicode font embedding.
+- [x] Production Unicode font embedding with pre-subset Noto Sans/Fontsource files and fail-closed unsupported-character handling.
 - [x] Automatic QR version sizing (1–40) with ECC M and a pinned encoder dependency.
 - [x] Dependency lockfile, npm cache and reproducible `npm ci` install for runtime/XLSX dependencies.
 - [x] WooCommerce deterministic release ZIP packaging with SHA-256 manifest.

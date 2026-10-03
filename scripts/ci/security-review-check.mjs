@@ -111,6 +111,10 @@ const pkg = JSON.parse(packageJson);
 if (
   pkg.dependencies?.mongodb !== "7.5.0" ||
   pkg.dependencies?.qrcode !== "1.5.4" ||
+  pkg.dependencies?.["pdf-lib"] !== "1.17.1" ||
+  pkg.dependencies?.["@pdf-lib/fontkit"] !== "1.1.1" ||
+  pkg.dependencies?.["@fontsource/noto-sans"] !== "5.3.0" ||
+  pkg.dependencies?.["regenerator-runtime"] !== "0.14.1" ||
   pkg.dependencies?.["read-excel-file"] !== "9.3.10"
 ) {
   throw new Error(
