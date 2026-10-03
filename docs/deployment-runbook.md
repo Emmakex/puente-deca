@@ -114,6 +114,25 @@ PUENTE_DECA_PUBLIC_PROXY_SECRET=<same KAIROSETH_PUBLIC_PROXY_SECRET>
 
 The engine public-document origin rejects requests that do not carry the dedicated proxy secret, so exposing the engine through an HTTPS hostname does not create a second public QR surface.
 
+### Live engine-origin acceptance
+
+Once the Hostinger engine hostname and production variables are active, run from a trusted operator environment:
+
+```bash
+DECA_ENGINE_SMOKE_BASE_URL='https://<engine-host>' \
+DECA_ENGINE_SMOKE_PROXY_SECRET='<same KAIROSETH_PUBLIC_PROXY_SECRET>' \
+npm run production:engine-origin-smoke
+```
+
+A green result proves all four conditions against the deployed origin:
+
+1. `/health` reports the Puente DeCA process alive;
+2. `/ready` reports both MongoDB metadata and GridFS artifacts ready;
+3. direct access to an engine `/deca/d/*` URL is rejected with HTTP 401;
+4. the same reserved missing-document probe with the dedicated proxy credential reaches persistence and returns the controlled HTTP 404 `document_not_found`.
+
+The reserved probe never creates a shipment, document, GridFS artifact or retention record.
+
 ## Pre-deployment contract gate
 
 Before connecting production infrastructure, run:
