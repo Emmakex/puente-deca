@@ -309,6 +309,49 @@ export class JsonStore {
     return organization ? clone(organization) : null;
   }
 
+  async setOrganizationConnectorAccessUntil({
+    organizationId,
+    validUntil
+  }) {
+    const normalizedOrganizationId = requireText(
+      organizationId,
+      "organizationId"
+    );
+    const validUntilDate =
+      validUntil instanceof Date
+        ? validUntil
+        : new Date(validUntil);
+
+    if (Number.isNaN(validUntilDate.getTime())) {
+      throw new TypeError("validUntil must be a valid date");
+    }
+
+    return this.#mutate((state) => {
+      const organization =
+        state.organizations[normalizedOrganizationId];
+
+      if (!organization) {
+        throw conflict(
+          "Organization does not exist",
+          "ORGANIZATION_NOT_FOUND"
+        );
+      }
+
+      const at = this.#nowIso();
+      organization.connectorAccessUntil =
+        validUntilDate.toISOString();
+      organization.updatedAt = at;
+
+      this.#appendAudit(state, {
+        organizationId: normalizedOrganizationId,
+        type: "organization.connector_access_updated",
+        at
+      });
+
+      return clone(organization);
+    });
+  }
+
   async createApiCredential({
     organizationId,
     name,
@@ -331,10 +374,25 @@ export class JsonStore {
     );
 
     return this.#mutate((state) => {
-      if (!state.organizations[normalizedOrganizationId]) {
+      const organization =
+        state.organizations[normalizedOrganizationId];
+      if (!organization) {
         throw conflict(
           "Organization does not exist",
           "ORGANIZATION_NOT_FOUND"
+        );
+      }
+
+      const connectorAccessUntil =
+        new Date(organization.connectorAccessUntil ?? "");
+      const now = new Date(this.#nowIso());
+      if (
+        Number.isNaN(connectorAccessUntil.getTime()) ||
+        connectorAccessUntil <= now
+      ) {
+        throw conflict(
+          "Organization connector access is inactive",
+          "ORGANIZATION_CONNECTOR_ACCESS_INACTIVE"
         );
       }
 
@@ -409,6 +467,18 @@ export class JsonStore {
       )
     ) {
       if (credential.revokedAt) continue;
+
+      const organization =
+        state.organizations[credential.organizationId];
+      const connectorAccessUntil =
+        new Date(organization?.connectorAccessUntil ?? "");
+      const now = new Date(this.#nowIso());
+      if (
+        Number.isNaN(connectorAccessUntil.getTime()) ||
+        connectorAccessUntil <= now
+      ) {
+        continue;
+      }
 
       const storedHash = Buffer.from(
         credential.keyHash,
