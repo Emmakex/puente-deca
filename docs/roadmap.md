@@ -50,7 +50,8 @@ Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs
 - [x] Organization-scoped idempotency keys.
 - [x] Atomic JSON store for development and contract tests.
 - [ ] Enforced retention-aware deletion policy.
-- [ ] PostgreSQL production adapter.
+- [x] PostgreSQL production adapter with relational schema, transactions and fail-closed production driver selection.
+- [ ] Live PostgreSQL migration/smoke test against the production-class database.
 
 ## Phase 4 — Operational API
 
@@ -93,7 +94,8 @@ Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs
 - [ ] Dependency lockfile / reproducible install for the XLSX adapter.
 - [ ] WooCommerce release ZIP packaging and live-store smoke test.
 - [ ] PrestaShop reproducible ZIP packaging and real 1.7.8/8.x compatibility matrix.
-- [ ] PostgreSQL-backed store.
+- [x] PostgreSQL-backed metadata store.
+- [ ] Production PostgreSQL migration/smoke acceptance.
 - [ ] Object storage.
 - [ ] Backups/restore drill.
 - [ ] Rate limits.

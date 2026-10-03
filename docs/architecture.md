@@ -61,18 +61,27 @@ Machine credentials used by WooCommerce, PrestaShop and ERP connectors are servi
 
 ## Persistence
 
-The first persistence implementation is an atomic JSON store intended for development, contract testing and the initial single-process deployment path. Its local organization records are test/service-scoping fixtures, not the production customer source of truth.
+Puente DeCA now has two storage drivers behind the same domain contract:
 
-It already enforces the domain behavior that must survive the later PostgreSQL migration:
+- **JSON store** — development and deterministic contract tests only;
+- **PostgreSQL store** — production metadata, tenant scope, document lineage, idempotency and audit.
+
+When `NODE_ENV=production`, the service refuses to start with JSON persistence unless an explicit emergency override is supplied. The canonical production tenant remains the Kairoseth organization ID.
+
+The persistence contract enforces:
 
 - organization/tenant ownership;
 - shipment isolation between organizations;
 - immutable document-version records;
 - append-only audit events through the store API;
 - organization-scoped idempotency keys for create operations;
-- atomic replace-on-write to avoid partially written state files.
+- atomic replace-on-write for the development JSON store;
+- PostgreSQL transactions for multi-record production mutations;
+- transaction-scoped advisory locking for concurrent idempotent shipment creation;
+- relational uniqueness for document versions and public access paths;
+- non-cascading compliance metadata via `ON DELETE RESTRICT`.
 
-The storage interface deliberately keeps the domain independent from PostgreSQL. Production hardening will replace the backing store without changing the shipment/document contracts.
+The storage interface keeps the domain independent from the selected driver, so shipment/document contracts remain unchanged.
 
 ## Current flow
 
@@ -130,3 +139,6 @@ https://kairoseth.com/deca/d/<opaque-token>.pdf
 ```
 
 That route remains public-by-token for inspection/direct download and must not redirect through the authenticated workspace.
+
+
+Production PostgreSQL configuration and migration notes are documented in [`docs/postgresql.md`](postgresql.md).
