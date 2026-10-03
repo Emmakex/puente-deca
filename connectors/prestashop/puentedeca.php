@@ -37,9 +37,9 @@ class PuenteDeca extends Module
 
         parent::__construct();
 
-        $this->displayName = $this->l('Puente DeCA');
-        $this->description = $this->l('Connects PrestaShop orders to Kairoseth Puente DeCA without embedding transport-compliance rules in PrestaShop.');
-        $this->confirmUninstall = $this->l('Uninstall Puente DeCA? Local connector state will be removed, but remote DeCA documents are not deleted.');
+        $this->displayName = $this->l('Kairoseth Cargo · DeCA');
+        $this->description = $this->l('Connects PrestaShop with Kairoseth Cargo to create and keep DeCA transport documents up to date.');
+        $this->confirmUninstall = $this->l('Uninstall Kairoseth Cargo · DeCA? Local connector state will be removed, but remote DeCA documents are not deleted.');
     }
 
     public function install()
@@ -48,6 +48,7 @@ class PuenteDeca extends Module
 
         return parent::install()
             && $this->installSchema()
+            && Configuration::updateValue(self::CONFIG_ENDPOINT, 'https://kairoseth.com/api/deca', false, null, $shopId)
             && Configuration::updateValue(self::CONFIG_TIMEOUT, 15, false, null, $shopId)
             && Configuration::updateValue(self::CONFIG_AUTO_STATES, '', false, null, $shopId)
             && $this->registerHook('displayAdminOrderMainBottom')
@@ -149,7 +150,7 @@ class PuenteDeca extends Module
         );
 
         $html = '<div class="card mt-2"><h3 class="card-header"><i class="material-icons">local_shipping</i> '
-            . $this->l('Puente DeCA') . '</h3><div class="card-body">'
+            . $this->l('Kairoseth Cargo · DeCA') . '</h3><div class="card-body">'
             . '<p><strong>' . $this->l('Status:') . '</strong> ' . Tools::safeOutput($status) . '</p>';
 
         if ($documentId !== '') {
@@ -160,7 +161,7 @@ class PuenteDeca extends Module
         }
 
         return $html . '<a class="btn btn-default" href="' . Tools::safeOutput($url) . '">'
-            . $this->l('Open Puente DeCA controls') . '</a></div></div>';
+            . $this->l('Open Kairoseth Cargo · DeCA controls') . '</a></div></div>';
     }
 
     private function saveSettings()
@@ -309,8 +310,8 @@ class PuenteDeca extends Module
             array(
                 array(
                     'form' => array(
-                        'legend' => array('title' => $this->l('Puente DeCA connection'), 'icon' => 'icon-truck'),
-                        'description' => $this->l('PrestaShop maps order and logistics facts only. DeCA validation, PDF, QR and versioning remain in Kairoseth Puente DeCA.'),
+                        'legend' => array('title' => $this->l('Kairoseth Cargo · DeCA connection'), 'icon' => 'icon-truck'),
+                        'description' => $this->l('Connect this store to Kairoseth Cargo. DeCA validation, PDF, QR and document history remain centralized in Kairoseth.'),
                         'input' => $fields,
                         'submit' => array('title' => $this->l('Save'), 'class' => 'btn btn-default pull-right'),
                     ),
