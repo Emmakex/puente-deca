@@ -226,6 +226,21 @@ If readiness or E2E acceptance fails:
 5. run reconciliation;
 6. confirm existing QR PDFs remain downloadable before reopening traffic.
 
+## Release candidate evidence
+
+Before final go-live approval, generate and retain the exact release evidence:
+
+```bash
+npm run release:connectors
+npm run release:sbom
+npm run release:manifest
+npm run release:verify
+```
+
+The resulting `dist/release-manifest.json` identifies the exact source commit, Node/package-manager versions and SHA-256 for the lockfile, OpenAPI contract, Dockerfile, connector packages and SBOM.
+
+See `docs/release-candidate-evidence.md`.
+
 ## Go-live gate
 
 Do not declare Puente DeCA production-ready until all are green:
