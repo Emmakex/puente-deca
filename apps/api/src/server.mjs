@@ -1,5 +1,11 @@
 import http from "node:http";
 import { createHash, timingSafeEqual } from "node:crypto";
+import {
+  importCsvText
+} from "../../../connectors/file-import/src/import.mjs";
+import {
+  importXlsx
+} from "../../../connectors/file-import/src/xlsx.mjs";
 import { normalizeDecaRequest } from "../../../packages/core/src/normalize-deca.mjs";
 import { validateDecaRequest } from "../../../packages/core/src/validate-deca.mjs";
 import {
@@ -79,6 +85,79 @@ const readJson = async (request, limit = 1024 * 1024) => {
 
   if (chunks.length === 0) return {};
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+};
+
+const parseShipmentImportPayload = async (payload) => {
+  const format = payload?.format;
+  const dataBase64 = payload?.dataBase64;
+
+  if (
+    (format !== "csv" && format !== "xlsx") ||
+    typeof dataBase64 !== "string" ||
+    dataBase64.length === 0 ||
+    dataBase64.length % 4 !== 0 ||
+    !/^[A-Za-z0-9+/]*={0,2}$/.test(dataBase64)
+  ) {
+    return {
+      ok: false,
+      status: 422,
+      error: "invalid_import_payload",
+      message:
+        "format must be csv/xlsx and dataBase64 must be valid base64"
+    };
+  }
+
+  const bytes = Buffer.from(
+    dataBase64,
+    "base64"
+  );
+
+  if (
+    bytes.length === 0 ||
+    bytes.length > 512 * 1024
+  ) {
+    return {
+      ok: false,
+      status: 413,
+      error: "import_file_size_limit",
+      message:
+        "Import file must be 512 KiB or smaller"
+    };
+  }
+
+  let result;
+  try {
+    result =
+      format === "csv"
+        ? importCsvText(
+            bytes.toString("utf8")
+          )
+        : await importXlsx(bytes);
+  } catch {
+    return {
+      ok: false,
+      status: 422,
+      error: "invalid_import_file",
+      message:
+        "The import file could not be parsed"
+    };
+  }
+
+  if (result.total > 500) {
+    return {
+      ok: false,
+      status: 422,
+      error: "import_row_limit",
+      message:
+        "Import files may contain at most 500 data rows"
+    };
+  }
+
+  return {
+    ok: true,
+    format,
+    result
+  };
 };
 
 const createSnapshot = (payload, publicBaseUrl) =>
@@ -790,6 +869,173 @@ export function createServer({
             organization.connectorAccessUntil ??
             validUntil.toISOString()
         });
+      }
+
+      if (
+        request.method === "POST" &&
+        url.pathname === "/v1/import/preview"
+      ) {
+        if (!requireStore(response, store)) return;
+
+        const platform =
+          await authenticatePlatformService(
+            request,
+            response,
+            store,
+            platformServiceSecret,
+            rateLimiter
+          );
+        if (!platform) return;
+
+        const payload = await readJson(request);
+        const parsed =
+          await parseShipmentImportPayload(
+            payload
+          );
+
+        if (!parsed.ok) {
+          return sendJson(
+            response,
+            parsed.status,
+            {
+              error: parsed.error,
+              message: parsed.message
+            }
+          );
+        }
+
+        const { format, result } = parsed;
+
+        return sendJson(response, 200, {
+          format,
+          total: result.total,
+          valid: result.valid,
+          invalid: result.invalid,
+          records: result.records
+        });
+      }
+
+      if (
+        request.method === "POST" &&
+        url.pathname === "/v1/import/shipments"
+      ) {
+        if (!requireStore(response, store)) return;
+
+        const platform =
+          await authenticatePlatformService(
+            request,
+            response,
+            store,
+            platformServiceSecret,
+            rateLimiter
+          );
+        if (!platform) return;
+
+        const payload = await readJson(request);
+        const parsed =
+          await parseShipmentImportPayload(
+            payload
+          );
+
+        if (!parsed.ok) {
+          return sendJson(
+            response,
+            parsed.status,
+            {
+              error: parsed.error,
+              message: parsed.message
+            }
+          );
+        }
+
+        const { format, result } = parsed;
+
+        if (result.invalid > 0) {
+          return sendJson(response, 422, {
+            error: "import_validation_failed",
+            message:
+              "Every import row must be valid before shipments are created",
+            format,
+            total: result.total,
+            valid: result.valid,
+            invalid: result.invalid,
+            records: result.records
+          });
+        }
+
+        const items = [];
+        let created = 0;
+        let replayed = 0;
+        let conflicts = 0;
+
+        for (const record of result.records) {
+          try {
+            const shipment =
+              await store.createShipment({
+                organizationId:
+                  platform.organizationId,
+                externalReference:
+                  record.request.externalReference,
+                data: record.request,
+                idempotencyKey:
+                  `file-import:${record.request.externalReference}:v1`
+              });
+
+            if (shipment.idempotentReplay) {
+              replayed += 1;
+            } else {
+              created += 1;
+            }
+
+            items.push({
+              rowNumber: record.rowNumber,
+              externalReference:
+                record.request.externalReference,
+              shipmentId:
+                shipment.shipmentId,
+              idempotentReplay:
+                shipment.idempotentReplay === true,
+              status:
+                shipment.idempotentReplay
+                  ? "replayed"
+                  : "created"
+            });
+          } catch (error) {
+            if (
+              error?.code ===
+              "IDEMPOTENCY_CONFLICT"
+            ) {
+              conflicts += 1;
+              items.push({
+                rowNumber: record.rowNumber,
+                externalReference:
+                  record.request.externalReference,
+                shipmentId: null,
+                idempotentReplay: false,
+                status: "conflict"
+              });
+              continue;
+            }
+            throw error;
+          }
+        }
+
+        return sendJson(
+          response,
+          conflicts > 0
+            ? 409
+            : created > 0
+              ? 201
+              : 200,
+          {
+            format,
+            total: result.total,
+            created,
+            replayed,
+            conflicts,
+            items
+          }
+        );
       }
 
       if (
