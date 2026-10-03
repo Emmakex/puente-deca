@@ -891,6 +891,47 @@ export function createServer({
         });
       }
 
+      const connectorPackageMatch =
+        /^\/v1\/connectors\/(woocommerce|prestashop)\/package$/.exec(
+          url.pathname
+        );
+
+      if (
+        request.method === "GET" &&
+        connectorPackageMatch
+      ) {
+        if (!requireStore(response, store)) return;
+
+        const platform =
+          await authenticatePlatformService(
+            request,
+            response,
+            store,
+            platformServiceSecret,
+            rateLimiter
+          );
+        if (!platform) return;
+
+        const connector =
+          connectorPackageMatch[1];
+
+        if (!supportedConnectorPackage(connector)) {
+          return sendJson(response, 404, {
+            error: "connector_package_not_found",
+            message:
+              "Connector package was not found"
+          });
+        }
+
+        const packageArtifact =
+          await createConnectorPackage(connector);
+
+        return sendZip(
+          response,
+          packageArtifact
+        );
+      }
+
       if (
         request.method === "POST" &&
         url.pathname === "/v1/import/preview"
