@@ -80,7 +80,8 @@ Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs
 - [x] Kairoseth Platform declared authoritative for customer auth, organizations and product RBAC.
 - [x] Server-to-server Kairoseth → Puente DeCA organization context with dedicated shared-secret authentication.
 - [ ] Platform UX to issue/revoke organization-scoped connector credentials.
-- [ ] Puente DeCA workspace inside `/app/organizations/:slug/products/puente-deca`.
+- [x] Platform-only connector credential API: create/list/revoke with one-time secret reveal.
+- [x] Puente DeCA workspace inside `/app/organizations/:slug/products/puente-deca`.
 - [ ] Production reverse proxy/public route `https://kairoseth.com/deca/d/<token>.pdf`.
 - [ ] Disable standalone customer/bootstrap semantics in production.
 - [x] Organization-scoped shipment listing for the Kairoseth workspace.
