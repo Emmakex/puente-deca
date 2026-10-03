@@ -59,6 +59,16 @@ requirePattern(
 );
 requirePattern(
   "client",
+  /test_connection[\s\S]*\/v1\/shipments\?limit=1/,
+  "WooCommerce connector must expose a non-destructive connection check"
+);
+requirePattern(
+  "settings",
+  /pdeca_woo_test_connection/,
+  "WooCommerce settings must expose the connection test action"
+);
+requirePattern(
+  "client",
   /update_shipment/,
   "WooCommerce client must support updating an existing shipment"
 );

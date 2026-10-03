@@ -33,6 +33,14 @@ final class PDECAPrestaShopClient
             && $this->token !== '';
     }
 
+    public function testConnection()
+    {
+        return $this->request(
+            'GET',
+            '/v1/shipments?limit=1'
+        );
+    }
+
     public function createShipment(array $payload, $idempotencyKey)
     {
         return $this->request(

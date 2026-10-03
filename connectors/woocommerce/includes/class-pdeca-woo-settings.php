@@ -32,6 +32,7 @@ final class PDECA_Woo_Settings {
     public static function register() {
         add_action( 'admin_menu', array( __CLASS__, 'menu' ) );
         add_action( 'admin_post_pdeca_woo_save_settings', array( __CLASS__, 'save' ) );
+        add_action( 'admin_post_pdeca_woo_test_connection', array( __CLASS__, 'test_connection' ) );
     }
 
     public static function menu() {
@@ -51,6 +52,40 @@ final class PDECA_Woo_Settings {
 
     private static function post_key( $key ) {
         return isset( $_POST[ $key ] ) ? trim( sanitize_text_field( wp_unslash( $_POST[ $key ] ) ) ) : '';
+    }
+
+    public static function test_connection() {
+        if ( ! current_user_can( 'manage_woocommerce' ) ) {
+            wp_die( esc_html__( 'You are not allowed to test this connection.', 'puente-deca-woocommerce' ) );
+        }
+        check_admin_referer( 'pdeca_woo_test_connection' );
+
+        $client = new PDECA_Woo_Client( self::get() );
+        $result = $client->test_connection();
+
+        if ( is_wp_error( $result ) ) {
+            add_settings_error(
+                'pdeca_woo',
+                'connection_test',
+                sprintf(
+                    /* translators: %s is a sanitized API error message. */
+                    __( 'Kairoseth Cargo connection failed: %s', 'puente-deca-woocommerce' ),
+                    $result->get_error_message()
+                ),
+                'error'
+            );
+        } else {
+            add_settings_error(
+                'pdeca_woo',
+                'connection_test',
+                __( 'Kairoseth Cargo connection is working.', 'puente-deca-woocommerce' ),
+                'updated'
+            );
+        }
+
+        set_transient( 'settings_errors', get_settings_errors(), 30 );
+        wp_safe_redirect( admin_url( 'admin.php?page=puente-deca' ) );
+        exit;
     }
 
     public static function save() {
@@ -155,6 +190,15 @@ final class PDECA_Woo_Settings {
                     <tr><th><label for="pdeca-timeout"><?php esc_html_e( 'HTTP timeout (seconds)', 'puente-deca-woocommerce' ); ?></label></th><td><input id="pdeca-timeout" name="request_timeout" type="number" min="5" max="30" value="<?php echo esc_attr( $settings['request_timeout'] ); ?>"></td></tr>
                 </table>
                 <?php submit_button(); ?>
+            </form>
+
+            <hr>
+            <h2><?php esc_html_e( 'Connection check', 'puente-deca-woocommerce' ); ?></h2>
+            <p><?php esc_html_e( 'After saving the URL and API key, run a non-destructive check before processing a real order.', 'puente-deca-woocommerce' ); ?></p>
+            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                <input type="hidden" name="action" value="pdeca_woo_test_connection">
+                <?php wp_nonce_field( 'pdeca_woo_test_connection' ); ?>
+                <?php submit_button( __( 'Test Kairoseth Cargo connection', 'puente-deca-woocommerce' ), 'secondary', 'submit', false ); ?>
             </form>
         </div>
         <?php

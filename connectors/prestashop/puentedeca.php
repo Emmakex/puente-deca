@@ -88,8 +88,14 @@ class PuenteDeca extends Module
         if (Tools::isSubmit('submitPuenteDecaProcess')) {
             $output .= $this->processManualOrder();
         }
+        if (Tools::isSubmit('submitPuenteDecaTestConnection')) {
+            $output .= $this->testConnection();
+        }
 
-        return $output . $this->renderSettingsForm() . $this->renderManualOrderPanel();
+        return $output
+            . $this->renderSettingsForm()
+            . $this->renderConnectionTestPanel()
+            . $this->renderManualOrderPanel();
     }
 
     public function hookActionOrderStatusPostUpdate($params)
@@ -209,6 +215,29 @@ class PuenteDeca extends Module
         return $this->displayConfirmation($this->l('Puente DeCA settings saved. The API key is stored encrypted and is never displayed again.'));
     }
 
+    private function testConnection()
+    {
+        try {
+            $client = new PDECAPrestaShopClient($this->settings());
+            $client->testConnection();
+
+            return $this->displayConfirmation(
+                $this->l('Kairoseth Cargo connection is working.')
+            );
+        } catch (Exception $exception) {
+            return $this->displayError(
+                $this->l('Kairoseth Cargo connection failed: ')
+                . Tools::safeOutput(
+                    substr(
+                        (string) $exception->getMessage(),
+                        0,
+                        300
+                    )
+                )
+            );
+        }
+    }
+
     private function processManualOrder()
     {
         $orderId = (int) Tools::getValue('PDECA_ORDER_ID');
@@ -318,6 +347,30 @@ class PuenteDeca extends Module
                 ),
             )
         );
+    }
+
+    private function renderConnectionTestPanel()
+    {
+        $action = $this->context->link->getAdminLink(
+            'AdminModules',
+            true,
+            array(),
+            array(
+                'configure' => $this->name,
+                'tab_module' => $this->tab,
+                'module_name' => $this->name,
+            )
+        );
+
+        return '<div class="panel"><h3>'
+            . $this->l('Connection check')
+            . '</h3><p>'
+            . $this->l('After saving the URL and API key, run a non-destructive check before processing a real order.')
+            . '</p><form method="post" action="'
+            . Tools::safeOutput($action)
+            . '"><button class="btn btn-default" type="submit" name="submitPuenteDecaTestConnection" value="1">'
+            . $this->l('Test Kairoseth Cargo connection')
+            . '</button></form></div>';
     }
 
     private function renderManualOrderPanel()

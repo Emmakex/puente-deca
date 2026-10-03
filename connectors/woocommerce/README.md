@@ -73,3 +73,10 @@ add_filter(
 ```
 
 Any modified payload is still validated by Puente DeCA.
+
+## Connection check
+
+After saving the Kairoseth Cargo endpoint and API key, use **Test Kairoseth Cargo connection** in the connector settings.
+
+The check is non-destructive: it performs an authenticated `GET /v1/shipments?limit=1`. It therefore verifies endpoint reachability, the organization-scoped API key, connector lease/credential expiry and read scope without creating or changing a shipment.
+

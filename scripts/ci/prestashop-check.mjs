@@ -61,6 +61,16 @@ requirePattern(
 );
 requirePattern(
   "client",
+  /testConnection[\s\S]*\/v1\/shipments\?limit=1/,
+  "PrestaShop connector must expose a non-destructive connection check"
+);
+requirePattern(
+  "main",
+  /submitPuenteDecaTestConnection/,
+  "PrestaShop settings must expose the connection test action"
+);
+requirePattern(
+  "client",
   /updateShipment/,
   "PrestaShop connector must update an existing shipment"
 );
