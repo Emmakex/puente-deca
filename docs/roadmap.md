@@ -35,7 +35,7 @@
 
 **Phase 2 status: complete for the initial production-safe character set.**
 
-Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs are production-hardening tasks.
+Full Unicode font embedding remains a production-hardening task.
 
 ## Phase 3 — Persistence and service-side tenant core
 
@@ -90,7 +90,7 @@ Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs
 ### Runtime hardening
 
 - [ ] Production Unicode font embedding.
-- [ ] Dynamic QR sizing for unusually long custom URLs.
+- [x] Automatic QR version sizing (1–40) with ECC M and a pinned encoder dependency.
 - [x] Dependency lockfile, npm cache and reproducible `npm ci` install for runtime/XLSX dependencies.
 - [x] WooCommerce deterministic release ZIP packaging with SHA-256 manifest.
 - [ ] WooCommerce live-store smoke test.
