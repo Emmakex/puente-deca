@@ -18,6 +18,7 @@ const requiredPaths = [
   "/v1/deca/{documentId}",
   "/v1/credentials",
   "/v1/import/preview",
+  "/v1/import/shipments",
   "/v1/usage/documents",
   "/v1/access/connectors",
   "/d/{token}.pdf"
