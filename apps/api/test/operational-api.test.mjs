@@ -45,6 +45,9 @@ const payload = {
   observations: null
 };
 
+const PLATFORM_SERVICE_SECRET =
+  "kairoseth-ci-service-secret-0123456789abcdef";
+
 const withOperationalServer = async (fn) => {
   const directory = await mkdtemp(
     join(tmpdir(), "puente-deca-api-")
@@ -80,7 +83,9 @@ const withOperationalServer = async (fn) => {
     publicBaseUrl:
       "https://deca.example.com/public",
     store,
-    artifactStore
+    artifactStore,
+    platformServiceSecret:
+      PLATFORM_SERVICE_SECRET
   });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -92,7 +97,9 @@ const withOperationalServer = async (fn) => {
         `http://127.0.0.1:${address.port}`,
       apiKey: createdCredential.apiKey,
       organization,
-      store
+      store,
+      platformServiceSecret:
+        PLATFORM_SERVICE_SECRET
     });
   } finally {
     server.close();
@@ -428,6 +435,115 @@ test("updates a shipment and generates a linked DeCA revision", async () => {
           "document.version.created"
         ]
       );
+    }
+  );
+});
+
+
+test("Kairoseth service auth lazily provisions and lists an isolated organization", async () => {
+  await withOperationalServer(
+    async ({
+      baseUrl,
+      platformServiceSecret,
+      store
+    }) => {
+      const organizationId =
+        "kairoseth-org-001";
+      const headers = {
+        "content-type": "application/json",
+        "x-kairoseth-service-secret":
+          platformServiceSecret,
+        "x-kairoseth-organization-id":
+          organizationId,
+        "idempotency-key":
+          "platform-shipment-001"
+      };
+
+      const createdResponse = await fetch(
+        `${baseUrl}/v1/shipments`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify(payload)
+        }
+      );
+      const created =
+        await createdResponse.json();
+
+      assert.equal(createdResponse.status, 201);
+      assert.equal(
+        created.organizationId,
+        organizationId
+      );
+
+      const organization =
+        await store.getOrganization(
+          organizationId
+        );
+      assert.equal(
+        organization.externalReference,
+        organizationId
+      );
+
+      const listResponse = await fetch(
+        `${baseUrl}/v1/shipments?limit=10`,
+        {
+          headers: {
+            "x-kairoseth-service-secret":
+              platformServiceSecret,
+            "x-kairoseth-organization-id":
+              organizationId
+          }
+        }
+      );
+      const list =
+        await listResponse.json();
+
+      assert.equal(listResponse.status, 200);
+      assert.equal(list.total, 1);
+      assert.equal(list.items.length, 1);
+      assert.equal(
+        list.items[0].shipmentId,
+        created.shipmentId
+      );
+
+      const otherResponse = await fetch(
+        `${baseUrl}/v1/shipments`,
+        {
+          headers: {
+            "x-kairoseth-service-secret":
+              platformServiceSecret,
+            "x-kairoseth-organization-id":
+              "kairoseth-org-002"
+          }
+        }
+      );
+      const other =
+        await otherResponse.json();
+
+      assert.equal(otherResponse.status, 200);
+      assert.equal(other.total, 0);
+      assert.deepEqual(other.items, []);
+    }
+  );
+});
+
+test("Kairoseth service auth rejects an invalid shared secret", async () => {
+  await withOperationalServer(
+    async ({ baseUrl }) => {
+      const response = await fetch(
+        `${baseUrl}/v1/shipments`,
+        {
+          headers: {
+            "x-kairoseth-service-secret":
+              "invalid-service-secret",
+            "x-kairoseth-organization-id":
+              "kairoseth-org-001"
+          }
+        }
+      );
+
+      assert.equal(response.status, 401);
     }
   );
 });

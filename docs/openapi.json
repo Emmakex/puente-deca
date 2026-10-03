@@ -92,6 +92,10 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "platformServiceSecret": [],
+            "platformOrganizationId": []
           }
         ],
         "parameters": [
@@ -134,6 +138,43 @@
             "description": "Invalid shipment data"
           }
         }
+      },
+      "get": {
+        "operationId": "listShipments",
+        "summary": "List tenant-scoped shipments",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "platformServiceSecret": [],
+            "platformOrganizationId": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Shipment list"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope missing"
+          }
+        }
       }
     },
     "/v1/shipments/{shipmentId}": {
@@ -143,6 +184,10 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "platformServiceSecret": [],
+            "platformOrganizationId": []
           }
         ],
         "parameters": [
@@ -171,6 +216,10 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "platformServiceSecret": [],
+            "platformOrganizationId": []
           }
         ],
         "parameters": [
@@ -217,6 +266,10 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "platformServiceSecret": [],
+            "platformOrganizationId": []
           }
         ],
         "parameters": [
@@ -250,6 +303,10 @@
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "platformServiceSecret": [],
+            "platformOrganizationId": []
           }
         ],
         "parameters": [
@@ -328,6 +385,18 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "Puente DeCA API key"
+      },
+      "platformServiceSecret": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Kairoseth-Service-Secret",
+        "description": "Server-to-server secret accepted only from Kairoseth Platform."
+      },
+      "platformOrganizationId": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Kairoseth-Organization-Id",
+        "description": "Canonical Kairoseth organization ID paired with platform service authentication."
       }
     },
     "parameters": {
