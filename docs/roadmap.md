@@ -108,6 +108,7 @@ Characters outside the embedded font set continue to fail closed rather than bei
 - [x] Artifact reconciliation tooling for premature loss, post-retention loss, orphans and incomplete purges.
 - [ ] Live GridFS upload/read/delete and orphan-reconciliation smoke acceptance.
 - [x] MongoDB Atlas + GridFS backup/restore runbook.
+- [x] Guarded logical backup + isolated DR restore automation with SHA-256 and GridFS integrity verification.
 - [ ] Live backup/restore drill against a staging/DR Atlas target.
 - [x] Per-organization/per-credential authenticated API rate limiting with 429 + Retry-After.
 - [ ] Edge/reverse-proxy volumetric protection for public QR and unauthenticated abuse.
