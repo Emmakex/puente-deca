@@ -59,7 +59,7 @@ requirePattern(
 );
 requirePattern(
   "client",
-  /test_connection[\\s\\S]*\\/v1\\/shipments\\?limit=1/,
+  /test_connection[\s\S]*\/v1\/shipments\?limit=1/,
   "WooCommerce connector must expose a non-destructive connection check"
 );
 requirePattern(
