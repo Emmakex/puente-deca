@@ -205,6 +205,30 @@ purgedArtifactsStillPresent = 0
 
 ### 10. Backup/restore
 
+Portable logical backup:
+
+```bash
+MONGODB_URI='<source Atlas URI>' \
+MONGODB_DB_NAME=kairoseth \
+npm run production:backup
+```
+
+Isolated DR restore:
+
+```bash
+RESTORE_MONGODB_URI='<DR Atlas URI>' \
+RESTORE_DB_NAME='kairoseth_deca_dr_<id>' \
+BACKUP_ARCHIVE='<archive>.archive.gz' \
+BACKUP_EXPECTED_SHA256='sha256:<hash>' \
+npm run production:restore-drill
+```
+
+The restore wrapper refuses the production database name `kairoseth` and verifies a restored GridFS PDF against its stored SHA-256.
+
+See `docs/backup-restore-automation.md`.
+
+
+
 Complete the staging/DR drill in `docs/backup-restore.md` and verify a restored PDF through its document metadata and SHA-256.
 
 ## Operations
