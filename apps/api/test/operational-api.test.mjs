@@ -78,7 +78,7 @@ const withOperationalServer = async (fn) => {
 
   const server = createServer({
     publicBaseUrl:
-      "https://deca.example.com",
+      "https://deca.example.com/public",
     store,
     artifactStore
   });
@@ -109,7 +109,7 @@ const authHeaders = (apiKey) => ({
   "content-type": "application/json"
 });
 
-test("operational flow stores a DeCA and exposes its QR URL directly", async () => {
+test("operational flow stores a DeCA and exposes its prefixed QR URL directly", async () => {
   await withOperationalServer(
     async ({ baseUrl, apiKey, store, organization }) => {
       const createResponse = await fetch(
@@ -180,15 +180,46 @@ test("operational flow stores a DeCA and exposes its QR URL directly", async () 
         generated.document.version,
         1
       );
+      assert.equal(generated.reused, false);
       assert.match(
         generated.artifact.sha256,
         /^sha256:[a-f0-9]{64}$/
+      );
+      assert.equal(
+        generated.artifact.retentionNotBefore,
+        "2027-10-05T00:00:00.000Z"
+      );
+
+      const repeatedGeneration =
+        await fetch(
+          `${baseUrl}/v1/shipments/${shipment.shipmentId}/deca`,
+          {
+            method: "POST",
+            headers: authHeaders(apiKey)
+          }
+        );
+      const repeated =
+        await repeatedGeneration.json();
+
+      assert.equal(
+        repeatedGeneration.status,
+        200
+      );
+      assert.equal(repeated.reused, true);
+      assert.equal(
+        repeated.document.documentId,
+        generated.document.documentId
       );
 
       const accessPath =
         new URL(
           generated.document.accessUrl
         ).pathname;
+
+      assert.match(
+        accessPath,
+        /^\/public\/d\//
+      );
 
       const publicResponse = await fetch(
         `${baseUrl}${accessPath}`
@@ -250,6 +281,13 @@ test("operational flow stores a DeCA and exposes its QR URL directly", async () 
       assert.equal(
         shipmentResponse.status,
         200
+      );
+
+      const storedShipment =
+        await shipmentResponse.json();
+      assert.deepEqual(
+        storedShipment.documentVersionIds,
+        [generated.document.documentId]
       );
 
       const events =

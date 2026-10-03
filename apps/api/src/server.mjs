@@ -151,6 +151,20 @@ const sha256 = (bytes) =>
     .update(bytes)
     .digest("hex")}`;
 
+const isPublicDocumentPath = (pathname) =>
+  /(?:^|\/)d\/[A-Za-z0-9_-]+\.pdf$/.test(pathname);
+
+const retentionNotBefore = (transportDate) => {
+  const value = new Date(`${transportDate}T00:00:00.000Z`);
+
+  if (Number.isNaN(value.getTime())) {
+    return null;
+  }
+
+  value.setUTCFullYear(value.getUTCFullYear() + 1);
+  return value.toISOString();
+};
+
 export function createServer({
   publicBaseUrl =
     process.env.PUBLIC_BASE_URL ??
@@ -167,9 +181,7 @@ export function createServer({
 
       if (
         request.method === "GET" &&
-        /^\/d\/[A-Za-z0-9_-]+\.pdf$/.test(
-          url.pathname
-        )
+        isPublicDocumentPath(url.pathname)
       ) {
         if (
           !requireOperationalStores(
@@ -502,6 +514,27 @@ export function createServer({
               });
           }
 
+          const candidate =
+            createDocumentSnapshot(
+              shipment.data,
+              {
+                baseUrl: publicBaseUrl
+              }
+            );
+
+          if (
+            previous &&
+            previous.snapshot.contentHash ===
+              candidate.contentHash
+          ) {
+            return sendJson(response, 200, {
+              shipmentId,
+              document: previous.snapshot,
+              artifact: previous.artifact,
+              reused: true
+            });
+          }
+
           const snapshot = previous
             ? reviseDocumentSnapshot(
                 previous.snapshot,
@@ -510,21 +543,24 @@ export function createServer({
                   baseUrl: publicBaseUrl
                 }
               )
-            : createDocumentSnapshot(
-                shipment.data,
-                {
-                  baseUrl: publicBaseUrl
-                }
-              );
+            : candidate;
 
           const pdf =
             renderNativeDecaPdf(snapshot);
-          const artifact =
+          const storedArtifact =
             await artifactStore.save({
               documentId:
                 snapshot.documentId,
               bytes: pdf
             });
+
+          const artifact = {
+            ...storedArtifact,
+            retentionNotBefore:
+              retentionNotBefore(
+                shipment.data.transport.date
+              )
+          };
 
           try {
             const version =
@@ -539,11 +575,12 @@ export function createServer({
             return sendJson(response, 201, {
               shipmentId,
               document: version.snapshot,
-              artifact: version.artifact
+              artifact: version.artifact,
+              reused: false
             });
           } catch (error) {
             await artifactStore.remove(
-              artifact.storageKey
+              storedArtifact.storageKey
             );
             throw error;
           }
