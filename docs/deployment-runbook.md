@@ -71,6 +71,16 @@ npm run server
 
 The process opens one shared MongoDB client/pool for both metadata and GridFS.
 
+## Pre-deployment contract gate
+
+Before connecting production infrastructure, run:
+
+```bash
+npm run contract:kairoseth
+```
+
+This locally validates the canonical Kairoseth server-to-server flow, Unicode DeCA generation, public PDF path, checksum integrity, document reuse and cross-organization isolation.
+
 ## Acceptance sequence
 
 ### 1. Liveness
