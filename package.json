@@ -10,6 +10,7 @@
   "scripts": {
     "check": "node scripts/ci/repo-check.mjs && node scripts/ci/openapi-check.mjs",
     "test": "node --test",
-    "server": "node apps/api/src/main.mjs"
+    "server": "node apps/api/src/main.mjs",
+    "file-import:demo": "node connectors/file-import/src/cli.mjs examples/file-import/shipments.csv"
   }
 }
