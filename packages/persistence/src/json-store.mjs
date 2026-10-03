@@ -676,6 +676,32 @@ export class JsonStore {
     return clone(version);
   }
 
+  async findDocumentVersionByAccessPath(pathname) {
+    const normalizedPathname = requireText(
+      pathname,
+      "pathname"
+    );
+    const state = await this.#readState();
+
+    for (const version of Object.values(state.documentVersions)) {
+      const accessUrl = version?.snapshot?.accessUrl;
+      if (typeof accessUrl !== "string") continue;
+
+      let accessPath;
+      try {
+        accessPath = new URL(accessUrl).pathname;
+      } catch {
+        continue;
+      }
+
+      if (accessPath === normalizedPathname) {
+        return clone(version);
+      }
+    }
+
+    return null;
+  }
+
   async listAuditEvents({
     organizationId,
     shipmentId = null
