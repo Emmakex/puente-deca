@@ -545,6 +545,64 @@ export class JsonStore {
     return clone(shipment);
   }
 
+  async updateShipment({
+    organizationId,
+    shipmentId,
+    data
+  }) {
+    const normalizedOrganizationId = requireText(
+      organizationId,
+      "organizationId"
+    );
+    const normalizedShipmentId = requireText(
+      shipmentId,
+      "shipmentId"
+    );
+    const normalizedData = requireRecord(data, "data");
+
+    return this.#mutate((state) => {
+      const shipment =
+        state.shipments[normalizedShipmentId];
+
+      if (
+        !shipment ||
+        shipment.organizationId !==
+          normalizedOrganizationId
+      ) {
+        throw conflict(
+          "Shipment does not exist in this organization",
+          "SHIPMENT_NOT_FOUND"
+        );
+      }
+
+      if (
+        fingerprint(shipment.data) ===
+        fingerprint(normalizedData)
+      ) {
+        return {
+          ...clone(shipment),
+          changed: false
+        };
+      }
+
+      const at = this.#nowIso();
+      shipment.data = clone(normalizedData);
+      shipment.updatedAt = at;
+
+      this.#appendAudit(state, {
+        organizationId: normalizedOrganizationId,
+        shipmentId: normalizedShipmentId,
+        type: "shipment.updated",
+        at
+      });
+
+      return {
+        ...clone(shipment),
+        changed: true
+      };
+    });
+  }
+
   async appendDocumentVersion({
     organizationId,
     shipmentId,

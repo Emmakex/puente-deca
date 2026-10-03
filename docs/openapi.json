@@ -164,6 +164,50 @@
             "description": "Shipment not found"
           }
         }
+      },
+      "put": {
+        "operationId": "updateShipment",
+        "summary": "Update operational shipment data before regenerating DeCA",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ShipmentId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecaRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated shipment"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope missing"
+          },
+          "404": {
+            "description": "Shipment not found"
+          },
+          "409": {
+            "description": "External reference change rejected"
+          },
+          "422": {
+            "description": "Invalid shipment data"
+          }
+        }
       }
     },
     "/v1/shipments/{shipmentId}/deca": {

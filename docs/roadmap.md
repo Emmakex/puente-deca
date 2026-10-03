@@ -55,6 +55,7 @@ Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs
 - [x] POST /v1/shipments.
 - [x] POST /v1/shipments/:id/deca.
 - [x] GET /v1/shipments/:id.
+- [x] PUT /v1/shipments/:id with audited operational updates.
 - [x] GET /v1/deca/:id.
 - [x] Driver/inspection direct PDF endpoint at the QR URL (no login).
 - [x] Public QR endpoint supports a path prefix in PUBLIC_BASE_URL.

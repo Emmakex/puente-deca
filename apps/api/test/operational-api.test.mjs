@@ -330,3 +330,104 @@ test("operational routes reject missing API credentials", async () => {
     }
   );
 });
+
+
+test("updates a shipment and generates a linked DeCA revision", async () => {
+  await withOperationalServer(
+    async ({ baseUrl, apiKey, store, organization }) => {
+      const createResponse = await fetch(
+        `${baseUrl}/v1/shipments`,
+        {
+          method: "POST",
+          headers: {
+            ...authHeaders(apiKey),
+            "idempotency-key":
+              "order-update-001"
+          },
+          body: JSON.stringify(payload)
+        }
+      );
+      const shipment =
+        await createResponse.json();
+
+      const firstResponse = await fetch(
+        `${baseUrl}/v1/shipments/${shipment.shipmentId}/deca`,
+        {
+          method: "POST",
+          headers: authHeaders(apiKey)
+        }
+      );
+      const first =
+        await firstResponse.json();
+
+      assert.equal(firstResponse.status, 201);
+      assert.equal(first.document.version, 1);
+
+      const changedPayload =
+        structuredClone(payload);
+      changedPayload.route.destination =
+        "Sabadell";
+      changedPayload.transport.vehicle
+        .tractorRegistration = "9999ZZZ";
+
+      const updateResponse = await fetch(
+        `${baseUrl}/v1/shipments/${shipment.shipmentId}`,
+        {
+          method: "PUT",
+          headers: authHeaders(apiKey),
+          body: JSON.stringify(
+            changedPayload
+          )
+        }
+      );
+      const updated =
+        await updateResponse.json();
+
+      assert.equal(updateResponse.status, 200);
+      assert.equal(updated.changed, true);
+      assert.equal(
+        updated.data.route.destination,
+        "Sabadell"
+      );
+
+      const secondResponse = await fetch(
+        `${baseUrl}/v1/shipments/${shipment.shipmentId}/deca`,
+        {
+          method: "POST",
+          headers: authHeaders(apiKey)
+        }
+      );
+      const second =
+        await secondResponse.json();
+
+      assert.equal(secondResponse.status, 201);
+      assert.equal(second.document.version, 2);
+      assert.equal(
+        second.document.previousVersionId,
+        first.document.documentId
+      );
+      assert.notEqual(
+        second.document.contentHash,
+        first.document.contentHash
+      );
+
+      const events =
+        await store.listAuditEvents({
+          organizationId:
+            organization.organizationId,
+          shipmentId:
+            shipment.shipmentId
+        });
+
+      assert.deepEqual(
+        events.map((event) => event.type),
+        [
+          "shipment.created",
+          "document.version.created",
+          "shipment.updated",
+          "document.version.created"
+        ]
+      );
+    }
+  );
+});
