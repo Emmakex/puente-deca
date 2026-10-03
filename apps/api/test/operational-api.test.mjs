@@ -1133,7 +1133,8 @@ test("Kairoseth manages connector credentials with one-time secret reveal", asyn
           method: "POST",
           headers: serviceHeaders,
           body: JSON.stringify({
-            name: "WooCommerce production"
+            name: "WooCommerce production",
+            kind: "woocommerce"
           })
         }
       );
@@ -1148,6 +1149,10 @@ test("Kairoseth manages connector credentials with one-time secret reveal", asyn
       assert.equal(
         created.credential.name,
         "WooCommerce production"
+      );
+      assert.equal(
+        created.credential.kind,
+        "woocommerce"
       );
       assert.equal(
         Object.hasOwn(
@@ -1174,11 +1179,49 @@ test("Kairoseth manages connector credentials with one-time secret reveal", asyn
       assert.equal(listResponse.status, 200);
       assert.equal(listed.items.length, 1);
       assert.equal(
+        listed.items[0].kind,
+        "woocommerce"
+      );
+      assert.equal(
         Object.hasOwn(
           listed.items[0],
           "apiKey"
         ),
         false
+      );
+
+      const invalidKind = await fetch(
+        `${baseUrl}/v1/credentials`,
+        {
+          method: "POST",
+          headers: serviceHeaders,
+          body: JSON.stringify({
+            name: "Unsupported connector",
+            kind: "magento"
+          })
+        }
+      );
+      assert.equal(invalidKind.status, 422);
+
+      const legacyDefaultResponse = await fetch(
+        `${baseUrl}/v1/credentials`,
+        {
+          method: "POST",
+          headers: serviceHeaders,
+          body: JSON.stringify({
+            name: "Legacy API integration"
+          })
+        }
+      );
+      assert.equal(
+        legacyDefaultResponse.status,
+        201
+      );
+      const legacyDefault =
+        await legacyDefaultResponse.json();
+      assert.equal(
+        legacyDefault.credential.kind,
+        "api"
       );
 
       const connectorResponse = await fetch(

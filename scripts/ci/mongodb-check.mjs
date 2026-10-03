@@ -42,6 +42,16 @@ requirePattern(
 );
 requirePattern(
   adapter,
+  /kind: normalizedKind/,
+  "MongoDB credentials must persist the commercial connector kind"
+);
+requirePattern(
+  adapter,
+  /kind: document\.kind \?\? "api"/,
+  "MongoDB public credentials must preserve legacy api-kind compatibility"
+);
+requirePattern(
+  adapter,
   /document_lineage_unique/,
   "Document lineage needs a unique MongoDB index"
 );

@@ -458,6 +458,29 @@ const normalizeCredentialExpiry = (value) => {
     : date;
 };
 
+const CONNECTOR_KINDS = [
+  "woocommerce",
+  "prestashop",
+  "api"
+];
+
+const normalizeConnectorKind = (value) => {
+  if (value === undefined || value === null || value === "") {
+    return "api";
+  }
+
+  if (
+    typeof value !== "string" ||
+    !CONNECTOR_KINDS.includes(
+      value.trim().toLowerCase()
+    )
+  ) {
+    return null;
+  }
+
+  return value.trim().toLowerCase();
+};
+
 const CONNECTOR_SCOPES = [
   "shipments:read",
   "shipments:write",
@@ -1214,6 +1237,10 @@ export function createServer({
           typeof payload?.name === "string"
             ? payload.name.trim()
             : "";
+        const kind =
+          normalizeConnectorKind(
+            payload?.kind
+          );
         const scopes =
           normalizeConnectorScopes(
             payload?.scopes
@@ -1226,13 +1253,14 @@ export function createServer({
         if (
           !name ||
           name.length > 120 ||
+          !kind ||
           !scopes ||
           expiresAt === undefined
         ) {
           return sendJson(response, 422, {
             error: "invalid_credential_request",
             message:
-              "Credential name and supported scopes are required"
+              "Credential name, kind and supported scopes are required"
           });
         }
 
@@ -1242,6 +1270,7 @@ export function createServer({
               organizationId:
                 platform.organizationId,
               name,
+              kind,
               scopes,
               expiresAt
             });

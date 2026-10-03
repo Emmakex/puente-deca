@@ -74,10 +74,26 @@ const normalizeScopes = (scopes) => {
   ].sort();
 };
 
+const CREDENTIAL_KINDS = [
+  "woocommerce",
+  "prestashop",
+  "api"
+];
+
+const normalizeCredentialKind = (kind) => {
+  const normalized =
+    String(kind ?? "api").trim().toLowerCase();
+  if (!CREDENTIAL_KINDS.includes(normalized)) {
+    throw new TypeError("kind must be a supported credential kind");
+  }
+  return normalized;
+};
+
 const publicCredential = (credential) => ({
   credentialId: credential.credentialId,
   organizationId: credential.organizationId,
   name: credential.name,
+  kind: credential.kind ?? "api",
   keyPrefix: credential.keyPrefix,
   scopes: [...credential.scopes],
   createdAt: credential.createdAt,
@@ -356,6 +372,7 @@ export class JsonStore {
   async createApiCredential({
     organizationId,
     name,
+    kind = "api",
     scopes = [
       "shipments:read",
       "shipments:write",
@@ -369,6 +386,7 @@ export class JsonStore {
       "organizationId"
     );
     const normalizedName = requireText(name, "name");
+    const normalizedKind = normalizeCredentialKind(kind);
     const normalizedScopes = normalizeScopes(scopes);
     const apiKey = requireText(
       this.#apiKeyFactory(),
@@ -419,6 +437,7 @@ export class JsonStore {
         credentialId,
         organizationId: normalizedOrganizationId,
         name: normalizedName,
+        kind: normalizedKind,
         keyPrefix: apiKey.slice(0, 12),
         keyHash: hashApiKey(apiKey),
         scopes: normalizedScopes,

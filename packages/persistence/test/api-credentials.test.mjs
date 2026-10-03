@@ -69,6 +69,11 @@ test("creates an API key once while persisting only its hash", async () => {
       created.credential.scopes,
       ["documents:write", "shipments:write"]
     );
+    assert.equal(
+      created.credential.kind,
+      "api",
+      "legacy callers without kind must default to api"
+    );
 
     const raw = await readFile(filePath, "utf8");
     assert.equal(
@@ -87,6 +92,86 @@ test("creates an API key once while persisting only its hash", async () => {
     assert.equal(
       authenticated.organizationId,
       organization.organizationId
+    );
+  });
+});
+
+test("credential kind is persisted and returned without exposing key material", async () => {
+  await withStore(async ({ store, filePath }) => {
+    const organization =
+      await store.createOrganization({
+        name: "Typed credentials"
+      });
+
+    await store.setOrganizationConnectorAccessUntil({
+      organizationId:
+        organization.organizationId,
+      validUntil:
+        new Date("2026-11-03T05:45:00.000Z")
+    });
+
+    const created =
+      await store.createApiCredential({
+        organizationId:
+          organization.organizationId,
+        name: "WooCommerce production",
+        kind: "woocommerce"
+      });
+
+    assert.equal(
+      created.credential.kind,
+      "woocommerce"
+    );
+
+    const listed =
+      await store.listApiCredentials(
+        organization.organizationId
+      );
+    assert.equal(listed.length, 1);
+    assert.equal(
+      listed[0].kind,
+      "woocommerce"
+    );
+    assert.equal(
+      "keyHash" in listed[0],
+      false
+    );
+
+    const raw = JSON.parse(
+      await readFile(filePath, "utf8")
+    );
+    const persisted =
+      Object.values(raw.apiCredentials)[0];
+    assert.equal(
+      persisted.kind,
+      "woocommerce"
+    );
+  });
+});
+
+test("unsupported credential kinds fail closed", async () => {
+  await withStore(async ({ store }) => {
+    const organization =
+      await store.createOrganization({
+        name: "Typed credentials"
+      });
+
+    await store.setOrganizationConnectorAccessUntil({
+      organizationId:
+        organization.organizationId,
+      validUntil:
+        new Date("2026-11-03T05:45:00.000Z")
+    });
+
+    await assert.rejects(
+      () =>
+        store.createApiCredential({
+          organizationId:
+            organization.organizationId,
+          name: "Unknown connector",
+          kind: "magento"
+        }),
+      /supported credential kind/
     );
   });
 });

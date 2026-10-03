@@ -63,10 +63,29 @@ if (!credentialCollection?.patch) {
   );
 }
 
-const credentialExpiry =
+const credentialSchema =
   credentialCollection?.post?.requestBody?.content?.[
     "application/json"
-  ]?.schema?.properties?.expiresAt;
+  ]?.schema;
+const credentialExpiry =
+  credentialSchema?.properties?.expiresAt;
+const credentialKind =
+  credentialSchema?.properties?.kind;
+
+if (
+  !credentialKind ||
+  credentialKind.default !== "api" ||
+  JSON.stringify(credentialKind.enum) !==
+    JSON.stringify([
+      "woocommerce",
+      "prestashop",
+      "api"
+    ])
+) {
+  throw new Error(
+    "Credential create contract must expose typed connector kind"
+  );
+}
 
 if (
   !credentialExpiry ||

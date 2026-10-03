@@ -65,10 +65,26 @@ const iso = (value) => {
   return date.toISOString();
 };
 
+const CREDENTIAL_KINDS = [
+  "woocommerce",
+  "prestashop",
+  "api"
+];
+
+const normalizeCredentialKind = (kind) => {
+  const normalized =
+    String(kind ?? "api").trim().toLowerCase();
+  if (!CREDENTIAL_KINDS.includes(normalized)) {
+    throw new TypeError("kind must be a supported credential kind");
+  }
+  return normalized;
+};
+
 const publicCredential = (document) => ({
   credentialId: document.credentialId,
   organizationId: document.organizationId,
   name: document.name,
+  kind: document.kind ?? "api",
   keyPrefix: document.keyPrefix,
   scopes: [...document.scopes],
   createdAt: iso(document.createdAt),
@@ -582,6 +598,7 @@ export class MongoStore {
   async createApiCredential({
     organizationId,
     name,
+    kind = "api",
     scopes = [
       "shipments:read",
       "shipments:write",
@@ -595,6 +612,8 @@ export class MongoStore {
         organizationId,
         "organizationId"
       );
+    const normalizedKind =
+      normalizeCredentialKind(kind);
     const normalizedScopes =
       normalizeScopes(scopes);
     const apiKey = requireText(
@@ -648,6 +667,7 @@ export class MongoStore {
         organizationId:
           normalizedOrganizationId,
         name: requireText(name, "name"),
+        kind: normalizedKind,
         keyPrefix: apiKey.slice(0, 12),
         keyHash: hashApiKey(apiKey),
         scopes: normalizedScopes,

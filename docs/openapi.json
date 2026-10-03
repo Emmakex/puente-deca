@@ -452,6 +452,16 @@
                     "minLength": 1,
                     "maxLength": 120
                   },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "woocommerce",
+                      "prestashop",
+                      "api"
+                    ],
+                    "default": "api",
+                    "description": "Commercial connector category. Omitted legacy credentials default to api."
+                  },
                   "scopes": {
                     "type": "array",
                     "minItems": 1,
@@ -490,7 +500,7 @@
             "description": "Organization connector access is inactive"
           },
           "422": {
-            "description": "Invalid name, scope, or credential expiry"
+            "description": "Invalid name, kind, scope, or credential expiry"
           },
           "429": {
             "description": "Authenticated subject exceeded the per-process request limit"
