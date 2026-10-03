@@ -56,7 +56,7 @@ Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs
 - [x] GET /v1/shipments/:id.
 - [x] GET /v1/deca/:id.
 - [x] Driver/inspection direct PDF endpoint at the QR URL (no login).
-- [ ] OpenAPI contract.
+- [x] OpenAPI 3.1 contract with CI validation.\n\n**Phase 4 status: complete for the first operational API.**
 
 ## Phase 5 — First connectors
 

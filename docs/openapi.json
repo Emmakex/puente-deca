@@ -1,0 +1,475 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Puente DeCA API",
+    "version": "0.1.0",
+    "description": "API-first bridge for Spanish electronic transport control documents (DeCA)."
+  },
+  "servers": [
+    {
+      "url": "https://deca.example.com"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "getHealth",
+        "summary": "Service health",
+        "responses": {
+          "200": {
+            "description": "Service is alive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/deca/validate": {
+      "post": {
+        "operationId": "validateDeca",
+        "summary": "Validate and normalize DeCA data",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecaRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Valid payload"
+          },
+          "422": {
+            "description": "Invalid payload"
+          }
+        }
+      }
+    },
+    "/v1/deca/pdf": {
+      "post": {
+        "operationId": "renderDecaPdf",
+        "summary": "Render an unstored native DeCA PDF",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecaRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Native PDF",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "contentEncoding": "binary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation, character or QR capacity error"
+          }
+        }
+      }
+    },
+    "/v1/shipments": {
+      "post": {
+        "operationId": "createShipment",
+        "summary": "Create a tenant-scoped shipment",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecaRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Idempotent replay"
+          },
+          "201": {
+            "description": "Shipment created"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope missing"
+          },
+          "409": {
+            "description": "Idempotency conflict"
+          },
+          "422": {
+            "description": "Invalid shipment data"
+          }
+        }
+      }
+    },
+    "/v1/shipments/{shipmentId}": {
+      "get": {
+        "operationId": "getShipment",
+        "summary": "Get a shipment",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ShipmentId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Shipment"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope missing"
+          },
+          "404": {
+            "description": "Shipment not found"
+          }
+        }
+      }
+    },
+    "/v1/shipments/{shipmentId}/deca": {
+      "post": {
+        "operationId": "generateShipmentDeca",
+        "summary": "Generate, store and version a DeCA for a shipment",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ShipmentId"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Stored DeCA document version"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope missing"
+          },
+          "404": {
+            "description": "Shipment not found"
+          },
+          "422": {
+            "description": "Document generation rejected"
+          }
+        }
+      }
+    },
+    "/v1/deca/{documentId}": {
+      "get": {
+        "operationId": "getDecaMetadata",
+        "summary": "Get stored DeCA metadata",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DocumentId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Stored document metadata"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope missing"
+          },
+          "404": {
+            "description": "Document not found"
+          }
+        }
+      }
+    },
+    "/d/{token}.pdf": {
+      "get": {
+        "operationId": "downloadInspectionPdf",
+        "summary": "Direct QR/inspection PDF download without login",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Stored native DeCA PDF",
+            "headers": {
+              "X-DeCA-Document-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-DeCA-Version": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "contentEncoding": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Document not found"
+          },
+          "500": {
+            "description": "Stored artifact integrity failure"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Puente DeCA API key"
+      }
+    },
+    "parameters": {
+      "ShipmentId": {
+        "name": "shipmentId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "DocumentId": {
+        "name": "documentId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      }
+    },
+    "schemas": {
+      "Health": {
+        "type": "object",
+        "required": [
+          "status",
+          "service"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok"
+          },
+          "service": {
+            "type": "string",
+            "const": "puente-deca"
+          }
+        }
+      },
+      "Party": {
+        "type": "object",
+        "required": [
+          "legalName",
+          "taxId"
+        ],
+        "properties": {
+          "legalName": {
+            "type": "string",
+            "minLength": 1
+          },
+          "taxId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "address": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "DecaRequest": {
+        "type": "object",
+        "required": [
+          "externalReference",
+          "contractualShipper",
+          "effectiveCarrier",
+          "route",
+          "goods",
+          "transport"
+        ],
+        "properties": {
+          "externalReference": {
+            "type": "string",
+            "minLength": 1
+          },
+          "contractualShipper": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Party"
+              },
+              {
+                "required": [
+                  "address"
+                ]
+              }
+            ]
+          },
+          "effectiveCarrier": {
+            "$ref": "#/components/schemas/Party"
+          },
+          "route": {
+            "type": "object",
+            "required": [
+              "origin",
+              "destination"
+            ],
+            "properties": {
+              "origin": {
+                "type": "string",
+                "minLength": 1
+              },
+              "destination": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "goods": {
+            "type": "object",
+            "required": [
+              "nature"
+            ],
+            "properties": {
+              "nature": {
+                "type": "string",
+                "minLength": 1
+              },
+              "weight": {
+                "$ref": "#/components/schemas/Measure"
+              },
+              "alternativeMeasure": {
+                "$ref": "#/components/schemas/Measure"
+              }
+            }
+          },
+          "transport": {
+            "type": "object",
+            "required": [
+              "date",
+              "vehicle"
+            ],
+            "properties": {
+              "date": {
+                "type": "string",
+                "format": "date"
+              },
+              "vehicle": {
+                "type": "object",
+                "required": [
+                  "tractorRegistration"
+                ],
+                "properties": {
+                  "tractorRegistration": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "trailerRegistration": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              },
+              "specialTrafficAuthorization": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          "observations": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "Measure": {
+        "type": "object",
+        "required": [
+          "value",
+          "unit"
+        ],
+        "properties": {
+          "value": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

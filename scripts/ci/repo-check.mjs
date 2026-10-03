@@ -17,6 +17,8 @@ const requiredPaths = [
   "packages/persistence/src/file-artifact-store.mjs",
   "packages/persistence/test/api-credentials.test.mjs",
   "docs/architecture.md",
+  "docs/openapi.json",
+  "scripts/ci/openapi-check.mjs",
   "docs/legal-traceability.md",
   "docs/roadmap.md",
   "examples/deca-request.json"
