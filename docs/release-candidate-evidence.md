@@ -79,3 +79,14 @@ It executes normal checks/tests, the Kairoseth E2E contract, deterministic conne
 The evidence bundle is retained as a GitHub Actions artifact for 90 days.
 
 This workflow does not itself declare production acceptance. The live smokes and operational gates remain mandatory.
+
+
+## Checksum verification working directory
+
+`SHA256SUMS` contains filenames relative to the `dist/` release directory. Automated verification therefore runs from inside `dist/`:
+
+```bash
+(cd dist && sha256sum --check SHA256SUMS)
+```
+
+This keeps the checksum manifest portable when the complete release bundle is copied to another machine or archive location.
