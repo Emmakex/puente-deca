@@ -39,7 +39,7 @@ const requirePattern = (
 
 requirePattern(
   "main",
-  /Plugin Name:\s*Puente DeCA for WooCommerce/,
+  /Plugin Name:\s*Kairoseth Cargo - DeCA for WooCommerce/,
   "WooCommerce plugin header is missing"
 );
 requirePattern(
