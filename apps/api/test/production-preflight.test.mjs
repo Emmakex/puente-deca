@@ -20,6 +20,8 @@ const validEnv = () => ({
   ALLOW_FILE_ARTIFACTS_IN_PRODUCTION: "0",
   KAIROSETH_SERVICE_SECRET:
     "0123456789abcdef0123456789abcdef",
+  KAIROSETH_PUBLIC_PROXY_SECRET:
+    "abcdef0123456789abcdef0123456789",
   RATE_LIMIT_WINDOW_MS: "60000",
   RATE_LIMIT_MAX_REQUESTS: "600",
   RATE_LIMIT_MAX_ENTRIES: "10000"
@@ -82,6 +84,24 @@ test("production preflight rejects local persistence and emergency overrides", (
   );
 });
 
+test("production preflight requires a dedicated Kairoseth public proxy secret", () => {
+  const env = validEnv();
+  env.KAIROSETH_PUBLIC_PROXY_SECRET = "";
+
+  const result =
+    validateProductionEnvironment(env);
+
+  assert.equal(result.valid, false);
+  assert.ok(
+    result.errors.some(
+      (message) =>
+        message.includes(
+          "KAIROSETH_PUBLIC_PROXY_SECRET"
+        )
+    )
+  );
+});
+
 test("production preflight locks public DeCA URLs to kairoseth.com", () => {
   const env = validEnv();
   env.PUBLIC_BASE_URL =
@@ -113,5 +133,9 @@ test("production preflight never returns secret values", () => {
   assert.doesNotMatch(
     serialized,
     /service:secret/
+  );
+  assert.doesNotMatch(
+    serialized,
+    /abcdef0123456789abcdef0123456789/
   );
 });
