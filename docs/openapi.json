@@ -47,11 +47,16 @@
           "200": {
             "description": "Valid payload"
           },
+          "404": {
+            "description": "Route is intentionally unavailable on the production engine surface"
+          },
           "422": {
             "description": "Invalid payload"
           }
         }
-      }
+      },
+      "x-production-enabled": false,
+      "x-purpose": "development-test-tool"
     },
     "/v1/deca/pdf": {
       "post": {
@@ -79,11 +84,16 @@
               }
             }
           },
+          "404": {
+            "description": "Route is intentionally unavailable on the production engine surface"
+          },
           "422": {
             "description": "Validation, character or QR capacity error"
           }
         }
-      }
+      },
+      "x-production-enabled": false,
+      "x-purpose": "development-test-tool"
     },
     "/v1/shipments": {
       "post": {
