@@ -74,7 +74,8 @@ Stored PDF responses retain `private, no-store`.
 - JSON request bodies are bounded to 1 MiB.
 - Authenticated operational API traffic is rate limited per Kairoseth organization or connector credential.
 - Runtime rate-limit state is memory bounded.
-- Public QR volumetric/DDoS control remains an edge/reverse-proxy responsibility.
+- Kairoseth adds a bounded per-process public-PDF concurrency guard (default 16, maximum 64) that returns `503 + Retry-After` under saturation without using client-IP identity.
+- Public QR volumetric/DDoS control beyond that application-level saturation guard remains an edge/CDN/WAF responsibility.
 
 ### Persistence and evidence
 
@@ -119,7 +120,7 @@ These require the real production/staging infrastructure and are intentionally n
 2. verify network access rules/IP/private connectivity for Atlas;
 3. execute transaction/index/GridFS smoke tests against the actual cluster;
 4. execute backup + isolated restore drill;
-5. validate Hostinger/reverse-proxy TLS and edge limits for the public QR route;
+5. validate Hostinger/CDN/WAF volumetric limits for the public QR route; Kairoseth application-level concurrency protection is already merged and covered by Production Smoke;
 6. verify public QR route cannot leak engine/service headers;
 7. run WooCommerce live-store smoke;
 8. run PrestaShop 1.7.8 and current 8.x compatibility smoke;
