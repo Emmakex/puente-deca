@@ -7,7 +7,9 @@ import {
 import { dirname } from "node:path";
 import {
   createHash,
-  randomUUID
+  randomBytes,
+  randomUUID,
+  timingSafeEqual
 } from "node:crypto";
 import { canonicalJson } from "../../core/src/canonical-json.mjs";
 
@@ -16,6 +18,7 @@ const initialState = () => ({
   organizations: {},
   shipments: {},
   documentVersions: {},
+  apiCredentials: {},
   auditEvents: [],
   idempotency: {}
 });
@@ -53,20 +56,51 @@ const conflict = (message, code) => {
   return error;
 };
 
+const hashApiKey = (apiKey) =>
+  createHash("sha256")
+    .update(apiKey)
+    .digest("hex");
+
+const normalizeScopes = (scopes) => {
+  if (!Array.isArray(scopes) || scopes.length === 0) {
+    throw new TypeError("scopes must be a non-empty array");
+  }
+
+  return [
+    ...new Set(
+      scopes.map((scope) => requireText(scope, "scope"))
+    )
+  ].sort();
+};
+
+const publicCredential = (credential) => ({
+  credentialId: credential.credentialId,
+  organizationId: credential.organizationId,
+  name: credential.name,
+  keyPrefix: credential.keyPrefix,
+  scopes: [...credential.scopes],
+  createdAt: credential.createdAt,
+  revokedAt: credential.revokedAt
+});
+
 export class JsonStore {
   #filePath;
   #now;
   #idFactory;
+  #apiKeyFactory;
   #writeQueue = Promise.resolve();
 
   constructor({
     filePath,
     now = () => new Date(),
-    idFactory = randomUUID
+    idFactory = randomUUID,
+    apiKeyFactory = () =>
+      `pdeca_${randomBytes(32).toString("base64url")}`
   }) {
     this.#filePath = requireText(filePath, "filePath");
     this.#now = now;
     this.#idFactory = idFactory;
+    this.#apiKeyFactory = apiKeyFactory;
   }
 
   static async open(options) {
@@ -156,6 +190,7 @@ export class JsonStore {
       organizationId,
       shipmentId = null,
       documentId = null,
+      subjectId = null,
       type,
       at
     }
@@ -165,6 +200,7 @@ export class JsonStore {
       organizationId,
       shipmentId,
       documentId,
+      subjectId,
       type,
       at
     };
@@ -220,6 +256,170 @@ export class JsonStore {
       state.organizations[normalizedId] ?? null;
 
     return organization ? clone(organization) : null;
+  }
+
+  async createApiCredential({
+    organizationId,
+    name,
+    scopes = [
+      "shipments:read",
+      "shipments:write",
+      "documents:read",
+      "documents:write"
+    ]
+  }) {
+    const normalizedOrganizationId = requireText(
+      organizationId,
+      "organizationId"
+    );
+    const normalizedName = requireText(name, "name");
+    const normalizedScopes = normalizeScopes(scopes);
+    const apiKey = requireText(
+      this.#apiKeyFactory(),
+      "generated apiKey"
+    );
+
+    return this.#mutate((state) => {
+      if (!state.organizations[normalizedOrganizationId]) {
+        throw conflict(
+          "Organization does not exist",
+          "ORGANIZATION_NOT_FOUND"
+        );
+      }
+
+      state.apiCredentials ??= {};
+
+      const at = this.#nowIso();
+      const credentialId =
+        `cred_${this.#idFactory()}`;
+
+      const credential = {
+        credentialId,
+        organizationId: normalizedOrganizationId,
+        name: normalizedName,
+        keyPrefix: apiKey.slice(0, 12),
+        keyHash: hashApiKey(apiKey),
+        scopes: normalizedScopes,
+        createdAt: at,
+        revokedAt: null
+      };
+
+      state.apiCredentials[credentialId] = credential;
+
+      this.#appendAudit(state, {
+        organizationId: normalizedOrganizationId,
+        subjectId: credentialId,
+        type: "api.credential.created",
+        at
+      });
+
+      return {
+        credential: publicCredential(credential),
+        apiKey
+      };
+    });
+  }
+
+  async listApiCredentials(organizationId) {
+    const normalizedOrganizationId = requireText(
+      organizationId,
+      "organizationId"
+    );
+    const state = await this.#readState();
+
+    return Object.values(
+      state.apiCredentials ?? {}
+    )
+      .filter(
+        (credential) =>
+          credential.organizationId ===
+          normalizedOrganizationId
+      )
+      .map(publicCredential);
+  }
+
+  async authenticateApiKey(apiKey) {
+    if (
+      typeof apiKey !== "string" ||
+      apiKey.trim().length === 0
+    ) {
+      return null;
+    }
+
+    const candidateHash = Buffer.from(
+      hashApiKey(apiKey.trim()),
+      "hex"
+    );
+    const state = await this.#readState();
+
+    for (
+      const credential of Object.values(
+        state.apiCredentials ?? {}
+      )
+    ) {
+      if (credential.revokedAt) continue;
+
+      const storedHash = Buffer.from(
+        credential.keyHash,
+        "hex"
+      );
+
+      if (
+        storedHash.length === candidateHash.length &&
+        timingSafeEqual(storedHash, candidateHash)
+      ) {
+        return publicCredential(credential);
+      }
+    }
+
+    return null;
+  }
+
+  async revokeApiCredential({
+    organizationId,
+    credentialId
+  }) {
+    const normalizedOrganizationId = requireText(
+      organizationId,
+      "organizationId"
+    );
+    const normalizedCredentialId = requireText(
+      credentialId,
+      "credentialId"
+    );
+
+    return this.#mutate((state) => {
+      state.apiCredentials ??= {};
+      const credential =
+        state.apiCredentials[normalizedCredentialId];
+
+      if (
+        !credential ||
+        credential.organizationId !==
+          normalizedOrganizationId
+      ) {
+        throw conflict(
+          "API credential does not exist in this organization",
+          "API_CREDENTIAL_NOT_FOUND"
+        );
+      }
+
+      if (credential.revokedAt) {
+        return publicCredential(credential);
+      }
+
+      const at = this.#nowIso();
+      credential.revokedAt = at;
+
+      this.#appendAudit(state, {
+        organizationId: normalizedOrganizationId,
+        subjectId: normalizedCredentialId,
+        type: "api.credential.revoked",
+        at
+      });
+
+      return publicCredential(credential);
+    });
   }
 
   async createShipment({
