@@ -1,6 +1,7 @@
 import http from "node:http";
 import { normalizeDecaRequest } from "../../../packages/core/src/normalize-deca.mjs";
 import { validateDecaRequest } from "../../../packages/core/src/validate-deca.mjs";
+import { createDocumentSnapshot } from "../../../packages/document-engine/src/snapshot.mjs";
 
 const sendJson = (response, status, body) => {
   const data = JSON.stringify(body);
@@ -29,7 +30,9 @@ const readJson = async (request, limit = 1024 * 1024) => {
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 };
 
-export function createServer() {
+export function createServer({
+  publicBaseUrl = process.env.PUBLIC_BASE_URL ?? "https://deca.example.com"
+} = {}) {
   return http.createServer(async (request, response) => {
     try {
       const url = new URL(request.url, "http://localhost");
@@ -50,6 +53,24 @@ export function createServer() {
           ...validation,
           normalized
         });
+      }
+
+      if (request.method === "POST" && url.pathname === "/v1/deca/snapshot") {
+        const payload = await readJson(request);
+
+        try {
+          const snapshot = createDocumentSnapshot(payload, {
+            baseUrl: publicBaseUrl
+          });
+
+          return sendJson(response, 201, snapshot);
+        } catch (error) {
+          if (error?.code === "DECA_VALIDATION_FAILED") {
+            return sendJson(response, 422, error.validation);
+          }
+
+          throw error;
+        }
       }
 
       return sendJson(response, 404, {

@@ -19,11 +19,26 @@ Responsibility allocation was updated by Orden TRM/282/2026.
 
 ## Electronic DeCA
 
-Implementation must also track the technical requirements established by the Resolution of 5 June 2026 (BOE-A-2026-12784), including application data availability, electronic document characteristics, creation/modification traceability, QR/HTTPS document access and retention requirements.
+The Resolution of 5 June 2026 (BOE-A-2026-12784) drives the document-engine invariants:
+
+- structured data must be transformed into the electronic file before the effective start of the service;
+- creation date/time must be recorded;
+- modification date/time must be recorded when the file changes;
+- the file must be a digitally native PDF;
+- the PDF must not exceed 5 MB;
+- creation and modification timestamps must be PDF metadata;
+- the PDF must contain a QR code with the document's unique URL;
+- the repository domain may be freely chosen;
+- every stored file must have a unique and specific URL;
+- the URL must use HTTPS with TLS 1.2 or newer;
+- invoking the URL during the transport service must directly download the PDF without login, buttons or other manual interaction;
+- access protection may use encryption/tokens/expiry, but the link cannot expire before the service ends;
+- the road-inspection download URL may be disabled seven natural days after the service has ended;
+- the generated electronic files must be retained for at least one year by the obligated parties under the rules in the resolution.
 
 ## Engineering rule
 
-Every compliance rule introduced into `packages/core` or the future document engine must be traceable to:
+Every compliance rule introduced into `packages/core` or the document engine must be traceable to:
 
 1. a source;
 2. the affected domain field or invariant;

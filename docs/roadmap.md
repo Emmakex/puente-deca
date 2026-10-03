@@ -22,13 +22,14 @@
 
 ## Phase 2 — Document engine
 
-- [ ] Canonical document snapshot.
+- [x] Canonical document snapshot.
 - [ ] Native PDF generation.
 - [ ] QR generation.
-- [ ] Unique HTTPS download URL.
+- [x] Unique HTTPS download URL.
 - [ ] Maximum-size enforcement.
-- [ ] Creation/modification timestamps.
-- [ ] Document versioning.
+- [x] Creation/modification timestamps.
+- [x] Document versioning.
+- [x] Deterministic content fingerprint for audit/reconciliation.
 
 ## Phase 3 — Persistence and multi-tenant core
 
