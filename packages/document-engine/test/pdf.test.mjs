@@ -3,10 +3,11 @@ import assert from "node:assert/strict";
 import { PDFDocument } from "pdf-lib";
 import {
   MAX_DECA_PDF_BYTES,
-  renderNativeDecaPdf
+  renderNativeDecaPdf,
+  requiresUnicodePdfEmbedding
 } from "../src/pdf.mjs";
 
-const snapshot = {
+const baseSnapshot = {
   schemaVersion: "2026-06",
   documentType: "DECA",
   documentId: "deca_demo",
@@ -25,14 +26,14 @@ const snapshot = {
       "SHIP-2026-0001",
     contractualShipper: {
       legalName:
-        "Łódź Logística Ελληνική",
+        "Example Shipper SL",
       taxId: "B12345678",
       address:
-        "Carrer d'Àngel Guimerà 1, Sabadell"
+        "Carrer Angel Guimera 1, Sabadell"
     },
     effectiveCarrier: {
       legalName:
-        "Транспорт Núñez SL",
+        "Example Carrier SL",
       taxId: "B87654321"
     },
     route: {
@@ -40,8 +41,7 @@ const snapshot = {
       destination: "Barcelona"
     },
     goods: {
-      nature:
-        "Mobiliari Việt Nam",
+      nature: "Furniture",
       weight: {
         value: 420,
         unit: "kg"
@@ -58,14 +58,48 @@ const snapshot = {
         null
     },
     observations:
-      "Manipular amb precaució - भारत"
+      "Handle with care"
   }
 };
 
-test("renders a native Unicode PDF with metadata and embedded vector QR", async () => {
+const unicodeSnapshot =
+  structuredClone(baseSnapshot);
+unicodeSnapshot.data
+  .contractualShipper
+  .legalName =
+    "Łódź Logística Ελληνική";
+unicodeSnapshot.data
+  .contractualShipper
+  .address =
+    "Carrer d'Àngel Guimerà 1, Sabadell";
+unicodeSnapshot.data
+  .effectiveCarrier
+  .legalName =
+    "Транспорт Núñez SL";
+unicodeSnapshot.data.goods.nature =
+  "Mobiliari Việt Nam";
+unicodeSnapshot.data.observations =
+  "Manipular amb precaució - भारत";
+
+test("selects the lightweight path for Latin-1 and Unicode embedding only when needed", () => {
+  assert.equal(
+    requiresUnicodePdfEmbedding(
+      baseSnapshot
+    ),
+    false
+  );
+  assert.equal(
+    requiresUnicodePdfEmbedding(
+      unicodeSnapshot
+    ),
+    true
+  );
+});
+
+test("renders a native Unicode PDF with metadata, ToUnicode mapping and vector QR", async () => {
   const pdf =
     await renderNativeDecaPdf(
-      snapshot
+      unicodeSnapshot
     );
   const loaded =
     await PDFDocument.load(pdf);
@@ -90,12 +124,12 @@ test("renders a native Unicode PDF with metadata and embedded vector QR", async 
   assert.equal(
     loaded.getCreationDate()
       .toISOString(),
-    snapshot.createdAt
+    unicodeSnapshot.createdAt
   );
   assert.equal(
     loaded.getModificationDate()
       .toISOString(),
-    snapshot.modifiedAt
+    unicodeSnapshot.modifiedAt
   );
   assert.equal(
     loaded.getPageCount(),
@@ -113,21 +147,9 @@ test("renders a native Unicode PDF with metadata and embedded vector QR", async 
   );
 });
 
-test("supports Latin Extended, Greek, Cyrillic, Vietnamese and Devanagari without transliteration", async () => {
-  const pdf =
-    await renderNativeDecaPdf(
-      snapshot
-    );
-
-  assert.ok(
-    Buffer.isBuffer(pdf)
-  );
-  assert.ok(pdf.length > 0);
-});
-
-test("fails closed for characters outside the embedded Noto Sans font set", async () => {
+test("fails closed for supplementary symbols outside the embedded Noto Sans font set before rendering", async () => {
   const unsupported =
-    structuredClone(snapshot);
+    structuredClone(baseSnapshot);
   unsupported.data
     .contractualShipper
     .legalName =
@@ -145,11 +167,11 @@ test("fails closed for characters outside the embedded Noto Sans font set", asyn
   );
 });
 
-test("enforces the configured PDF byte ceiling", async () => {
+test("enforces the configured PDF byte ceiling on the fast path", async () => {
   await assert.rejects(
     () =>
       renderNativeDecaPdf(
-        snapshot,
+        baseSnapshot,
         { maxBytes: 500 }
       ),
     (error) =>

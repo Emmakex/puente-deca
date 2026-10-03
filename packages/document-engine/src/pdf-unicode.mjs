@@ -619,9 +619,24 @@ export async function renderUnicodeDecaPdf(
 
   const lines =
     buildLines(snapshot);
+  const documentText =
+    lines.join("\n");
+
+  for (const character of documentText) {
+    const codePoint =
+      character.codePointAt(0);
+
+    if (codePoint > 0xffff) {
+      throw unsupportedCharacter(
+        character,
+        codePoint
+      );
+    }
+  }
+
   const selectedSubsets =
     selectFontSubsets(
-      lines.join("\n")
+      documentText
     );
 
   const pdfDoc =
