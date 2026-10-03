@@ -33,7 +33,7 @@
 - [x] Fail-safe character handling: never silently alter unsupported legal text.
 - [x] API endpoint returning the generated PDF.
 
-**Phase 2 status: complete for the production Noto Sans Unicode coverage used by Puente DeCA.**
+**Phase 2 status: complete for the production Unicode coverage required by the current European DeCA flows.**
 
 Characters outside the embedded font set continue to fail closed rather than being transliterated or replaced.
 
@@ -89,7 +89,7 @@ Characters outside the embedded font set continue to fail closed rather than bei
 
 ### Runtime hardening
 
-- [x] Production Unicode font embedding with pre-subset Noto Sans/Fontsource files and fail-closed unsupported-character handling.
+- [x] Production Unicode font embedding with a real Noto Sans TrueType font for extended Latin/Greek/Cyrillic/Vietnamese coverage and fail-closed unsupported-script handling.
 - [x] Automatic QR version sizing (1–40) with ECC M and a pinned encoder dependency.
 - [x] Dependency lockfile, npm cache and reproducible `npm ci` install for runtime/XLSX dependencies.
 - [x] WooCommerce deterministic release ZIP packaging with SHA-256 manifest.

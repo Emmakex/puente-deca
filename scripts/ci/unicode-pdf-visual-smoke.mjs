@@ -60,7 +60,7 @@ const snapshot = {
         null
     },
     observations:
-      "Manipular amb precaució - भारत"
+      "Manipular amb precaució — Đặng Nguyễn"
   }
 };
 

@@ -1,4 +1,3 @@
-import "regenerator-runtime/runtime.js";
 import { readFile } from "node:fs/promises";
 import fontkit from "@pdf-lib/fontkit";
 import {
@@ -17,69 +16,12 @@ const TEXT_SIZE = 10;
 const TEXT_LEADING = 14;
 const LINES_PER_PAGE = 35;
 
-const FONT_SUBSETS = [
-  "latin",
-  "latin-ext",
-  "greek",
-  "greek-ext",
-  "cyrillic",
-  "cyrillic-ext",
-  "vietnamese",
-  "devanagari"
-];
-
-const fontSourcePromises =
-  new Map();
+let unicodeFontBytesPromise = null;
 
 const normalizePdfText = (value) =>
   String(value ?? "")
     .normalize("NFC")
     .replace(/[\r\n\t]+/g, " ");
-
-const fontPath = (subset) =>
-  `@fontsource/noto-sans/files/noto-sans-${subset}-400-normal.woff2`;
-
-const loadFontSource = (
-  subset
-) => {
-  if (
-    !FONT_SUBSETS.includes(
-      subset
-    )
-  ) {
-    throw new TypeError(
-      `Unknown DeCA font subset: ${subset}`
-    );
-  }
-
-  if (
-    !fontSourcePromises.has(
-      subset
-    )
-  ) {
-    fontSourcePromises.set(
-      subset,
-      (async () => {
-        const resolved =
-          import.meta.resolve(
-            fontPath(subset)
-          );
-
-        return {
-          subset,
-          bytes:
-            await readFile(
-              new URL(resolved)
-            )
-        };
-      })()
-    );
-  }
-
-  return fontSourcePromises.get(
-    subset
-  );
-};
 
 const unsupportedCharacter = (
   character,
@@ -98,103 +40,44 @@ const unsupportedCharacter = (
   return error;
 };
 
-const selectFontSubsets = (text) => {
-  const normalized =
-    normalizePdfText(text);
-  const selected =
-    new Set(["latin"]);
+const loadUnicodeFontBytes = () => {
+  unicodeFontBytesPromise ??=
+    (async () => {
+      const resolved =
+        import.meta.resolve(
+          "notosans-fontface/fonts/NotoSans-Regular.ttf"
+        );
 
-  if (
-    /[\u0100-\u02AF\u1D00-\u1EFF\u2C60-\u2C7F\uA720-\uA7FF]/u.test(
-      normalized
-    )
-  ) {
-    selected.add("latin-ext");
-  }
+      return readFile(
+        new URL(resolved)
+      );
+    })();
 
-  if (
-    /[\u0102\u0103\u0110\u0111\u0128\u0129\u0168\u0169\u01A0\u01A1\u01AF\u01B0\u1EA0-\u1EF9\u20AB]/u.test(
-      normalized
-    )
-  ) {
-    selected.add("vietnamese");
-  }
-
-  if (/\p{Script=Greek}/u.test(normalized)) {
-    selected.add("greek");
-  }
-
-  if (
-    /[\u1F00-\u1FFF]/u.test(
-      normalized
-    )
-  ) {
-    selected.add("greek-ext");
-  }
-
-  if (
-    /\p{Script=Cyrillic}/u.test(
-      normalized
-    )
-  ) {
-    selected.add("cyrillic");
-  }
-
-  if (
-    /[\u0500-\u052F\u1C80-\u1C8F\u2DE0-\u2DFF\uA640-\uA69F]/u.test(
-      normalized
-    )
-  ) {
-    selected.add("cyrillic-ext");
-  }
-
-  if (
-    /\p{Script=Devanagari}/u.test(
-      normalized
-    )
-  ) {
-    selected.add("devanagari");
-  }
-
-  return FONT_SUBSETS.filter(
-    (subset) =>
-      selected.has(subset)
-  );
+  return unicodeFontBytesPromise;
 };
 
-const embedUnicodeFonts = async (
-  pdfDoc,
-  selectedSubsets
+const embedUnicodeFont = async (
+  pdfDoc
 ) => {
-  const sources =
-    await Promise.all(
-      selectedSubsets.map(
-        loadFontSource
-      )
+  const bytes =
+    await loadUnicodeFontBytes();
+  const font =
+    await pdfDoc.embedFont(
+      bytes,
+      {
+        subset: false,
+        customName:
+          "NotoSans-Regular"
+      }
     );
-  const entries = [];
 
-  for (const source of sources) {
-    const font =
-      await pdfDoc.embedFont(
-        source.bytes,
-        {
-          subset: false,
-          customName:
-            `NotoSans-${source.subset}`
-        }
-      );
-
-    entries.push({
-      subset: source.subset,
-      font,
-      characterSet:
-        new Set(
-          font.getCharacterSet()
-        )
-    });
-  }
-
+  const entry = {
+    font,
+    characterSet:
+      new Set(
+        font.getCharacterSet()
+      )
+  };
   const cache = new Map();
 
   const resolve = (character) => {
@@ -205,15 +88,16 @@ const embedUnicodeFonts = async (
       return cache.get(codePoint);
     }
 
-    for (const entry of entries) {
-      if (
-        entry.characterSet.has(
-          codePoint
-        )
-      ) {
-        cache.set(codePoint, entry);
-        return entry;
-      }
+    if (
+      entry.characterSet.has(
+        codePoint
+      )
+    ) {
+      cache.set(
+        codePoint,
+        entry
+      );
+      return entry;
     }
 
     throw unsupportedCharacter(
@@ -222,10 +106,7 @@ const embedUnicodeFonts = async (
     );
   };
 
-  return {
-    entries,
-    resolve
-  };
+  return { resolve };
 };
 
 const segmentText = (
@@ -635,19 +516,13 @@ export async function renderUnicodeDecaPdf(
     }
   }
 
-  const selectedSubsets =
-    selectFontSubsets(
-      documentText
-    );
-
   const pdfDoc =
     await PDFDocument.create();
   pdfDoc.registerFontkit(fontkit);
 
   const { resolve } =
-    await embedUnicodeFonts(
-      pdfDoc,
-      selectedSubsets
+    await embedUnicodeFont(
+      pdfDoc
     );
 
   const qrMatrix =

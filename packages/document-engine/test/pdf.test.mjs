@@ -79,7 +79,7 @@ unicodeSnapshot.data
 unicodeSnapshot.data.goods.nature =
   "Mobiliari Việt Nam";
 unicodeSnapshot.data.observations =
-  "Manipular amb precaució - भारत";
+  "Manipular amb precaució — Đặng Nguyễn";
 
 test("selects the lightweight path for Latin-1 and Unicode embedding only when needed", () => {
   assert.equal(
@@ -150,13 +150,13 @@ test("renders a native Unicode PDF with metadata, ToUnicode mapping and vector Q
   );
 });
 
-test("fails closed for supplementary symbols outside the embedded Noto Sans font set before rendering", async () => {
+test("fails closed for scripts outside the embedded production font coverage", async () => {
   const unsupported =
     structuredClone(baseSnapshot);
   unsupported.data
     .contractualShipper
     .legalName =
-      "Transporte 🚚";
+      "भारत Logistics";
 
   await assert.rejects(
     () =>
@@ -166,7 +166,7 @@ test("fails closed for supplementary symbols outside the embedded Noto Sans font
     (error) =>
       error.code ===
         "DECA_PDF_UNSUPPORTED_CHARACTER" &&
-      error.character === "🚚"
+      error.character === "भ"
   );
 });
 

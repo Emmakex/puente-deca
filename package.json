@@ -39,8 +39,7 @@
     "qrcode": "1.5.4",
     "pdf-lib": "1.17.1",
     "@pdf-lib/fontkit": "1.1.1",
-    "@fontsource/noto-sans": "5.3.0",
-    "regenerator-runtime": "0.14.1"
+    "notosans-fontface": "1.3.0"
   },
   "packageManager": "npm@10.9.9"
 }
