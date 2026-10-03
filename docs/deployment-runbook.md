@@ -142,11 +142,23 @@ For a controlled shipment:
 6. confirm direct PDF download without login/intermediate HTML;
 7. compare downloaded PDF SHA-256 with document metadata.
 
-### 6. Connector smoke
+### 6. Public Kairoseth PDF smoke
+
+Using an already-generated controlled DeCA and its immutable artifact SHA-256:
+
+```bash
+DECA_SMOKE_PUBLIC_URL='https://kairoseth.com/deca/d/<token>.pdf' \
+DECA_SMOKE_EXPECTED_SHA256='sha256:<hash>' \
+npm run production:public-pdf-smoke
+```
+
+Expected: `status=ok`, direct PDF, checksum match and all privacy headers green.
+
+### 7. Connector smoke
 
 Run one WooCommerce and one PrestaShop controlled flow with organization-scoped connector keys.
 
-### 7. Reconciliation
+### 8. Reconciliation
 
 ```bash
 npm run artifacts:reconcile
@@ -160,7 +172,7 @@ orphanedArtifacts = 0
 purgedArtifactsStillPresent = 0
 ```
 
-### 8. Backup/restore
+### 9. Backup/restore
 
 Complete the staging/DR drill in `docs/backup-restore.md` and verify a restored PDF through its document metadata and SHA-256.
 

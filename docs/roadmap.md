@@ -84,7 +84,9 @@ Characters outside the embedded font set continue to fail closed rather than bei
 - [x] Platform UX to issue/revoke organization-scoped connector credentials.
 - [x] Platform-only connector credential API: create/list/revoke with one-time secret reveal.
 - [x] Puente DeCA workspace inside `/app/organizations/:slug/products/puente-deca`.
-- [x] Kairoseth public proxy route implemented at `https://kairoseth.com/deca/d/<token>.pdf`; live production wiring/acceptance remains pending.
+- [x] Kairoseth public proxy route implemented at `https://kairoseth.com/deca/d/<token>.pdf` with canonical `.pdf` suffix handling.
+- [x] Credential-free live public-PDF smoke command for TLS/path/PDF/SHA-256/privacy-header acceptance.
+- [ ] Live production public-route wiring/acceptance.
 - [x] Disable standalone DeCA laboratory/bootstrap surface in production; Kairoseth/connector operational routes remain authoritative.
 - [x] Organization-scoped shipment listing for the Kairoseth workspace.
 
