@@ -1,0 +1,51 @@
+name: connector-release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "connectors-v*"
+
+concurrency:
+  group: connector-release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Verify reproducible connector packages
+        run: npm run check:release-packages
+
+      - name: Build connector ZIPs
+        run: npm run release:connectors
+
+      - name: Verify checksum manifest
+        run: sha256sum --check dist/SHA256SUMS
+
+      - name: Upload release bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: puente-deca-connectors-${{ github.ref_name }}
+          path: |
+            dist/puente-deca-woocommerce-0.1.0.zip
+            dist/puentedeca-prestashop-0.1.0.zip
+            dist/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0

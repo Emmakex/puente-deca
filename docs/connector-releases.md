@@ -60,3 +60,29 @@ Before publishing a connector release:
 5. install the PrestaShop ZIP on the supported compatibility matrix;
 6. execute one end-to-end shipment/create/revise/DeCA download flow;
 7. publish the exact ZIPs that passed the smoke tests.
+
+
+## GitHub release workflow
+
+Connector release artifacts are also built by the dedicated `connector-release` workflow.
+
+Triggers:
+
+- manual `workflow_dispatch`;
+- tags matching `connectors-v*`.
+
+The workflow is intentionally separate from the fast CI lane. It:
+
+1. installs the committed lockfile with `npm ci`;
+2. runs the byte-for-byte reproducibility check;
+3. builds both connector ZIPs;
+4. verifies `SHA256SUMS`;
+5. uploads the exact ZIPs and checksum manifest as a GitHub Actions artifact.
+
+The workflow does **not** automatically publish a public GitHub Release or change connector version numbers. Public release remains an explicit operator decision after real-store compatibility smoke tests.
+
+Recommended tag format after acceptance:
+
+```text
+connectors-v0.1.0
+```
