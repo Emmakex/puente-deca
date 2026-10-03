@@ -23,6 +23,12 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
+      - name: Generate dependency lock candidate
+        run: |
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          printf 'LOCKFILE_BASE64='
+          base64 -w0 package-lock.json
+          echo
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm run check
       - run: npm test

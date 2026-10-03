@@ -1,53 +1,224 @@
+import { readFile } from "node:fs/promises";
+import fontkit from "@pdf-lib/fontkit";
+import {
+  PDFDocument,
+  rgb
+} from "pdf-lib";
 import { encodeQrMatrix } from "./qr.mjs";
 
 export const MAX_DECA_PDF_BYTES = 5_000_000;
 
-const normalizePdfText = (value) => {
-  const normalized = String(value ?? "")
+const PAGE_WIDTH = 595;
+const PAGE_HEIGHT = 842;
+const TEXT_X = 50;
+const TEXT_START_Y = 790;
+const TEXT_SIZE = 10;
+const TEXT_LEADING = 14;
+const LINES_PER_PAGE = 35;
+
+const FONT_SUBSETS = [
+  "latin",
+  "latin-ext",
+  "greek",
+  "greek-ext",
+  "cyrillic",
+  "cyrillic-ext",
+  "vietnamese",
+  "devanagari"
+];
+
+let fontSourcesPromise = null;
+
+const normalizePdfText = (value) =>
+  String(value ?? "")
     .normalize("NFC")
     .replace(/[\r\n\t]+/g, " ");
 
-  for (const character of normalized) {
-    const codePoint = character.codePointAt(0);
+const fontPath = (subset) =>
+  `@fontsource/noto-sans/files/noto-sans-${subset}-400-normal.woff2`;
 
-    if (codePoint < 0x20 || codePoint > 0xff) {
-      const error = new Error(
-        `Character U+${codePoint
-          .toString(16)
-          .toUpperCase()
-          .padStart(4, "0")} is not supported by the current PDF font`
+const loadFontSources = async () => {
+  fontSourcesPromise ??= Promise.all(
+    FONT_SUBSETS.map(async (subset) => {
+      const resolved =
+        import.meta.resolve(
+          fontPath(subset)
+        );
+
+      return {
+        subset,
+        bytes: await readFile(
+          new URL(resolved)
+        )
+      };
+    })
+  );
+
+  return fontSourcesPromise;
+};
+
+const unsupportedCharacter = (
+  character,
+  codePoint
+) => {
+  const error = new Error(
+    `Character U+${codePoint
+      .toString(16)
+      .toUpperCase()
+      .padStart(4, "0")} is not supported by the embedded DeCA font set`
+  );
+  error.code =
+    "DECA_PDF_UNSUPPORTED_CHARACTER";
+  error.character = character;
+  error.codePoint = codePoint;
+  return error;
+};
+
+const embedUnicodeFonts = async (
+  pdfDoc
+) => {
+  const sources =
+    await loadFontSources();
+  const entries = [];
+
+  for (const source of sources) {
+    const font =
+      await pdfDoc.embedFont(
+        source.bytes,
+        {
+          subset: true,
+          customName:
+            `NotoSans-${source.subset}`
+        }
       );
-      error.code = "DECA_PDF_UNSUPPORTED_CHARACTER";
-      error.character = character;
-      error.codePoint = codePoint;
-      throw error;
+
+    entries.push({
+      subset: source.subset,
+      font,
+      characterSet:
+        new Set(
+          font.getCharacterSet()
+        )
+    });
+  }
+
+  const cache = new Map();
+
+  const resolve = (character) => {
+    const codePoint =
+      character.codePointAt(0);
+
+    if (cache.has(codePoint)) {
+      return cache.get(codePoint);
+    }
+
+    for (const entry of entries) {
+      if (
+        entry.characterSet.has(
+          codePoint
+        )
+      ) {
+        cache.set(codePoint, entry);
+        return entry;
+      }
+    }
+
+    throw unsupportedCharacter(
+      character,
+      codePoint
+    );
+  };
+
+  return {
+    entries,
+    resolve
+  };
+};
+
+const segmentText = (
+  text,
+  resolveFont
+) => {
+  const runs = [];
+
+  for (
+    const character of
+    normalizePdfText(text)
+  ) {
+    const entry =
+      resolveFont(character);
+    const current =
+      runs.at(-1);
+
+    if (
+      current?.entry === entry
+    ) {
+      current.text += character;
+    } else {
+      runs.push({
+        entry,
+        text: character
+      });
     }
   }
 
-  return normalized;
+  return runs;
 };
 
-const escapePdfString = (value) =>
-  normalizePdfText(value)
-    .replace(/\\/g, "\\\\")
-    .replace(/\(/g, "\\(")
-    .replace(/\)/g, "\\)");
+const drawUnicodeText = (
+  page,
+  text,
+  {
+    x,
+    y,
+    size,
+    resolveFont
+  }
+) => {
+  let cursorX = x;
 
-const pdfDate = (value) => {
-  const date = new Date(value);
+  for (
+    const run of
+    segmentText(
+      text,
+      resolveFont
+    )
+  ) {
+    page.drawText(
+      run.text,
+      {
+        x: cursorX,
+        y,
+        size,
+        font: run.entry.font,
+        color: rgb(0, 0, 0)
+      }
+    );
 
-  if (Number.isNaN(date.getTime())) {
-    throw new TypeError("Invalid PDF timestamp");
+    cursorX +=
+      run.entry.font
+        .widthOfTextAtSize(
+          run.text,
+          size
+        );
   }
 
-  const iso = date.toISOString();
-  return `D:${iso.slice(0, 19).replace(/[-:T]/g, "")}Z`;
+  return cursorX;
 };
 
-const wrap = (label, value, width = 88) => {
-  const prefix = label ? `${label}: ` : "";
-  const text = `${prefix}${normalizePdfText(value)}`;
-  const words = text.split(/\s+/);
+const wrap = (
+  label,
+  value,
+  width = 88
+) => {
+  const prefix =
+    label ? `${label}: ` : "";
+  const text =
+    `${prefix}${normalizePdfText(
+      value
+    )}`;
+  const words =
+    text.split(/\s+/);
   const lines = [];
   let current = "";
 
@@ -59,7 +230,10 @@ const wrap = (label, value, width = 88) => {
       continue;
     }
 
-    if (`${current} ${word}`.length <= width) {
+    if (
+      `${current} ${word}`.length <=
+      width
+    ) {
       current += ` ${word}`;
     } else {
       lines.push(current);
@@ -67,17 +241,30 @@ const wrap = (label, value, width = 88) => {
     }
   }
 
-  if (current) lines.push(current);
-  return lines.length ? lines : [prefix.trimEnd()];
+  if (current) {
+    lines.push(current);
+  }
+
+  return lines.length
+    ? lines
+    : [prefix.trimEnd()];
 };
 
 const quantityText = (goods) => {
   if (goods?.weight?.value) {
-    return `${goods.weight.value} ${goods.weight.unit}`;
+    return (
+      `${goods.weight.value} ` +
+      goods.weight.unit
+    );
   }
 
-  if (goods?.alternativeMeasure?.value) {
-    return `${goods.alternativeMeasure.value} ${goods.alternativeMeasure.unit}`;
+  if (
+    goods?.alternativeMeasure?.value
+  ) {
+    return (
+      `${goods.alternativeMeasure.value} ` +
+      goods.alternativeMeasure.unit
+    );
   }
 
   return "";
@@ -86,282 +273,352 @@ const quantityText = (goods) => {
 const buildLines = (snapshot) => {
   const data = snapshot.data;
   const lines = [
-    "Documento electronico de Control Administrativo (DeCA)",
+    "Documento electrónico de Control Administrativo (DeCA)",
     "",
-    ...wrap("ID documento", snapshot.documentId),
-    ...wrap("Version", snapshot.version),
-    ...wrap("Referencia externa", data.externalReference ?? ""),
-    ...wrap("Creado", snapshot.createdAt),
-    ...wrap("Modificado", snapshot.modifiedAt),
+    ...wrap(
+      "ID documento",
+      snapshot.documentId
+    ),
+    ...wrap(
+      "Versión",
+      snapshot.version
+    ),
+    ...wrap(
+      "Referencia externa",
+      data.externalReference ?? ""
+    ),
+    ...wrap(
+      "Creado",
+      snapshot.createdAt
+    ),
+    ...wrap(
+      "Modificado",
+      snapshot.modifiedAt
+    ),
     "",
     "Cargador contractual",
-    ...wrap("Razon social", data.contractualShipper.legalName),
-    ...wrap("Identificador fiscal", data.contractualShipper.taxId),
-    ...wrap("Direccion", data.contractualShipper.address),
+    ...wrap(
+      "Razón social",
+      data.contractualShipper
+        .legalName
+    ),
+    ...wrap(
+      "Identificador fiscal",
+      data.contractualShipper.taxId
+    ),
+    ...wrap(
+      "Dirección",
+      data.contractualShipper
+        .address
+    ),
     "",
     "Transportista efectivo",
-    ...wrap("Razon social", data.effectiveCarrier.legalName),
-    ...wrap("Identificador fiscal", data.effectiveCarrier.taxId),
+    ...wrap(
+      "Razón social",
+      data.effectiveCarrier
+        .legalName
+    ),
+    ...wrap(
+      "Identificador fiscal",
+      data.effectiveCarrier.taxId
+    ),
     "",
     "Servicio",
-    ...wrap("Origen", data.route.origin),
-    ...wrap("Destino", data.route.destination),
-    ...wrap("Mercancia", data.goods.nature),
-    ...wrap("Cantidad", quantityText(data.goods)),
-    ...wrap("Fecha transporte", data.transport.date),
     ...wrap(
-      "Matricula tractora",
-      data.transport.vehicle.tractorRegistration
+      "Origen",
+      data.route.origin
+    ),
+    ...wrap(
+      "Destino",
+      data.route.destination
+    ),
+    ...wrap(
+      "Mercancía",
+      data.goods.nature
+    ),
+    ...wrap(
+      "Cantidad",
+      quantityText(data.goods)
+    ),
+    ...wrap(
+      "Fecha transporte",
+      data.transport.date
+    ),
+    ...wrap(
+      "Matrícula tractora",
+      data.transport.vehicle
+        .tractorRegistration
     )
   ];
 
-  if (data.transport.vehicle.trailerRegistration) {
+  if (
+    data.transport.vehicle
+      .trailerRegistration
+  ) {
     lines.push(
       ...wrap(
-        "Matricula remolque/semirremolque",
-        data.transport.vehicle.trailerRegistration
+        "Matrícula remolque/semirremolque",
+        data.transport.vehicle
+          .trailerRegistration
       )
     );
   }
 
-  if (data.transport.specialTrafficAuthorization) {
+  if (
+    data.transport
+      .specialTrafficAuthorization
+  ) {
     lines.push(
       ...wrap(
-        "Autorizacion especial",
-        data.transport.specialTrafficAuthorization
+        "Autorización especial",
+        data.transport
+          .specialTrafficAuthorization
       )
     );
   }
 
   if (data.observations) {
-    lines.push("", "Observaciones", ...wrap("", data.observations));
+    lines.push(
+      "",
+      "Observaciones",
+      ...wrap(
+        "",
+        data.observations
+      )
+    );
   }
 
-  lines.push("", ...wrap("URL directa del documento", snapshot.accessUrl));
+  lines.push(
+    "",
+    ...wrap(
+      "URL directa del documento",
+      snapshot.accessUrl
+    )
+  );
+
   return lines;
 };
 
-const formatNumber = (value) =>
-  Number(value.toFixed(3)).toString();
-
-const qrVectorStream = (
-  matrix,
-  { x = 400, y = 50, size = 135, quietZone = 4 } = {}
+const paginate = (
+  lines,
+  pageSize = LINES_PER_PAGE
 ) => {
-  const totalModules = matrix.length + quietZone * 2;
-  const moduleSize = size / totalModules;
-  const commands = ["q", "0 g"];
-
-  for (let row = 0; row < matrix.length; row += 1) {
-    for (let column = 0; column < matrix.length; column += 1) {
-      if (!matrix[row][column]) continue;
-
-      const drawX = x + (column + quietZone) * moduleSize;
-      const drawY =
-        y +
-        (totalModules - quietZone - row - 1) * moduleSize;
-
-      commands.push(
-        [
-          formatNumber(drawX),
-          formatNumber(drawY),
-          formatNumber(moduleSize + 0.01),
-          formatNumber(moduleSize + 0.01),
-          "re f"
-        ].join(" ")
-      );
-    }
-  }
-
-  commands.push("Q");
-  return commands.join("\n");
-};
-
-const textStream = (lines, { qrMatrix = null } = {}) => {
-  const commands = [
-    "BT",
-    "/F1 10 Tf",
-    "50 790 Td",
-    "14 TL"
-  ];
-
-  lines.forEach((line, index) => {
-    if (index > 0) commands.push("T*");
-    commands.push(`(${escapePdfString(line)}) Tj`);
-  });
-
-  commands.push("ET");
-
-  if (qrMatrix) {
-    commands.push(qrVectorStream(qrMatrix));
-  }
-
-  return commands.join("\n");
-};
-
-const objectBuffer = (id, body) =>
-  Buffer.from(`${id} 0 obj\n${body}\nendobj\n`, "latin1");
-
-const streamObjectBuffer = (id, stream) => {
-  const data = Buffer.from(stream, "latin1");
-  const head = Buffer.from(
-    `${id} 0 obj\n<< /Length ${data.length} >>\nstream\n`,
-    "latin1"
-  );
-  const tail = Buffer.from("\nendstream\nendobj\n", "latin1");
-  return Buffer.concat([head, data, tail]);
-};
-
-const paginate = (lines, pageSize = 35) => {
   const pages = [];
 
-  for (let index = 0; index < lines.length; index += pageSize) {
-    pages.push(lines.slice(index, index + pageSize));
+  for (
+    let index = 0;
+    index < lines.length;
+    index += pageSize
+  ) {
+    pages.push(
+      lines.slice(
+        index,
+        index + pageSize
+      )
+    );
   }
 
-  return pages.length ? pages : [[]];
+  return pages.length
+    ? pages
+    : [[]];
 };
 
-export function renderNativeDecaPdf(
+const drawQr = (
+  page,
+  matrix,
+  {
+    x = 400,
+    y = 50,
+    size = 135,
+    quietZone = 4
+  } = {}
+) => {
+  const totalModules =
+    matrix.length +
+    quietZone * 2;
+  const moduleSize =
+    size / totalModules;
+
+  for (
+    let row = 0;
+    row < matrix.length;
+    row += 1
+  ) {
+    for (
+      let column = 0;
+      column < matrix.length;
+      column += 1
+    ) {
+      if (
+        !matrix[row][column]
+      ) {
+        continue;
+      }
+
+      page.drawRectangle({
+        x:
+          x +
+          (
+            column +
+            quietZone
+          ) *
+            moduleSize,
+        y:
+          y +
+          (
+            totalModules -
+            quietZone -
+            row -
+            1
+          ) *
+            moduleSize,
+        width:
+          moduleSize + 0.01,
+        height:
+          moduleSize + 0.01,
+        color: rgb(0, 0, 0),
+        borderWidth: 0
+      });
+    }
+  }
+};
+
+const parsePdfDate = (
+  value,
+  name
+) => {
+  const date = new Date(value);
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    throw new TypeError(
+      `${name} is not a valid PDF timestamp`
+    );
+  }
+
+  return date;
+};
+
+export async function renderNativeDecaPdf(
   snapshot,
-  { maxBytes = MAX_DECA_PDF_BYTES } = {}
+  {
+    maxBytes =
+      MAX_DECA_PDF_BYTES
+  } = {}
 ) {
   if (
     snapshot === null ||
     typeof snapshot !== "object" ||
-    snapshot.documentType !== "DECA" ||
-    typeof snapshot.accessUrl !== "string" ||
+    snapshot.documentType !==
+      "DECA" ||
+    typeof snapshot.accessUrl !==
+      "string" ||
     snapshot.data === null ||
-    typeof snapshot.data !== "object"
+    typeof snapshot.data !==
+      "object"
   ) {
-    throw new TypeError("A valid DeCA document snapshot is required");
-  }
-
-  const qrMatrix = encodeQrMatrix(snapshot.accessUrl);
-  const pageChunks = paginate(buildLines(snapshot));
-  const objects = new Map();
-
-  objects.set(
-    1,
-    objectBuffer(1, "<< /Type /Catalog /Pages 2 0 R >>")
-  );
-
-  const pageRefs = pageChunks.map((_, index) => 5 + index * 2);
-  objects.set(
-    2,
-    objectBuffer(
-      2,
-      `<< /Type /Pages /Kids [${pageRefs
-        .map((id) => `${id} 0 R`)
-        .join(" ")}] /Count ${pageRefs.length} >>`
-    )
-  );
-
-  objects.set(
-    3,
-    objectBuffer(
-      3,
-      "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>"
-    )
-  );
-
-  objects.set(
-    4,
-    objectBuffer(
-      4,
-      [
-        "<<",
-        `/Title (${escapePdfString(
-          `DeCA ${snapshot.documentId}`
-        )})`,
-        "/Subject (Documento electronico de Control Administrativo)",
-        "/Producer (Puente DeCA)",
-        `/CreationDate (${pdfDate(snapshot.createdAt)})`,
-        `/ModDate (${pdfDate(snapshot.modifiedAt)})`,
-        ">>"
-      ].join(" ")
-    )
-  );
-
-  pageChunks.forEach((lines, index) => {
-    const pageId = 5 + index * 2;
-    const contentId = pageId + 1;
-
-    objects.set(
-      pageId,
-      objectBuffer(
-        pageId,
-        [
-          "<< /Type /Page",
-          "/Parent 2 0 R",
-          "/MediaBox [0 0 595 842]",
-          "/Resources << /Font << /F1 3 0 R >> >>",
-          `/Contents ${contentId} 0 R >>`
-        ].join(" ")
-      )
-    );
-
-    objects.set(
-      contentId,
-      streamObjectBuffer(
-        contentId,
-        textStream(lines, {
-          qrMatrix: index === 0 ? qrMatrix : null
-        })
-      )
-    );
-  });
-
-  const header = Buffer.from(
-    "%PDF-1.7\n%\xE2\xE3\xCF\xD3\n",
-    "latin1"
-  );
-  const chunks = [header];
-  const offsets = [0];
-  let cursor = header.length;
-
-  const maxObjectId = 4 + pageChunks.length * 2;
-
-  for (let id = 1; id <= maxObjectId; id += 1) {
-    const object = objects.get(id);
-    offsets[id] = cursor;
-    chunks.push(object);
-    cursor += object.length;
-  }
-
-  const xrefOffset = cursor;
-  const xrefLines = [
-    "xref",
-    `0 ${maxObjectId + 1}`,
-    "0000000000 65535 f "
-  ];
-
-  for (let id = 1; id <= maxObjectId; id += 1) {
-    xrefLines.push(
-      `${String(offsets[id]).padStart(10, "0")} 00000 n `
+    throw new TypeError(
+      "A valid DeCA document snapshot is required"
     );
   }
 
-  const trailer = Buffer.from(
-    [
-      ...xrefLines,
-      "trailer",
-      `<< /Size ${maxObjectId + 1} /Root 1 0 R /Info 4 0 R >>`,
-      "startxref",
-      String(xrefOffset),
-      "%%EOF",
-      ""
-    ].join("\n"),
-    "latin1"
+  const pdfDoc =
+    await PDFDocument.create();
+  pdfDoc.registerFontkit(fontkit);
+
+  const { resolve } =
+    await embedUnicodeFonts(
+      pdfDoc
+    );
+
+  const qrMatrix =
+    encodeQrMatrix(
+      snapshot.accessUrl
+    );
+  const pageChunks =
+    paginate(
+      buildLines(snapshot)
+    );
+
+  pdfDoc.setTitle(
+    `DeCA ${snapshot.documentId}`
+  );
+  pdfDoc.setSubject(
+    "Documento electrónico de Control Administrativo"
+  );
+  pdfDoc.setProducer(
+    "Puente DeCA"
+  );
+  pdfDoc.setCreator(
+    "Puente DeCA"
+  );
+  pdfDoc.setCreationDate(
+    parsePdfDate(
+      snapshot.createdAt,
+      "createdAt"
+    )
+  );
+  pdfDoc.setModificationDate(
+    parsePdfDate(
+      snapshot.modifiedAt,
+      "modifiedAt"
+    )
   );
 
-  const pdf = Buffer.concat([...chunks, trailer]);
+  pageChunks.forEach(
+    (lines, pageIndex) => {
+      const page =
+        pdfDoc.addPage([
+          PAGE_WIDTH,
+          PAGE_HEIGHT
+        ]);
 
-  if (pdf.length > maxBytes) {
+      lines.forEach(
+        (line, lineIndex) => {
+          drawUnicodeText(
+            page,
+            line,
+            {
+              x: TEXT_X,
+              y:
+                TEXT_START_Y -
+                lineIndex *
+                  TEXT_LEADING,
+              size: TEXT_SIZE,
+              resolveFont: resolve
+            }
+          );
+        }
+      );
+
+      if (pageIndex === 0) {
+        drawQr(
+          page,
+          qrMatrix
+        );
+      }
+    }
+  );
+
+  const bytes =
+    await pdfDoc.save({
+      useObjectStreams: false,
+      addDefaultPage: false
+    });
+  const pdf =
+    Buffer.from(bytes);
+
+  if (
+    pdf.length > maxBytes
+  ) {
     const error = new Error(
       `Generated DeCA PDF exceeds maximum size of ${maxBytes} bytes`
     );
-    error.code = "DECA_PDF_TOO_LARGE";
+    error.code =
+      "DECA_PDF_TOO_LARGE";
     error.size = pdf.length;
     error.maxBytes = maxBytes;
     throw error;
