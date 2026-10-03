@@ -74,11 +74,81 @@ const unsupportedCharacter = (
   return error;
 };
 
+const selectFontSubsets = (text) => {
+  const normalized =
+    normalizePdfText(text);
+  const selected =
+    new Set(["latin"]);
+
+  if (
+    /[\u0100-\u02AF\u1D00-\u1EFF\u2C60-\u2C7F\uA720-\uA7FF]/u.test(
+      normalized
+    )
+  ) {
+    selected.add("latin-ext");
+  }
+
+  if (
+    /[\u0102\u0103\u0110\u0111\u0128\u0129\u0168\u0169\u01A0\u01A1\u01AF\u01B0\u1EA0-\u1EF9\u20AB]/u.test(
+      normalized
+    )
+  ) {
+    selected.add("vietnamese");
+  }
+
+  if (/\p{Script=Greek}/u.test(normalized)) {
+    selected.add("greek");
+  }
+
+  if (
+    /[\u1F00-\u1FFF]/u.test(
+      normalized
+    )
+  ) {
+    selected.add("greek-ext");
+  }
+
+  if (
+    /\p{Script=Cyrillic}/u.test(
+      normalized
+    )
+  ) {
+    selected.add("cyrillic");
+  }
+
+  if (
+    /[\u0500-\u052F\u1C80-\u1C8F\u2DE0-\u2DFF\uA640-\uA69F]/u.test(
+      normalized
+    )
+  ) {
+    selected.add("cyrillic-ext");
+  }
+
+  if (
+    /\p{Script=Devanagari}/u.test(
+      normalized
+    )
+  ) {
+    selected.add("devanagari");
+  }
+
+  return FONT_SUBSETS.filter(
+    (subset) =>
+      selected.has(subset)
+  );
+};
+
 const embedUnicodeFonts = async (
-  pdfDoc
+  pdfDoc,
+  selectedSubsets
 ) => {
   const sources =
-    await loadFontSources();
+    (await loadFontSources())
+      .filter((source) =>
+        selectedSubsets.includes(
+          source.subset
+        )
+      );
   const entries = [];
 
   for (const source of sources) {
@@ -525,13 +595,21 @@ export async function renderNativeDecaPdf(
     );
   }
 
+  const lines =
+    buildLines(snapshot);
+  const selectedSubsets =
+    selectFontSubsets(
+      lines.join("\n")
+    );
+
   const pdfDoc =
     await PDFDocument.create();
   pdfDoc.registerFontkit(fontkit);
 
   const { resolve } =
     await embedUnicodeFonts(
-      pdfDoc
+      pdfDoc,
+      selectedSubsets
     );
 
   const qrMatrix =
@@ -539,9 +617,7 @@ export async function renderNativeDecaPdf(
       snapshot.accessUrl
     );
   const pageChunks =
-    paginate(
-      buildLines(snapshot)
-    );
+    paginate(lines);
 
   pdfDoc.setTitle(
     `DeCA ${snapshot.documentId}`
