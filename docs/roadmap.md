@@ -71,7 +71,7 @@ Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs
 - [x] CSV batch import with row-level validation.
 - [x] Excel (.xlsx) batch import using the same mapping/validation contract.
 - [x] WooCommerce plugin: HPOS/CRUD, encrypted API key, manual/automatic generation and revision flow.
-- [ ] PrestaShop.
+- [x] PrestaShop module v0.1.0: encrypted connector key, manual/opt-in automation, shipment update/revision flow and shared connector contract.
 - [x] Reference connector SDK/contract suite.
 
 ## Phase 6 — Kairoseth Platform integration + production hardening
@@ -79,7 +79,7 @@ Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs
 - [x] Canonical product identity fixed as `extensions/puente-deca`.
 - [x] Kairoseth Platform declared authoritative for customer auth, organizations and product RBAC.
 - [x] Server-to-server Kairoseth → Puente DeCA organization context with dedicated shared-secret authentication.
-- [ ] Platform UX to issue/revoke organization-scoped connector credentials.
+- [x] Platform UX to issue/revoke organization-scoped connector credentials.
 - [x] Platform-only connector credential API: create/list/revoke with one-time secret reveal.
 - [x] Puente DeCA workspace inside `/app/organizations/:slug/products/puente-deca`.
 - [ ] Production reverse proxy/public route `https://kairoseth.com/deca/d/<token>.pdf`.
@@ -92,6 +92,7 @@ Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs
 - [ ] Dynamic QR sizing for unusually long custom URLs.
 - [ ] Dependency lockfile / reproducible install for the XLSX adapter.
 - [ ] WooCommerce release ZIP packaging and live-store smoke test.
+- [ ] PrestaShop reproducible ZIP packaging and real 1.7.8/8.x compatibility matrix.
 - [ ] PostgreSQL-backed store.
 - [ ] Object storage.
 - [ ] Backups/restore drill.
