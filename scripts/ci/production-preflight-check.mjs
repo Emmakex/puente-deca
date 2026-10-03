@@ -61,9 +61,9 @@ requirePattern(
 );
 
 const assertIndex =
-  main.indexOf("assertProductionEnvironment");
+  main.indexOf("assertProductionEnvironment();");
 const mongoIndex =
-  main.indexOf("openKairosethMongoClient");
+  main.indexOf("await openKairosethMongoClient");
 
 if (
   assertIndex < 0 ||
