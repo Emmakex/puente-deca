@@ -2,6 +2,7 @@ import http from "node:http";
 import { normalizeDecaRequest } from "../../../packages/core/src/normalize-deca.mjs";
 import { validateDecaRequest } from "../../../packages/core/src/validate-deca.mjs";
 import { createDocumentSnapshot } from "../../../packages/document-engine/src/snapshot.mjs";
+import { renderNativeDecaPdf } from "../../../packages/document-engine/src/pdf.mjs";
 
 const sendJson = (response, status, body) => {
   const data = JSON.stringify(body);
@@ -10,6 +11,18 @@ const sendJson = (response, status, body) => {
     "content-length": Buffer.byteLength(data)
   });
   response.end(data);
+};
+
+const sendPdf = (response, snapshot, pdf) => {
+  response.writeHead(201, {
+    "content-type": "application/pdf",
+    "content-length": pdf.length,
+    "content-disposition":
+      `attachment; filename="${snapshot.documentId}.pdf"`,
+    "x-deca-document-id": snapshot.documentId,
+    "x-deca-version": String(snapshot.version)
+  });
+  response.end(pdf);
 };
 
 const readJson = async (request, limit = 1024 * 1024) => {
@@ -29,6 +42,11 @@ const readJson = async (request, limit = 1024 * 1024) => {
   if (chunks.length === 0) return {};
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 };
+
+const createSnapshot = (payload, publicBaseUrl) =>
+  createDocumentSnapshot(payload, {
+    baseUrl: publicBaseUrl
+  });
 
 export function createServer({
   publicBaseUrl = process.env.PUBLIC_BASE_URL ?? "https://deca.example.com"
@@ -59,14 +77,37 @@ export function createServer({
         const payload = await readJson(request);
 
         try {
-          const snapshot = createDocumentSnapshot(payload, {
-            baseUrl: publicBaseUrl
-          });
-
+          const snapshot = createSnapshot(payload, publicBaseUrl);
           return sendJson(response, 201, snapshot);
         } catch (error) {
           if (error?.code === "DECA_VALIDATION_FAILED") {
             return sendJson(response, 422, error.validation);
+          }
+
+          throw error;
+        }
+      }
+
+      if (request.method === "POST" && url.pathname === "/v1/deca/pdf") {
+        const payload = await readJson(request);
+
+        try {
+          const snapshot = createSnapshot(payload, publicBaseUrl);
+          const pdf = renderNativeDecaPdf(snapshot);
+          return sendPdf(response, snapshot, pdf);
+        } catch (error) {
+          if (error?.code === "DECA_VALIDATION_FAILED") {
+            return sendJson(response, 422, error.validation);
+          }
+
+          if (error?.code === "DECA_PDF_UNSUPPORTED_CHARACTER") {
+            return sendJson(response, 422, {
+              error: "unsupported_pdf_character",
+              message:
+                "The current PDF font cannot represent all supplied characters",
+              character: error.character,
+              codePoint: error.codePoint
+            });
           }
 
           throw error;

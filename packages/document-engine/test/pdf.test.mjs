@@ -24,18 +24,18 @@ const snapshot = {
     contractualShipper: {
       legalName: "Ejemplo Cargador SL",
       taxId: "B12345678",
-      address: "Calle Ejemplo 1, Madrid"
+      address: "Carrer d'Àngel Guimerà 1, Sabadell"
     },
     effectiveCarrier: {
-      legalName: "Ejemplo Transporte SL",
+      legalName: "Transports Núñez SL",
       taxId: "B87654321"
     },
     route: {
-      origin: "Madrid",
+      origin: "Sabadell",
       destination: "Barcelona"
     },
     goods: {
-      nature: "Muebles",
+      nature: "Mobiliari",
       weight: {
         value: 420,
         unit: "kg"
@@ -49,7 +49,7 @@ const snapshot = {
       },
       specialTrafficAuthorization: null
     },
-    observations: "Manipular con cuidado"
+    observations: "Manipular amb precaució"
   }
 };
 
@@ -71,6 +71,8 @@ test("renders a native PDF with metadata and embedded vector QR", () => {
   );
   assert.match(text, /Cargador contractual/);
   assert.match(text, /B12345678/);
+  assert.match(text, /Núñez/);
+  assert.match(text, /precaució/);
   assert.match(
     text,
     /https:\/\/deca\.example\.com\/d\//
@@ -81,6 +83,18 @@ test("renders a native PDF with metadata and embedded vector QR", () => {
   );
   assert.ok(pdf.length < MAX_DECA_PDF_BYTES);
   assert.match(text, /%%EOF/);
+});
+
+test("fails instead of silently corrupting unsupported PDF text", () => {
+  const unsupported = structuredClone(snapshot);
+  unsupported.data.contractualShipper.legalName = "Łódź Logistics";
+
+  assert.throws(
+    () => renderNativeDecaPdf(unsupported),
+    (error) =>
+      error.code === "DECA_PDF_UNSUPPORTED_CHARACTER" &&
+      error.character === "Ł"
+  );
 });
 
 test("enforces the configured PDF byte ceiling", () => {

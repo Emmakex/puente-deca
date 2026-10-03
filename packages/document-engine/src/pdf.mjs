@@ -2,14 +2,33 @@ import { encodeQrMatrix } from "./qr.mjs";
 
 export const MAX_DECA_PDF_BYTES = 5_000_000;
 
-const sanitizeLatin1 = (value) =>
-  String(value ?? "")
+const normalizePdfText = (value) => {
+  const normalized = String(value ?? "")
     .normalize("NFC")
-    .replace(/[\r\n\t]+/g, " ")
-    .replace(/[^\x20-\xFF]/g, "?");
+    .replace(/[\r\n\t]+/g, " ");
+
+  for (const character of normalized) {
+    const codePoint = character.codePointAt(0);
+
+    if (codePoint < 0x20 || codePoint > 0xff) {
+      const error = new Error(
+        `Character U+${codePoint
+          .toString(16)
+          .toUpperCase()
+          .padStart(4, "0")} is not supported by the current PDF font`
+      );
+      error.code = "DECA_PDF_UNSUPPORTED_CHARACTER";
+      error.character = character;
+      error.codePoint = codePoint;
+      throw error;
+    }
+  }
+
+  return normalized;
+};
 
 const escapePdfString = (value) =>
-  sanitizeLatin1(value)
+  normalizePdfText(value)
     .replace(/\\/g, "\\\\")
     .replace(/\(/g, "\\(")
     .replace(/\)/g, "\\)");
@@ -22,14 +41,12 @@ const pdfDate = (value) => {
   }
 
   const iso = date.toISOString();
-  return `D:${iso
-    .slice(0, 19)
-    .replace(/[-:T]/g, "")}Z`;
+  return `D:${iso.slice(0, 19).replace(/[-:T]/g, "")}Z`;
 };
 
 const wrap = (label, value, width = 88) => {
   const prefix = label ? `${label}: ` : "";
-  const text = `${prefix}${sanitizeLatin1(value)}`;
+  const text = `${prefix}${normalizePdfText(value)}`;
   const words = text.split(/\s+/);
   const lines = [];
   let current = "";
@@ -120,11 +137,7 @@ const buildLines = (snapshot) => {
     lines.push("", "Observaciones", ...wrap("", data.observations));
   }
 
-  lines.push(
-    "",
-    ...wrap("URL directa del documento", snapshot.accessUrl)
-  );
-
+  lines.push("", ...wrap("URL directa del documento", snapshot.accessUrl));
   return lines;
 };
 
@@ -133,12 +146,7 @@ const formatNumber = (value) =>
 
 const qrVectorStream = (
   matrix,
-  {
-    x = 400,
-    y = 50,
-    size = 135,
-    quietZone = 4
-  } = {}
+  { x = 400, y = 50, size = 135, quietZone = 4 } = {}
 ) => {
   const totalModules = matrix.length + quietZone * 2;
   const moduleSize = size / totalModules;
@@ -148,12 +156,10 @@ const qrVectorStream = (
     for (let column = 0; column < matrix.length; column += 1) {
       if (!matrix[row][column]) continue;
 
-      const drawX =
-        x + (column + quietZone) * moduleSize;
+      const drawX = x + (column + quietZone) * moduleSize;
       const drawY =
         y +
-        (totalModules - quietZone - row - 1) *
-          moduleSize;
+        (totalModules - quietZone - row - 1) * moduleSize;
 
       commands.push(
         [
@@ -171,10 +177,7 @@ const qrVectorStream = (
   return commands.join("\n");
 };
 
-const textStream = (
-  lines,
-  { qrMatrix = null } = {}
-) => {
+const textStream = (lines, { qrMatrix = null } = {}) => {
   const commands = [
     "BT",
     "/F1 10 Tf",

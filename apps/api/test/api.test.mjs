@@ -93,7 +93,50 @@ test("POST /v1/deca/snapshot returns a canonical prepared document", async () =>
     assert.equal(body.documentType, "DECA");
     assert.equal(body.version, 1);
     assert.equal(body.state, "prepared");
-    assert.match(body.accessUrl, /^https:\/\/deca\.example\.com\/d\/[^/]+\.pdf$/);
+    assert.match(
+      body.accessUrl,
+      /^https:\/\/deca\.example\.com\/d\/[^/]+\.pdf$/
+    );
     assert.match(body.contentHash, /^sha256:[a-f0-9]{64}$/);
+  });
+});
+
+test("POST /v1/deca/pdf returns a generated native PDF", async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/v1/deca/pdf`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(validPayload)
+    });
+    const pdf = Buffer.from(await response.arrayBuffer());
+
+    assert.equal(response.status, 201);
+    assert.equal(response.headers.get("content-type"), "application/pdf");
+    assert.match(
+      response.headers.get("x-deca-document-id"),
+      /^deca_/
+    );
+    assert.equal(
+      pdf.subarray(0, 8).toString("latin1"),
+      "%PDF-1.7"
+    );
+  });
+});
+
+test("PDF endpoint rejects unsupported characters instead of corrupting them", async () => {
+  await withServer(async (baseUrl) => {
+    const payload = structuredClone(validPayload);
+    payload.contractualShipper.legalName = "Łódź Logistics";
+
+    const response = await fetch(`${baseUrl}/v1/deca/pdf`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 422);
+    assert.equal(body.error, "unsupported_pdf_character");
+    assert.equal(body.character, "Ł");
   });
 });
