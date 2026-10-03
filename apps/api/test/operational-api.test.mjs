@@ -380,7 +380,7 @@ test("Kairoseth usage endpoint counts canonical DeCA versions across connector t
           organization.organizationId
       };
       const firstUsageResponse = await fetch(
-        `${baseUrl}/v1/usage/documents?from=2020-01-01T00%3A00%3A00.000Z&to=2030-01-01T00%3A00%3A00.000Z`,
+        `${baseUrl}/v1/usage/documents?from=2026-01-01T00%3A00%3A00.000Z&to=2027-01-01T00%3A00%3A00.000Z`,
         { headers: usageHeaders }
       );
       const firstUsage =
@@ -415,7 +415,7 @@ test("Kairoseth usage endpoint counts canonical DeCA versions across connector t
       assert.equal(secondResponse.status, 201);
 
       const secondUsageResponse = await fetch(
-        `${baseUrl}/v1/usage/documents?from=2020-01-01T00%3A00%3A00.000Z&to=2030-01-01T00%3A00%3A00.000Z`,
+        `${baseUrl}/v1/usage/documents?from=2026-01-01T00%3A00%3A00.000Z&to=2027-01-01T00%3A00%3A00.000Z`,
         { headers: usageHeaders }
       );
       const secondUsage =
@@ -425,7 +425,7 @@ test("Kairoseth usage endpoint counts canonical DeCA versions across connector t
       assert.equal(secondUsage.documents, 2);
 
       const connectorDenied = await fetch(
-        `${baseUrl}/v1/usage/documents?from=2020-01-01T00%3A00%3A00.000Z&to=2030-01-01T00%3A00%3A00.000Z`,
+        `${baseUrl}/v1/usage/documents?from=2026-01-01T00%3A00%3A00.000Z&to=2027-01-01T00%3A00%3A00.000Z`,
         {
           headers: {
             authorization: `Bearer ${apiKey}`
