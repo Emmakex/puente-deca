@@ -35,11 +35,13 @@ The initial document engine deliberately avoids external SaaS dependencies:
 - document URLs use high-entropy tokens over HTTPS;
 - QR codes are generated locally in byte mode with QR version 8 / error correction M;
 - the generated QR is embedded as vector geometry in the PDF, keeping it crisp for print and mobile inspection;
-- the current QR encoder supports up to 152 UTF-8 bytes, comfortably covering the intended short Puente DeCA document URLs;
+- the current QR encoder supports up to 152 UTF-8 bytes, covering the intended short Puente DeCA document URLs;
 - PDFs are generated directly from structured data and include creation/modification metadata;
-- a conservative 5,000,000-byte ceiling is enforced before a PDF can leave the renderer.
+- a conservative 5,000,000-byte ceiling is enforced before a PDF can leave the renderer;
+- legal text is never silently transliterated or replaced: unsupported characters make rendering fail closed;
+- the API can return a generated PDF directly through `POST /v1/deca/pdf`.
 
-For unusually long custom domains/paths, dynamic QR-version selection remains a production-hardening task.
+Full Unicode font embedding and unusually long custom-domain QR payloads remain production-hardening work.
 
 ## Persistence
 
@@ -72,6 +74,7 @@ native PDF renderer
   |---- PDF metadata
   |---- embedded QR
   |---- 5 MB size guard
+  |---- fail-closed text encoding
   |
 persistence
   |---- organization

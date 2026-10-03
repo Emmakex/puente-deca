@@ -30,8 +30,12 @@
 - [x] Creation/modification timestamps in snapshot and PDF metadata.
 - [x] New-file document versioning with immutable lineage.
 - [x] Deterministic content fingerprint for audit/reconciliation.
-- [ ] Production Unicode font embedding.
-- [ ] Dynamic QR version sizing for unusually long custom URLs.
+- [x] Fail-safe character handling: never silently alter unsupported legal text.
+- [x] API endpoint returning the generated PDF.
+
+**Phase 2 status: complete for the initial production-safe character set.**
+
+Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs are production-hardening tasks. Until then, unsupported characters fail closed and intended Puente DeCA URLs remain within the fixed QR capacity.
 
 ## Phase 3 — Persistence and multi-tenant core
 
@@ -63,6 +67,8 @@
 
 ## Phase 6 — Production hardening
 
+- [ ] Production Unicode font embedding.
+- [ ] Dynamic QR sizing for unusually long custom URLs.
 - [ ] PostgreSQL-backed store.
 - [ ] Object storage.
 - [ ] Backups/restore drill.
