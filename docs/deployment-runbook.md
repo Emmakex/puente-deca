@@ -175,6 +175,18 @@ For a controlled shipment:
 
 ### 7. Public Kairoseth PDF smoke
 
+Kairoseth also enforces a per-process in-flight public-PDF guard:
+
+```text
+PUENTE_DECA_PUBLIC_MAX_CONCURRENCY=16
+```
+
+Accepted range: `1..64`. Saturation returns HTTP `503` with `Retry-After: 1`.
+
+The guard is intentionally concurrency-based rather than IP-based so transport/inspection users behind shared NAT/proxies are not coupled. It is defense-in-depth and does not replace Hostinger CDN/WAF volumetric protection.
+
+
+
 Using an already-generated controlled DeCA and its immutable artifact SHA-256:
 
 ```bash
@@ -297,4 +309,5 @@ Do not declare Puente DeCA production-ready until all are green:
 - reconciliation;
 - backup/restore drill;
 - security review;
-- edge/reverse-proxy abuse protection.
+- application-level public-PDF concurrency protection;
+- Hostinger CDN/WAF edge-level abuse protection.

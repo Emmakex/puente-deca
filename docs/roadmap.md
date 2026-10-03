@@ -111,7 +111,9 @@ Characters outside the embedded font set continue to fail closed rather than bei
 - [x] Guarded logical backup + isolated DR restore automation with SHA-256 and GridFS integrity verification.
 - [ ] Live backup/restore drill against a staging/DR Atlas target.
 - [x] Per-organization/per-credential authenticated API rate limiting with 429 + Retry-After.
-- [ ] Edge/reverse-proxy volumetric protection for public QR and unauthenticated abuse.
+- [x] Kairoseth application-level public PDF concurrency guard (default 16 / max 64 per process) with 503 + Retry-After and no IP coupling.
+- [x] Kairoseth DeCA public-route changes are covered by the Hostinger Production Smoke path.
+- [ ] Hostinger CDN/WAF edge-level volumetric protection for public QR and unauthenticated abuse.
 - [x] Separate liveness/readiness probes plus protected low-cardinality Prometheus process metrics.
 - [x] Credentialed live Kairoseth→Puente DeCA protected-health smoke command.
 - [x] Production preflight and deployment/runback acceptance runbook.
