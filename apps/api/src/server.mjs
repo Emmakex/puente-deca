@@ -392,6 +392,26 @@ const sha256 = (bytes) =>
 const isPublicDocumentPath = (pathname) =>
   /(?:^|\/)d\/[A-Za-z0-9_-]+\.pdf$/.test(pathname);
 
+const usageWindowFromUrl = (url) => {
+  const from = new Date(url.searchParams.get("from") ?? "");
+  const to = new Date(url.searchParams.get("to") ?? "");
+
+  if (
+    Number.isNaN(from.getTime()) ||
+    Number.isNaN(to.getTime()) ||
+    from >= to
+  ) {
+    return null;
+  }
+
+  const maxWindowMs = 370 * 24 * 60 * 60 * 1000;
+  if (to.getTime() - from.getTime() > maxWindowMs) {
+    return null;
+  }
+
+  return { from, to };
+};
+
 const retentionNotBefore = (transportDate) => {
   const value = new Date(`${transportDate}T00:00:00.000Z`);
 
@@ -674,6 +694,54 @@ export function createServer({
           if (pdfErrorResponse(response, error)) return;
           throw error;
         }
+      }
+
+      if (
+        request.method === "GET" &&
+        url.pathname === "/v1/usage/documents"
+      ) {
+        if (!requireStore(response, store)) return;
+
+        const platform =
+          await authenticatePlatformService(
+            request,
+            response,
+            store,
+            platformServiceSecret,
+            rateLimiter
+          );
+        if (!platform) return;
+
+        const window =
+          usageWindowFromUrl(url);
+
+        if (
+          !window ||
+          typeof store.countDocumentVersions !==
+            "function"
+        ) {
+          return sendJson(response, 400, {
+            error: "invalid_usage_window",
+            message:
+              "A valid from/to usage window is required"
+          });
+        }
+
+        const documents =
+          await store.countDocumentVersions({
+            organizationId:
+              platform.organizationId,
+            from: window.from,
+            to: window.to
+          });
+
+        return sendJson(response, 200, {
+          organizationId:
+            platform.organizationId,
+          from: window.from.toISOString(),
+          to: window.to.toISOString(),
+          documents
+        });
       }
 
       const shipmentMatch =
