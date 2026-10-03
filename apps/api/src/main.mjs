@@ -1,7 +1,7 @@
 import { createServer } from "./server.mjs";
 import {
-  JsonStore
-} from "../../../packages/persistence/src/json-store.mjs";
+  openOperationalStore
+} from "../../../packages/persistence/src/store-factory.mjs";
 import {
   FileArtifactStore
 } from "../../../packages/persistence/src/file-artifact-store.mjs";
@@ -10,11 +10,9 @@ const port = Number.parseInt(
   process.env.PORT ?? "8080",
   10
 );
-const store = await JsonStore.open({
-  filePath:
-    process.env.STORE_PATH ??
-    ".data/store.json"
-});
+
+const store = await openOperationalStore();
+
 const artifactStore =
   await FileArtifactStore.open({
     rootDirectory:
@@ -29,6 +27,41 @@ const server = createServer({
   store,
   artifactStore
 });
+
+let closing = false;
+
+const shutdown = (signal) => {
+  if (closing) return;
+  closing = true;
+
+  console.log(
+    `Puente DeCA received ${signal}; shutting down`
+  );
+
+  server.close(async () => {
+    try {
+      if (typeof store.close === "function") {
+        await store.close();
+      }
+      process.exit(0);
+    } catch (error) {
+      console.error(
+        "Puente DeCA shutdown failed",
+        error
+      );
+      process.exit(1);
+    }
+  });
+};
+
+process.once(
+  "SIGTERM",
+  () => shutdown("SIGTERM")
+);
+process.once(
+  "SIGINT",
+  () => shutdown("SIGINT")
+);
 
 server.listen(port, () => {
   console.log(

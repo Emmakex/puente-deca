@@ -50,7 +50,8 @@ Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs
 - [x] Organization-scoped idempotency keys.
 - [x] Atomic JSON store for development and contract tests.
 - [ ] Enforced retention-aware deletion policy.
-- [ ] PostgreSQL production adapter.
+- [x] MongoDB Atlas production adapter aligned with Kairoseth Platform.
+- [ ] Live MongoDB Atlas transaction/index smoke acceptance.
 
 ## Phase 4 — Operational API
 
@@ -82,7 +83,7 @@ Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs
 - [x] Platform UX to issue/revoke organization-scoped connector credentials.
 - [x] Platform-only connector credential API: create/list/revoke with one-time secret reveal.
 - [x] Puente DeCA workspace inside `/app/organizations/:slug/products/puente-deca`.
-- [ ] Production reverse proxy/public route `https://kairoseth.com/deca/d/<token>.pdf`.
+- [x] Kairoseth public proxy route implemented at `https://kairoseth.com/deca/d/<token>.pdf`; live production wiring/acceptance remains pending.
 - [ ] Disable standalone customer/bootstrap semantics in production.
 - [x] Organization-scoped shipment listing for the Kairoseth workspace.
 
@@ -93,7 +94,8 @@ Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs
 - [ ] Dependency lockfile / reproducible install for the XLSX adapter.
 - [ ] WooCommerce release ZIP packaging and live-store smoke test.
 - [ ] PrestaShop reproducible ZIP packaging and real 1.7.8/8.x compatibility matrix.
-- [ ] PostgreSQL-backed store.
+- [x] MongoDB Atlas metadata store aligned with Kairoseth Platform.
+- [ ] Production Atlas transaction/index smoke acceptance.
 - [ ] Object storage.
 - [ ] Backups/restore drill.
 - [ ] Rate limits.
