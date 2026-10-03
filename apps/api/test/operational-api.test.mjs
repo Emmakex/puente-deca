@@ -787,6 +787,19 @@ test("Kairoseth manages connector credentials with one-time secret reveal", asyn
           organizationId
       };
 
+      const leaseResponse = await fetch(
+        `${baseUrl}/v1/access/connectors`,
+        {
+          method: "PUT",
+          headers: serviceHeaders,
+          body: JSON.stringify({
+            validUntil:
+              "2030-01-01T00:00:00.000Z"
+          })
+        }
+      );
+      assert.equal(leaseResponse.status, 200);
+
       const createResponse = await fetch(
         `${baseUrl}/v1/credentials`,
         {
