@@ -109,7 +109,8 @@ Full Unicode font embedding remains a production-hardening task.
 - [x] Separate liveness/readiness probes plus protected low-cardinality Prometheus process metrics.
 - [x] Production preflight and deployment/runback acceptance runbook.
 - [ ] Live deployment acceptance on the chosen internal service runtime.
-- [ ] Security review.
+- [x] Static application-security review with CI regression guard.
+- [ ] Live infrastructure security acceptance and focused external penetration test.
 
 ## Phase 7 — Transport Compliance Engine
 
