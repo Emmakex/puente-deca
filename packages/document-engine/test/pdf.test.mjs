@@ -102,7 +102,10 @@ test("renders a native Unicode PDF with metadata, ToUnicode mapping and vector Q
       unicodeSnapshot
     );
   const loaded =
-    await PDFDocument.load(pdf);
+    await PDFDocument.load(
+      pdf,
+      { updateMetadata: false }
+    );
 
   assert.equal(
     pdf.subarray(0, 8)
