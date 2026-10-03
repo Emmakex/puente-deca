@@ -8,7 +8,7 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "check": "node scripts/ci/repo-check.mjs && node scripts/ci/openapi-check.mjs && node scripts/ci/woocommerce-check.mjs && node scripts/ci/prestashop-check.mjs && node scripts/ci/mongodb-check.mjs && node scripts/ci/artifact-storage-check.mjs && node scripts/ci/shared-mongo-client-check.mjs && node scripts/ci/retention-check.mjs && node scripts/ci/operations-check.mjs && node scripts/ci/rate-limit-check.mjs && node scripts/ci/production-preflight-check.mjs",
+    "check": "node scripts/ci/repo-check.mjs && node scripts/ci/openapi-check.mjs && node scripts/ci/woocommerce-check.mjs && node scripts/ci/prestashop-check.mjs && node scripts/ci/mongodb-check.mjs && node scripts/ci/artifact-storage-check.mjs && node scripts/ci/shared-mongo-client-check.mjs && node scripts/ci/retention-check.mjs && node scripts/ci/operations-check.mjs && node scripts/ci/rate-limit-check.mjs && node scripts/ci/production-preflight-check.mjs && node scripts/ci/release-package-check.mjs",
     "test": "node --test",
     "server": "node apps/api/src/main.mjs",
     "file-import:demo": "node connectors/file-import/src/cli.mjs examples/file-import/shipments.csv",
@@ -27,7 +27,9 @@
     "check:operations": "node scripts/ci/operations-check.mjs",
     "check:rate-limit": "node scripts/ci/rate-limit-check.mjs",
     "check:production-preflight": "node scripts/ci/production-preflight-check.mjs",
-    "production:preflight": "node scripts/production/preflight.mjs"
+    "production:preflight": "node scripts/production/preflight.mjs",
+    "check:release-packages": "node scripts/ci/release-package-check.mjs",
+    "release:connectors": "bash scripts/release/package-connectors.sh"
   },
   "dependencies": {
     "read-excel-file": "9.3.10",
