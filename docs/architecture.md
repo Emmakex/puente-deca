@@ -41,10 +41,10 @@ The initial document engine deliberately avoids external SaaS dependencies:
 - the QR layer supports up to the version-40/M byte-mode ceiling (2,331 UTF-8 bytes), while normal Kairoseth public document URLs remain intentionally short;
 - PDFs are generated directly from structured data and include creation/modification metadata;
 - a conservative 5,000,000-byte ceiling is enforced before a PDF can leave the renderer;
-- legal text uses embedded Noto Sans Unicode subsets (Latin/extended Latin, Greek, Cyrillic, Vietnamese and Devanagari) with font subsetting; characters outside the embedded set fail closed rather than being transliterated or replaced;
+- the renderer is adaptive: the lightweight native WinAnsi path remains the fast path for Latin-1 documents, while text beyond that range switches to embedded Noto Sans Unicode subsets (Latin/extended Latin, Greek, Cyrillic, Vietnamese and Devanagari) with font subsetting; characters outside the embedded set fail closed rather than being transliterated or replaced;
 - the API can return a generated PDF directly through `POST /v1/deca/pdf`.
 
-The PDF renderer embeds only the Unicode font subsets required by the document and keeps an explicit fail-closed boundary for unsupported scripts/symbols.
+Unicode font files are lazy-loaded and only the subsets required by a document are embedded. This preserves the optimized common path while keeping an explicit fail-closed boundary for unsupported scripts/symbols.
 
 ## Kairoseth Platform authority
 
