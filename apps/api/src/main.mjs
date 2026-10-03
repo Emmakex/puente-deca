@@ -10,6 +10,13 @@ import {
 import {
   openKairosethMongoClient
 } from "../../../packages/persistence/src/mongo-client.mjs";
+import {
+  assertProductionEnvironment
+} from "./production-preflight.mjs";
+
+if (process.env.NODE_ENV === "production") {
+  assertProductionEnvironment();
+}
 
 const port = Number.parseInt(
   process.env.PORT ?? "8080",
