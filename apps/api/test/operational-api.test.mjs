@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { once } from "node:events";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "../src/server.mjs";
@@ -526,6 +526,126 @@ test("Kairoseth can read the organization connector-access lease for acceptance 
             "2031-01-02T03:04:05.000Z"
         }
       );
+    }
+  );
+});
+
+test("Kairoseth previews CSV and XLSX imports through the canonical validator", async () => {
+  await withOperationalServer(
+    async ({
+      baseUrl,
+      organization,
+      platformServiceSecret
+    }) => {
+      const headers = {
+        "content-type": "application/json",
+        "x-kairoseth-service-secret":
+          platformServiceSecret,
+        "x-kairoseth-organization-id":
+          organization.organizationId
+      };
+      const csv = [
+        "external_reference,shipper_name,shipper_tax_id,shipper_address,carrier_name,carrier_tax_id,origin,destination,goods_nature,weight_value,weight_unit,alternative_measure_value,alternative_measure_unit,transport_date,tractor_registration,trailer_registration,special_traffic_authorization,observations",
+        "SHIP-IMPORT-001,Example Shipper SL,B12345678,Madrid,Example Carrier SL,B87654321,Madrid,Barcelona,Furniture,420,kg,,,2026-10-05,1234ABC,,,Handle carefully"
+      ].join("\n");
+
+      const csvResponse = await fetch(
+        `${baseUrl}/v1/import/preview`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            format: "csv",
+            dataBase64:
+              Buffer.from(csv).toString("base64")
+          })
+        }
+      );
+      assert.equal(csvResponse.status, 200);
+      const csvPreview = await csvResponse.json();
+      assert.equal(csvPreview.total, 1);
+      assert.equal(csvPreview.valid, 1);
+      assert.equal(csvPreview.invalid, 0);
+      assert.equal(
+        csvPreview.records[0].request.externalReference,
+        "SHIP-IMPORT-001"
+      );
+
+      const workbook = await readFile(
+        join(
+          process.cwd(),
+          "examples/file-import/shipments.xlsx"
+        )
+      );
+      const xlsxResponse = await fetch(
+        `${baseUrl}/v1/import/preview`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            format: "xlsx",
+            dataBase64:
+              workbook.toString("base64")
+          })
+        }
+      );
+      assert.equal(xlsxResponse.status, 200);
+      const xlsxPreview = await xlsxResponse.json();
+      assert.equal(xlsxPreview.total, 2);
+      assert.equal(xlsxPreview.valid, 2);
+      assert.equal(xlsxPreview.invalid, 0);
+    }
+  );
+});
+
+test("Kairoseth import preview keeps invalid rows and rejects malformed payloads", async () => {
+  await withOperationalServer(
+    async ({
+      baseUrl,
+      organization,
+      platformServiceSecret
+    }) => {
+      const headers = {
+        "content-type": "application/json",
+        "x-kairoseth-service-secret":
+          platformServiceSecret,
+        "x-kairoseth-organization-id":
+          organization.organizationId
+      };
+      const csv =
+        "external_reference,transport_date\n,not-a-date\n";
+
+      const preview = await fetch(
+        `${baseUrl}/v1/import/preview`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            format: "csv",
+            dataBase64:
+              Buffer.from(csv).toString("base64")
+          })
+        }
+      );
+      assert.equal(preview.status, 200);
+      const body = await preview.json();
+      assert.equal(body.total, 1);
+      assert.equal(body.valid, 0);
+      assert.equal(body.invalid, 1);
+      assert.ok(body.records[0].errors.length > 0);
+
+      const malformed = await fetch(
+        `${baseUrl}/v1/import/preview`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            format: "pdf",
+            dataBase64: "not-base64"
+          })
+        }
+      );
+      assert.equal(malformed.status, 422);
     }
   );
 });
