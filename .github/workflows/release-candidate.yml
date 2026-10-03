@@ -57,7 +57,7 @@ jobs:
       - name: Verify release manifest and connector checksums
         run: |
           npm run release:verify
-          sha256sum --check dist/SHA256SUMS
+          (cd dist && sha256sum --check SHA256SUMS)
 
       - name: Upload release candidate evidence
         uses: actions/upload-artifact@v4
