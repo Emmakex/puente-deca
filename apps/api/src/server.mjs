@@ -412,7 +412,9 @@ export function createServer({
         process.env.RATE_LIMIT_MAX_REQUESTS,
       maxEntries:
         process.env.RATE_LIMIT_MAX_ENTRIES
-    })
+    }),
+  standaloneToolsEnabled =
+    process.env.NODE_ENV !== "production"
 } = {}) {
   return http.createServer(async (request, response) => {
     const finishMetrics =
@@ -581,6 +583,24 @@ export function createServer({
           200,
           runtimeMetrics.renderPrometheus()
         );
+      }
+
+      const standaloneToolPath =
+        request.method === "POST" &&
+        (
+          url.pathname === "/v1/deca/validate" ||
+          url.pathname === "/v1/deca/snapshot" ||
+          url.pathname === "/v1/deca/pdf"
+        );
+
+      if (
+        standaloneToolPath &&
+        !standaloneToolsEnabled
+      ) {
+        return sendJson(response, 404, {
+          error: "not_found",
+          message: "Route not found"
+        });
       }
 
       if (

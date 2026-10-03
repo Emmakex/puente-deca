@@ -84,7 +84,7 @@ Full Unicode font embedding remains a production-hardening task.
 - [x] Platform-only connector credential API: create/list/revoke with one-time secret reveal.
 - [x] Puente DeCA workspace inside `/app/organizations/:slug/products/puente-deca`.
 - [x] Kairoseth public proxy route implemented at `https://kairoseth.com/deca/d/<token>.pdf`; live production wiring/acceptance remains pending.
-- [ ] Disable standalone customer/bootstrap semantics in production.
+- [x] Disable standalone DeCA laboratory/bootstrap surface in production; Kairoseth/connector operational routes remain authoritative.
 - [x] Organization-scoped shipment listing for the Kairoseth workspace.
 
 ### Runtime hardening

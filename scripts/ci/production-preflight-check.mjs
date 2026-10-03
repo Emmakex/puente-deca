@@ -78,3 +78,32 @@ if (
 console.log(
   "Production preflight contract OK (canonical URL, Atlas/GridFS, emergency overrides disabled, fail-before-connect)"
 );
+
+
+const server = await readFile(
+  "apps/api/src/server.mjs",
+  "utf8"
+);
+
+requirePattern(
+  server,
+  /standaloneToolsEnabled\s*=\s*process\.env\.NODE_ENV\s*!==\s*"production"/,
+  "Standalone DeCA tools must default off in production"
+);
+requirePattern(
+  server,
+  /standaloneToolPath[\s\S]*status|standaloneToolPath[\s\S]*404|standaloneToolPath[\s\S]*sendJson\(response, 404/,
+  "Production standalone-tool guard must return 404"
+);
+
+if (
+  /ALLOW_STANDALONE/i.test(server)
+) {
+  throw new Error(
+    "Production standalone tools must not have an environment escape hatch"
+  );
+}
+
+console.log(
+  "Standalone production surface contract OK (lab validate/snapshot/pdf hidden)"
+);

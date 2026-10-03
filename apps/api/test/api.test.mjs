@@ -36,9 +36,13 @@ const validPayload = {
   observations: null
 };
 
-const withServer = async (fn) => {
+const withServer = async (
+  fn,
+  serverOptions = {}
+) => {
   const server = createServer({
-    publicBaseUrl: "https://deca.example.com"
+    publicBaseUrl: "https://deca.example.com",
+    ...serverOptions
   });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -209,4 +213,46 @@ test("GET /metrics requires server-to-server authentication", async () => {
 
     assert.equal(response.status, 401);
   });
+});
+
+
+test("standalone DeCA laboratory endpoints are hidden when production surface is enforced", async () => {
+  await withServer(
+    async (baseUrl) => {
+      for (const path of [
+        "/v1/deca/validate",
+        "/v1/deca/snapshot",
+        "/v1/deca/pdf"
+      ]) {
+        const response = await fetch(
+          `${baseUrl}${path}`,
+          {
+            method: "POST",
+            headers: {
+              "content-type":
+                "application/json"
+            },
+            body: JSON.stringify(
+              validPayload
+            )
+          }
+        );
+        const body =
+          await response.json();
+
+        assert.equal(
+          response.status,
+          404
+        );
+        assert.deepEqual(body, {
+          error: "not_found",
+          message: "Route not found"
+        });
+      }
+    },
+    {
+      standaloneToolsEnabled:
+        false
+    }
+  );
 });
