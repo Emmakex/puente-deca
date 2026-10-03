@@ -24,13 +24,14 @@
 
 - [x] Canonical document snapshot.
 - [x] Native PDF generation.
-- [ ] QR generation and embedding.
+- [x] QR generation and vector embedding.
 - [x] Unique HTTPS download URL.
 - [x] Maximum-size enforcement (5,000,000-byte conservative ceiling).
 - [x] Creation/modification timestamps in snapshot and PDF metadata.
 - [x] New-file document versioning with immutable lineage.
 - [x] Deterministic content fingerprint for audit/reconciliation.
 - [ ] Production Unicode font embedding.
+- [ ] Dynamic QR version sizing for unusually long custom URLs.
 
 ## Phase 3 — Persistence and multi-tenant core
 

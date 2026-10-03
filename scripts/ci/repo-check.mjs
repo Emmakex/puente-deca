@@ -9,6 +9,7 @@ const requiredPaths = [
   "packages/core/src/validate-deca.mjs",
   "packages/document-engine/src/access-url.mjs",
   "packages/document-engine/src/snapshot.mjs",
+  "packages/document-engine/src/qr.mjs",
   "packages/document-engine/src/pdf.mjs",
   "docs/architecture.md",
   "docs/legal-traceability.md",
@@ -20,4 +21,6 @@ for (const path of requiredPaths) {
   await access(path);
 }
 
-console.log(`Repository contract OK (${requiredPaths.length} required paths)`);
+console.log(
+  `Repository contract OK (${requiredPaths.length} required paths)`
+);

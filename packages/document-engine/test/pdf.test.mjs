@@ -53,16 +53,32 @@ const snapshot = {
   }
 };
 
-test("renders a digitally native PDF with required timestamps as metadata", () => {
+test("renders a native PDF with metadata and embedded vector QR", () => {
   const pdf = renderNativeDecaPdf(snapshot);
   const text = pdf.toString("latin1");
 
-  assert.equal(pdf.subarray(0, 8).toString("latin1"), "%PDF-1.7");
-  assert.match(text, /\/CreationDate \(D:20261003050000Z\)/);
-  assert.match(text, /\/ModDate \(D:20261003061530Z\)/);
+  assert.equal(
+    pdf.subarray(0, 8).toString("latin1"),
+    "%PDF-1.7"
+  );
+  assert.match(
+    text,
+    /\/CreationDate \(D:20261003050000Z\)/
+  );
+  assert.match(
+    text,
+    /\/ModDate \(D:20261003061530Z\)/
+  );
   assert.match(text, /Cargador contractual/);
   assert.match(text, /B12345678/);
-  assert.match(text, /https:\/\/deca\.example\.com\/d\//);
+  assert.match(
+    text,
+    /https:\/\/deca\.example\.com\/d\//
+  );
+  assert.ok(
+    (text.match(/ re f/g) ?? []).length > 500,
+    "expected QR vector modules in PDF content"
+  );
   assert.ok(pdf.length < MAX_DECA_PDF_BYTES);
   assert.match(text, /%%EOF/);
 });

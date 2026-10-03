@@ -28,18 +28,35 @@ A shipment may later produce multiple regulatory representations:
 
 This prevents the platform from becoming coupled to a single regulation.
 
-## Current vertical slice
+## Document engine
 
-The initial slice intentionally has no external runtime dependencies:
+The initial document engine deliberately avoids external SaaS dependencies:
+
+- document URLs use high-entropy tokens over HTTPS;
+- QR codes are generated locally in byte mode with QR version 8 / error correction M;
+- the generated QR is embedded as vector geometry in the PDF, keeping it crisp for print and mobile inspection;
+- the current QR encoder supports up to 152 UTF-8 bytes, comfortably covering the intended short Puente DeCA document URLs;
+- PDFs are generated directly from structured data and include creation/modification metadata;
+- a conservative 5,000,000-byte ceiling is enforced before a PDF can leave the renderer.
+
+For unusually long custom domains/paths, dynamic QR-version selection remains a production-hardening task.
+
+## Current flow
 
 ```text
-POST /v1/deca/validate
-          |
-          v
-  validateDecaRequest()
-          |
-          v
- { valid, errors[] }
+request
+  |
+normalize + validate
+  |
+canonical snapshot
+  |---- content fingerprint
+  |---- unique HTTPS URL
+  |---- immutable version lineage
+  |
+native PDF renderer
+  |---- PDF metadata
+  |---- embedded QR
+  |---- 5 MB size guard
+  v
+document bytes
 ```
-
-This keeps the first CI lane deterministic and very fast while the document and persistence engines are introduced.

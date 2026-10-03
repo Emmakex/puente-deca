@@ -1,3 +1,5 @@
+import { encodeQrMatrix } from "./qr.mjs";
+
 export const MAX_DECA_PDF_BYTES = 5_000_000;
 
 const sanitizeLatin1 = (value) =>
@@ -126,7 +128,53 @@ const buildLines = (snapshot) => {
   return lines;
 };
 
-const textStream = (lines) => {
+const formatNumber = (value) =>
+  Number(value.toFixed(3)).toString();
+
+const qrVectorStream = (
+  matrix,
+  {
+    x = 400,
+    y = 50,
+    size = 135,
+    quietZone = 4
+  } = {}
+) => {
+  const totalModules = matrix.length + quietZone * 2;
+  const moduleSize = size / totalModules;
+  const commands = ["q", "0 g"];
+
+  for (let row = 0; row < matrix.length; row += 1) {
+    for (let column = 0; column < matrix.length; column += 1) {
+      if (!matrix[row][column]) continue;
+
+      const drawX =
+        x + (column + quietZone) * moduleSize;
+      const drawY =
+        y +
+        (totalModules - quietZone - row - 1) *
+          moduleSize;
+
+      commands.push(
+        [
+          formatNumber(drawX),
+          formatNumber(drawY),
+          formatNumber(moduleSize + 0.01),
+          formatNumber(moduleSize + 0.01),
+          "re f"
+        ].join(" ")
+      );
+    }
+  }
+
+  commands.push("Q");
+  return commands.join("\n");
+};
+
+const textStream = (
+  lines,
+  { qrMatrix = null } = {}
+) => {
   const commands = [
     "BT",
     "/F1 10 Tf",
@@ -140,6 +188,11 @@ const textStream = (lines) => {
   });
 
   commands.push("ET");
+
+  if (qrMatrix) {
+    commands.push(qrVectorStream(qrMatrix));
+  }
+
   return commands.join("\n");
 };
 
@@ -156,11 +209,13 @@ const streamObjectBuffer = (id, stream) => {
   return Buffer.concat([head, data, tail]);
 };
 
-const paginate = (lines, pageSize = 43) => {
+const paginate = (lines, pageSize = 35) => {
   const pages = [];
+
   for (let index = 0; index < lines.length; index += pageSize) {
     pages.push(lines.slice(index, index + pageSize));
   }
+
   return pages.length ? pages : [[]];
 };
 
@@ -179,6 +234,7 @@ export function renderNativeDecaPdf(
     throw new TypeError("A valid DeCA document snapshot is required");
   }
 
+  const qrMatrix = encodeQrMatrix(snapshot.accessUrl);
   const pageChunks = paginate(buildLines(snapshot));
   const objects = new Map();
 
@@ -244,11 +300,19 @@ export function renderNativeDecaPdf(
 
     objects.set(
       contentId,
-      streamObjectBuffer(contentId, textStream(lines))
+      streamObjectBuffer(
+        contentId,
+        textStream(lines, {
+          qrMatrix: index === 0 ? qrMatrix : null
+        })
+      )
     );
   });
 
-  const header = Buffer.from("%PDF-1.7\n%\xE2\xE3\xCF\xD3\n", "latin1");
+  const header = Buffer.from(
+    "%PDF-1.7\n%\xE2\xE3\xCF\xD3\n",
+    "latin1"
+  );
   const chunks = [header];
   const offsets = [0];
   let cursor = header.length;
