@@ -35,6 +35,7 @@ const requiredPaths = [
   "connectors/woocommerce/includes/class-pdeca-woo-connector.php",
   "scripts/ci/woocommerce-check.mjs",
   "docs/architecture.md",
+  "docs/kairoseth-platform-integration.md",
   "docs/openapi.json",
   "scripts/ci/openapi-check.mjs",
   "docs/legal-traceability.md",
