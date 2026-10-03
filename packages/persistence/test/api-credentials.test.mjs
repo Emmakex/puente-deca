@@ -43,6 +43,13 @@ test("creates an API key once while persisting only its hash", async () => {
         name: "Organization 001"
       });
 
+    await store.setOrganizationConnectorAccessUntil({
+      organizationId:
+        organization.organizationId,
+      validUntil:
+        new Date("2026-11-03T05:45:00.000Z")
+    });
+
     const created =
       await store.createApiCredential({
         organizationId:
@@ -84,6 +91,61 @@ test("creates an API key once while persisting only its hash", async () => {
   });
 });
 
+test("connector lease is required to create and authenticate API keys", async () => {
+  await withStore(async ({ store }) => {
+    const organization =
+      await store.createOrganization({
+        name: "Lease guarded"
+      });
+
+    await assert.rejects(
+      () =>
+        store.createApiCredential({
+          organizationId:
+            organization.organizationId,
+          name: "No lease"
+        }),
+      (error) =>
+        error.code ===
+        "ORGANIZATION_CONNECTOR_ACCESS_INACTIVE"
+    );
+
+    await store.setOrganizationConnectorAccessUntil({
+      organizationId:
+        organization.organizationId,
+      validUntil:
+        new Date("2026-11-03T05:45:00.000Z")
+    });
+
+    const created =
+      await store.createApiCredential({
+        organizationId:
+          organization.organizationId,
+        name: "Leased connector"
+      });
+
+    assert.ok(
+      await store.authenticateApiKey(
+        created.apiKey
+      )
+    );
+
+    await store.setOrganizationConnectorAccessUntil({
+      organizationId:
+        organization.organizationId,
+      validUntil:
+        new Date("2026-10-03T05:45:00.000Z")
+    });
+
+    assert.equal(
+      await store.authenticateApiKey(
+        created.apiKey
+      ),
+      null
+    );
+  });
+});
+
 test("revoked keys stop authenticating and cannot cross tenant boundaries", async () => {
   await withStore(async ({ store }) => {
     const first = await store.createOrganization({
@@ -91,6 +153,13 @@ test("revoked keys stop authenticating and cannot cross tenant boundaries", asyn
     });
     const second = await store.createOrganization({
       name: "Second"
+    });
+
+    await store.setOrganizationConnectorAccessUntil({
+      organizationId:
+        first.organizationId,
+      validUntil:
+        new Date("2026-11-03T05:45:00.000Z")
     });
 
     const created =

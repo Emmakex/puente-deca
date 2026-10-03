@@ -611,6 +611,51 @@
           }
         }
       }
+    },
+    "/v1/access/connectors": {
+      "put": {
+        "operationId": "setOrganizationConnectorAccess",
+        "summary": "Set the organization connector-access lease",
+        "security": [
+          {
+            "platformServiceSecret": [],
+            "platformOrganizationId": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "validUntil"
+                ],
+                "properties": {
+                  "validUntil": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Connector access lease updated"
+          },
+          "401": {
+            "description": "Kairoseth service authentication required"
+          },
+          "422": {
+            "description": "Invalid connector access expiry"
+          },
+          "429": {
+            "description": "Authenticated subject exceeded the per-process request limit"
+          }
+        }
+      }
     }
   },
   "components": {
