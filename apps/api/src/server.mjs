@@ -697,6 +697,54 @@ export function createServer({
       }
 
       if (
+        request.method === "PUT" &&
+        url.pathname === "/v1/access/connectors"
+      ) {
+        if (!requireStore(response, store)) return;
+
+        const platform =
+          await authenticatePlatformService(
+            request,
+            response,
+            store,
+            platformServiceSecret,
+            rateLimiter
+          );
+        if (!platform) return;
+
+        const payload = await readJson(request);
+        const validUntil =
+          new Date(payload?.validUntil ?? "");
+
+        if (
+          Number.isNaN(validUntil.getTime()) ||
+          typeof store.setOrganizationConnectorAccessUntil !==
+            "function"
+        ) {
+          return sendJson(response, 422, {
+            error: "invalid_connector_access",
+            message:
+              "A valid connector access expiry is required"
+          });
+        }
+
+        const organization =
+          await store.setOrganizationConnectorAccessUntil({
+            organizationId:
+              platform.organizationId,
+            validUntil
+          });
+
+        return sendJson(response, 200, {
+          organizationId:
+            platform.organizationId,
+          validUntil:
+            organization.connectorAccessUntil ??
+            validUntil.toISOString()
+        });
+      }
+
+      if (
         request.method === "GET" &&
         url.pathname === "/v1/usage/documents"
       ) {
@@ -828,18 +876,33 @@ export function createServer({
           });
         }
 
-        const created =
-          await store.createApiCredential({
-            organizationId:
-              platform.organizationId,
-            name,
-            scopes
-          });
+        try {
+          const created =
+            await store.createApiCredential({
+              organizationId:
+                platform.organizationId,
+              name,
+              scopes
+            });
 
-        return sendJson(response, 201, {
-          credential: created.credential,
-          apiKey: created.apiKey
-        });
+          return sendJson(response, 201, {
+            credential: created.credential,
+            apiKey: created.apiKey
+          });
+        } catch (error) {
+          if (
+            error?.code ===
+            "ORGANIZATION_CONNECTOR_ACCESS_INACTIVE"
+          ) {
+            return sendJson(response, 403, {
+              error:
+                "connector_access_inactive",
+              message:
+                "Organization connector access is inactive"
+            });
+          }
+          throw error;
+        }
       }
 
       if (
