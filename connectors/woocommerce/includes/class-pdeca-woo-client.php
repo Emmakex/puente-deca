@@ -17,6 +17,13 @@ final class PDECA_Woo_Client {
         return 0 === strpos( $this->endpoint, 'https://' ) && '' !== $this->token;
     }
 
+    public function test_connection() {
+        return $this->request(
+            'GET',
+            '/v1/shipments?limit=1'
+        );
+    }
+
     public function create_shipment( array $payload, $idempotency_key ) {
         return $this->request(
             'POST',
