@@ -330,6 +330,59 @@ test("operational flow stores a DeCA and exposes its prefixed QR URL directly", 
   );
 });
 
+test("engine public document route requires the dedicated Kairoseth proxy secret when configured", async () => {
+  const publicProxySecret =
+    "public-proxy-secret-0123456789abcdef012345";
+
+  await withOperationalServer(
+    async ({ baseUrl }) => {
+      const path =
+        "/public/d/__pdeca_missing_proxy_probe_20261003.pdf";
+
+      const unauthorized =
+        await fetch(
+          `${baseUrl}${path}`
+        );
+
+      assert.equal(
+        unauthorized.status,
+        401
+      );
+      assert.equal(
+        (
+          await unauthorized.json()
+        ).error,
+        "unauthorized"
+      );
+
+      const authorized =
+        await fetch(
+          `${baseUrl}${path}`,
+          {
+            headers: {
+              "x-kairoseth-public-proxy-secret":
+                publicProxySecret
+            }
+          }
+        );
+
+      assert.equal(
+        authorized.status,
+        404
+      );
+      assert.equal(
+        (
+          await authorized.json()
+        ).error,
+        "document_not_found"
+      );
+    },
+    {
+      publicProxySecret
+    }
+  );
+});
+
 test("operational routes reject missing API credentials", async () => {
   await withOperationalServer(
     async ({ baseUrl }) => {
