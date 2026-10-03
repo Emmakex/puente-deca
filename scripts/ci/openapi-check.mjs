@@ -39,6 +39,18 @@ if (publicDownload?.security) {
   );
 }
 
+const connectorAccess =
+  document.paths["/v1/access/connectors"];
+
+if (
+  !connectorAccess?.get ||
+  !connectorAccess?.put
+) {
+  throw new Error(
+    "Connector access read/write contract is missing"
+  );
+}
+
 const credentialCollection =
   document.paths["/v1/credentials"];
 
