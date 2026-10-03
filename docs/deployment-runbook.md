@@ -81,6 +81,16 @@ npm run contract:kairoseth
 
 This locally validates the canonical Kairoseth server-to-server flow, Unicode DeCA generation, public PDF path, checksum integrity, document reuse and cross-organization isolation.
 
+## Atlas/GridFS live gate
+
+With the intended staging/production-class Atlas environment configured:
+
+```bash
+npm run production:atlas-smoke
+```
+
+This must return `status=ok` before live deployment acceptance. It verifies real Atlas connectivity/index creation, transaction rollback and a GridFS upload/read/SHA-256/delete cycle without leaving test metadata.
+
 ## Acceptance sequence
 
 ### 1. Liveness
@@ -111,7 +121,16 @@ Call Kairoseth's protected:
 
 with the existing operations-health authorization. Expected: engine `ready`.
 
-### 4. Organization isolation
+### 4. External Kairoseth → engine health smoke
+
+```bash
+OPERATIONS_HEALTH_SECRET='<configured secret>' \
+npm run production:kairoseth-health-smoke
+```
+
+Expected: `status=ok` and `engine=ready`.
+
+### 5. Organization isolation
 
 From two Kairoseth test organizations:
 
@@ -120,7 +139,7 @@ From two Kairoseth test organizations:
 - issue distinct connector credentials;
 - verify credential revocation in one organization does not affect the other.
 
-### 5. End-to-end DeCA
+### 6. End-to-end DeCA
 
 For a controlled shipment:
 
@@ -132,11 +151,23 @@ For a controlled shipment:
 6. confirm direct PDF download without login/intermediate HTML;
 7. compare downloaded PDF SHA-256 with document metadata.
 
-### 6. Connector smoke
+### 7. Public Kairoseth PDF smoke
+
+Using an already-generated controlled DeCA and its immutable artifact SHA-256:
+
+```bash
+DECA_SMOKE_PUBLIC_URL='https://kairoseth.com/deca/d/<token>.pdf' \
+DECA_SMOKE_EXPECTED_SHA256='sha256:<hash>' \
+npm run production:public-pdf-smoke
+```
+
+Expected: `status=ok`, direct PDF, checksum match and all privacy headers green.
+
+### 8. Connector smoke
 
 Run one WooCommerce and one PrestaShop controlled flow with organization-scoped connector keys.
 
-### 7. Reconciliation
+### 9. Reconciliation
 
 ```bash
 npm run artifacts:reconcile
@@ -150,7 +181,7 @@ orphanedArtifacts = 0
 purgedArtifactsStillPresent = 0
 ```
 
-### 8. Backup/restore
+### 10. Backup/restore
 
 Complete the staging/DR drill in `docs/backup-restore.md` and verify a restored PDF through its document metadata and SHA-256.
 
