@@ -74,6 +74,9 @@ const publicCredential = (document) => ({
   createdAt: iso(document.createdAt),
   revokedAt: document.revokedAt
     ? iso(document.revokedAt)
+    : null,
+  expiresAt: document.expiresAt
+    ? iso(document.expiresAt)
     : null
 });
 
@@ -517,7 +520,8 @@ export class MongoStore {
       "shipments:write",
       "documents:read",
       "documents:write"
-    ]
+    ],
+    expiresAt = null
   }) {
     const normalizedOrganizationId =
       requireText(
@@ -530,6 +534,17 @@ export class MongoStore {
       this.#apiKeyFactory(),
       "generated apiKey"
     );
+    const normalizedExpiresAt =
+      expiresAt === null
+        ? null
+        : new Date(expiresAt);
+
+    if (
+      normalizedExpiresAt &&
+      Number.isNaN(normalizedExpiresAt.getTime())
+    ) {
+      throw new TypeError("expiresAt must be a valid date");
+    }
 
     return this.#withTransaction(async (session) => {
       const organization =
@@ -561,7 +576,8 @@ export class MongoStore {
         keyHash: hashApiKey(apiKey),
         scopes: normalizedScopes,
         createdAt: at,
-        revokedAt: null
+        revokedAt: null,
+        expiresAt: normalizedExpiresAt
       };
 
       await this.#credentials.insertOne(
@@ -615,9 +631,63 @@ export class MongoStore {
         revokedAt: null
       });
 
-    return document
-      ? publicCredential(document)
-      : null;
+    if (!document) return null;
+
+    if (
+      document.expiresAt &&
+      new Date(document.expiresAt).getTime() <=
+        this.#nowDate().getTime()
+    ) {
+      return null;
+    }
+
+    return publicCredential(document);
+  }
+
+  async setApiCredentialExpiryForOrganization({
+    organizationId,
+    expiresAt
+  }) {
+    const normalizedOrganizationId =
+      requireText(
+        organizationId,
+        "organizationId"
+      );
+    const normalizedExpiresAt =
+      expiresAt === null
+        ? null
+        : new Date(expiresAt);
+
+    if (
+      normalizedExpiresAt &&
+      Number.isNaN(normalizedExpiresAt.getTime())
+    ) {
+      throw new TypeError("expiresAt must be a valid date");
+    }
+
+    const result =
+      await this.#credentials.updateMany(
+        {
+          organizationId:
+            normalizedOrganizationId,
+          revokedAt: null
+        },
+        {
+          $set: {
+            expiresAt: normalizedExpiresAt
+          }
+        }
+      );
+
+    return {
+      organizationId:
+        normalizedOrganizationId,
+      expiresAt:
+        normalizedExpiresAt
+          ? normalizedExpiresAt.toISOString()
+          : null,
+      updated: result.modifiedCount
+    };
   }
 
   async revokeApiCredential({
