@@ -133,6 +133,11 @@ const main = async () => {
     throw error;
   }
 
+  const preserveDatabase =
+    process.env
+      .RESTORE_DR_PRESERVE ===
+    "1";
+
   const archivePath =
     resolve(
       requireText(
@@ -312,29 +317,6 @@ const main = async () => {
       throw error;
     }
 
-    const artifactFiles =
-      await database
-        .collection(
-          "deca_pdf.files"
-        )
-        .find({})
-        .sort({
-          uploadDate: 1
-        })
-        .limit(1)
-        .toArray();
-
-    if (
-      artifactFiles.length === 0
-    ) {
-      const error = new Error(
-        "Restore drill requires at least one DeCA PDF artifact"
-      );
-      error.code =
-        "RESTORE_ARTIFACT_MISSING";
-      throw error;
-    }
-
     if (
       !collectionNames.has(
         "deca_pdf.chunks"
@@ -348,8 +330,6 @@ const main = async () => {
       throw error;
     }
 
-    const file =
-      artifactFiles[0];
     const bucket =
       new GridFSBucket(
         database,
@@ -359,56 +339,105 @@ const main = async () => {
         }
       );
 
-    const chunks = [];
-    let byteLength = 0;
+    let artifactsVerified = 0;
+    let artifactBytesVerified = 0;
+
+    const artifactCursor =
+      database
+        .collection(
+          "deca_pdf.files"
+        )
+        .find({})
+        .sort({
+          uploadDate: 1,
+          _id: 1
+        });
 
     for await (
-      const chunk of
-      bucket.openDownloadStream(
-        file._id
-      )
+      const file of artifactCursor
     ) {
-      byteLength +=
-        chunk.length;
+      const chunks = [];
+      let byteLength = 0;
+
+      for await (
+        const chunk of
+        bucket.openDownloadStream(
+          file._id
+        )
+      ) {
+        byteLength +=
+          chunk.length;
+
+        if (
+          byteLength >
+          5_000_000
+        ) {
+          const error = new Error(
+            "Restored DeCA artifact exceeds 5 MB"
+          );
+          error.code =
+            "RESTORE_ARTIFACT_SIZE_LIMIT";
+          throw error;
+        }
+
+        chunks.push(chunk);
+      }
+
+      const artifactBytes =
+        Buffer.concat(
+          chunks,
+          byteLength
+        );
 
       if (
-        byteLength >
-        5_000_000
+        !artifactBytes
+          .subarray(0, 5)
+          .equals(
+            Buffer.from("%PDF-")
+          )
       ) {
         const error = new Error(
-          "Restored DeCA artifact exceeds 5 MB"
+          "Restored GridFS artifact is not a PDF"
         );
         error.code =
-          "RESTORE_ARTIFACT_SIZE_LIMIT";
+          "RESTORE_ARTIFACT_NOT_PDF";
         throw error;
       }
 
-      chunks.push(chunk);
+      const actualArtifactSha =
+        `sha256:${sha256(
+          artifactBytes
+        )}`;
+      const expectedArtifactSha =
+        file?.metadata?.sha256;
+
+      if (
+        typeof expectedArtifactSha !==
+          "string" ||
+        actualArtifactSha !==
+          expectedArtifactSha
+      ) {
+        const error = new Error(
+          "Restored GridFS artifact SHA-256 mismatch"
+        );
+        error.code =
+          "RESTORE_ARTIFACT_INTEGRITY_MISMATCH";
+        throw error;
+      }
+
+      artifactsVerified += 1;
+      artifactBytesVerified +=
+        artifactBytes.length;
     }
 
-    const artifactBytes =
-      Buffer.concat(
-        chunks,
-        byteLength
-      );
-    const actualArtifactSha =
-      `sha256:${sha256(
-        artifactBytes
-      )}`;
-    const expectedArtifactSha =
-      file?.metadata?.sha256;
-
     if (
-      typeof expectedArtifactSha !==
-        "string" ||
-      actualArtifactSha !==
-        expectedArtifactSha
+      artifactsVerified === 0
     ) {
       const error = new Error(
-        "Restored GridFS artifact SHA-256 mismatch"
+        "Restore drill requires at least one DeCA PDF artifact"
       );
       error.code =
-        "RESTORE_ARTIFACT_INTEGRITY_MISMATCH";
+        "RESTORE_ARTIFACT_MISSING";
       throw error;
     }
 
@@ -437,6 +466,10 @@ const main = async () => {
         )
         .countDocuments();
 
+    if (!preserveDatabase) {
+      await database.dropDatabase();
+    }
+
     process.stdout.write(
       `${JSON.stringify(
         {
@@ -460,10 +493,14 @@ const main = async () => {
               )
               .sort(),
           counts,
-          sampleArtifactVerified:
+          allArtifactsVerified:
             true,
-          sampleArtifactBytes:
-            artifactBytes.length
+          artifactsVerified,
+          artifactBytesVerified,
+          restoreDatabasePreserved:
+            preserveDatabase,
+          restoreDatabaseCleanedUp:
+            !preserveDatabase
         },
         null,
         2

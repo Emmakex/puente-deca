@@ -1,6 +1,6 @@
 # Automated logical backup and restore drill
 
-Puente DeCA provides guarded wrappers around MongoDB Database Tools for the portable logical backup/restore drill.
+Puente DeCA provides guarded wrappers around MongoDB Database Tools for the portable logical backup/restore drill plus a one-command live acceptance flow.
 
 Atlas-managed backup/PITR remains the preferred primary disaster-recovery mechanism when enabled. These commands provide a repeatable secondary portability/recovery test.
 
@@ -91,12 +91,42 @@ A successful drill verifies:
 - all required DeCA metadata collections exist;
 - `deca_pdf.files` exists and contains at least one controlled PDF;
 - `deca_pdf.chunks` exists;
-- one restored GridFS PDF can be downloaded;
-- the restored bytes remain under 5 MB;
-- the restored bytes match `metadata.sha256`;
-- collection/document counts are reported for evidence.
+- every restored GridFS artifact can be downloaded;
+- every artifact starts with the PDF signature;
+- every artifact remains under the 5 MB DeCA ceiling;
+- every artifact matches its `metadata.sha256`;
+- collection/document counts, verified artifact count and verified bytes are reported for evidence.
 
-The DR database is intentionally left in place after success for inspection. Cleanup remains an explicit operator action after the evidence has been reviewed.
+After success the isolated DR database is deleted automatically so the drill is repeatable and stale recovery databases do not accumulate.
+
+For a deliberate inspection run only, set:
+
+```text
+RESTORE_DR_PRESERVE=1
+```
+
+This can preserve only a target already constrained by the `kairoseth_deca_dr_*` naming rule; it does not weaken the production-database refusal.
+
+## One-command DR acceptance
+
+For the normal live gate, provide:
+
+```text
+MONGODB_URI=<source Atlas URI>
+MONGODB_DB_NAME=kairoseth
+RESTORE_MONGODB_URI=<DR/staging Atlas URI>
+BACKUP_OUTPUT_DIR=<optional output directory>
+```
+
+Then run:
+
+```bash
+npm run production:backup-restore-drill
+```
+
+The command creates the scoped backup, reuses its exact archive path and SHA-256, generates a unique isolated DR database unless `RESTORE_DB_NAME` is supplied, restores it, verifies all GridFS PDFs and collection counts, cleans up the isolated DR database by default, and emits one machine-readable JSON acceptance result.
+
+The backup archive plus checksum and metadata remain in `BACKUP_OUTPUT_DIR` as evidence.
 
 ## Safety model
 
