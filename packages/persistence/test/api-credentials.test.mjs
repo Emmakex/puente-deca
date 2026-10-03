@@ -84,6 +84,50 @@ test("creates an API key once while persisting only its hash", async () => {
   });
 });
 
+test("credential expiry is returned publicly and enforced during authentication", async () => {
+  await withStore(async ({ store }) => {
+    const organization =
+      await store.createOrganization({
+        name: "Organization 001"
+      });
+
+    const created =
+      await store.createApiCredential({
+        organizationId:
+          organization.organizationId,
+        name: "WooCommerce",
+        expiresAt:
+          new Date("2026-10-04T05:45:00.000Z")
+      });
+
+    assert.equal(
+      created.credential.expiresAt,
+      "2026-10-04T05:45:00.000Z"
+    );
+    assert.ok(
+      await store.authenticateApiKey(
+        created.apiKey
+      )
+    );
+
+    const synced =
+      await store.setApiCredentialExpiryForOrganization({
+        organizationId:
+          organization.organizationId,
+        expiresAt:
+          new Date("2026-10-03T05:44:59.000Z")
+      });
+
+    assert.equal(synced.updated, 1);
+    assert.equal(
+      await store.authenticateApiKey(
+        created.apiKey
+      ),
+      null
+    );
+  });
+});
+
 test("revoked keys stop authenticating and cannot cross tenant boundaries", async () => {
   await withStore(async ({ store }) => {
     const first = await store.createOrganization({
