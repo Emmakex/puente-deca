@@ -61,7 +61,7 @@ requirePattern(
 );
 requirePattern(
   "client",
-  /testConnection[sS]*/v1/shipments?limit=1/,
+  /testConnection[\\s\\S]*\\/v1\\/shipments\\?limit=1/,
   "PrestaShop connector must expose a non-destructive connection check"
 );
 requirePattern(
