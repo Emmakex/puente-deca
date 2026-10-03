@@ -66,7 +66,7 @@ Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs
 ## Phase 5 — First connectors
 
 - [x] CSV batch import with row-level validation.
-- [ ] Excel (.xlsx) batch import.
+- [x] Excel (.xlsx) batch import using the same mapping/validation contract.
 - [ ] WooCommerce.
 - [ ] PrestaShop.
 - [x] Reference connector SDK/contract suite.
@@ -75,6 +75,7 @@ Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs
 
 - [ ] Production Unicode font embedding.
 - [ ] Dynamic QR sizing for unusually long custom URLs.
+- [ ] Dependency lockfile / reproducible install for the XLSX adapter.
 - [ ] PostgreSQL-backed store.
 - [ ] Object storage.
 - [ ] Backups/restore drill.

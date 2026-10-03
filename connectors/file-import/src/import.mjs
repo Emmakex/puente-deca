@@ -9,8 +9,20 @@ import {
 } from "./csv.mjs";
 
 const textOrNull = (value) => {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
   const text = String(value ?? "").trim();
   return text.length ? text : null;
+};
+
+const dateOrNull = (value) => {
+  if (value instanceof Date) {
+    return value.toISOString().slice(0, 10);
+  }
+
+  return textOrNull(value);
 };
 
 const positiveNumberOrNull = (value) => {
@@ -96,7 +108,7 @@ export function rowToDecaRequest(row) {
     goods,
     transport: {
       date:
-        textOrNull(
+        dateOrNull(
           row.transport_date
         ) ?? "",
       vehicle: {
@@ -119,15 +131,7 @@ export function rowToDecaRequest(row) {
   };
 }
 
-export function importCsvText(
-  text,
-  options = {}
-) {
-  const rows = parseCsvObjects(
-    text,
-    options
-  );
-
+export function importObjectRows(rows) {
   const records = rows.map(
     ({ rowNumber, values }) => {
       const request =
@@ -172,4 +176,13 @@ export function importCsvText(
     ).length,
     records
   };
+}
+
+export function importCsvText(
+  text,
+  options = {}
+) {
+  return importObjectRows(
+    parseCsvObjects(text, options)
+  );
 }
