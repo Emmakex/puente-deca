@@ -1,0 +1,31 @@
+{
+  "shopId": 1,
+  "orderId": 4201,
+  "shipper": {
+    "legalName": "Example Shipper SL",
+    "taxId": "B12345678",
+    "address": "Calle Ejemplo 1, Madrid"
+  },
+  "carrier": {
+    "legalName": "Example Carrier SL",
+    "taxId": "B87654321"
+  },
+  "origin": "Madrid",
+  "destination": "Carrer Exemple 10, 08001 Barcelona, ES",
+  "items": [
+    {
+      "name": "Mattress 150x190",
+      "quantity": 1
+    },
+    {
+      "name": "Bed base",
+      "quantity": 1
+    }
+  ],
+  "weightKg": 62.5,
+  "transportDate": "2026-10-05",
+  "tractorRegistration": "1234ABC",
+  "trailerRegistration": null,
+  "specialTrafficAuthorization": null,
+  "observations": null
+}
