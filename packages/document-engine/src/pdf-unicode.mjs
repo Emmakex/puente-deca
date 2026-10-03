@@ -179,7 +179,7 @@ const embedUnicodeFonts = async (
       await pdfDoc.embedFont(
         source.bytes,
         {
-          subset: true,
+          subset: false,
           customName:
             `NotoSans-${source.subset}`
         }

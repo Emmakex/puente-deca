@@ -89,7 +89,7 @@ Characters outside the embedded font set continue to fail closed rather than bei
 
 ### Runtime hardening
 
-- [x] Production Unicode font embedding with Noto Sans subsets, font subsetting and fail-closed unsupported-character handling.
+- [x] Production Unicode font embedding with pre-subset Noto Sans/Fontsource files and fail-closed unsupported-character handling.
 - [x] Automatic QR version sizing (1–40) with ECC M and a pinned encoder dependency.
 - [x] Dependency lockfile, npm cache and reproducible `npm ci` install for runtime/XLSX dependencies.
 - [x] WooCommerce deterministic release ZIP packaging with SHA-256 manifest.
