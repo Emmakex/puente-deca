@@ -840,6 +840,97 @@ test("Kairoseth manages connector credentials with one-time secret reveal", asyn
   );
 });
 
+test("Kairoseth can synchronize connector credential expiry and expired keys stop authenticating", async () => {
+  await withOperationalServer(
+    async ({
+      baseUrl,
+      platformServiceSecret
+    }) => {
+      const organizationId =
+        "kairoseth-org-expiring-credentials";
+      const serviceHeaders = {
+        "content-type": "application/json",
+        "x-kairoseth-service-secret":
+          platformServiceSecret,
+        "x-kairoseth-organization-id":
+          organizationId
+      };
+
+      const createResponse = await fetch(
+        `${baseUrl}/v1/credentials`,
+        {
+          method: "POST",
+          headers: serviceHeaders,
+          body: JSON.stringify({
+            name: "WooCommerce paid period",
+            expiresAt:
+              "2099-01-01T00:00:00.000Z"
+          })
+        }
+      );
+      const created =
+        await createResponse.json();
+
+      assert.equal(createResponse.status, 201);
+      assert.equal(
+        created.credential.expiresAt,
+        "2099-01-01T00:00:00.000Z"
+      );
+
+      const beforeExpiry = await fetch(
+        `${baseUrl}/v1/shipments`,
+        {
+          headers: {
+            authorization:
+              `Bearer ${created.apiKey}`
+          }
+        }
+      );
+      assert.equal(beforeExpiry.status, 200);
+
+      const syncResponse = await fetch(
+        `${baseUrl}/v1/credentials`,
+        {
+          method: "PATCH",
+          headers: serviceHeaders,
+          body: JSON.stringify({
+            expiresAt:
+              "2000-01-01T00:00:00.000Z"
+          })
+        }
+      );
+      const synced =
+        await syncResponse.json();
+
+      assert.equal(syncResponse.status, 200);
+      assert.equal(synced.updated, 1);
+
+      const afterExpiry = await fetch(
+        `${baseUrl}/v1/shipments`,
+        {
+          headers: {
+            authorization:
+              `Bearer ${created.apiKey}`
+          }
+        }
+      );
+      assert.equal(afterExpiry.status, 401);
+
+      const invalid = await fetch(
+        `${baseUrl}/v1/credentials`,
+        {
+          method: "PATCH",
+          headers: serviceHeaders,
+          body: JSON.stringify({
+            expiresAt: "not-a-date"
+          })
+        }
+      );
+      assert.equal(invalid.status, 422);
+    }
+  );
+});
+
 test("credential API rejects unsupported scopes", async () => {
   await withOperationalServer(
     async ({
