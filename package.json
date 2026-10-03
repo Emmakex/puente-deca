@@ -8,7 +8,7 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "check": "node scripts/ci/repo-check.mjs && node scripts/ci/openapi-check.mjs && node scripts/ci/woocommerce-check.mjs && node scripts/ci/prestashop-check.mjs && node scripts/ci/mongodb-check.mjs",
+    "check": "node scripts/ci/repo-check.mjs && node scripts/ci/openapi-check.mjs && node scripts/ci/woocommerce-check.mjs && node scripts/ci/prestashop-check.mjs && node scripts/ci/mongodb-check.mjs && node scripts/ci/artifact-storage-check.mjs",
     "test": "node --test",
     "server": "node apps/api/src/main.mjs",
     "file-import:demo": "node connectors/file-import/src/cli.mjs examples/file-import/shipments.csv",
@@ -17,7 +17,8 @@
     "contract:file-import": "node packages/connector-contract-suite/src/cli.mjs connectors/file-import/contract.mjs examples/connectors/file-import.json",
     "contract:woocommerce": "node packages/connector-contract-suite/src/cli.mjs connectors/woocommerce/contract.mjs examples/connectors/woocommerce.json",
     "contract:prestashop": "node packages/connector-contract-suite/src/cli.mjs connectors/prestashop/contract.mjs examples/connectors/prestashop.json",
-    "check:mongodb": "node scripts/ci/mongodb-check.mjs"
+    "check:mongodb": "node scripts/ci/mongodb-check.mjs",
+    "check:artifacts": "node scripts/ci/artifact-storage-check.mjs"
   },
   "dependencies": {
     "read-excel-file": "9.3.10",

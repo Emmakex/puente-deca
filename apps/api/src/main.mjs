@@ -3,8 +3,8 @@ import {
   openOperationalStore
 } from "../../../packages/persistence/src/store-factory.mjs";
 import {
-  FileArtifactStore
-} from "../../../packages/persistence/src/file-artifact-store.mjs";
+  openArtifactStore
+} from "../../../packages/persistence/src/artifact-store-factory.mjs";
 
 const port = Number.parseInt(
   process.env.PORT ?? "8080",
@@ -12,13 +12,7 @@ const port = Number.parseInt(
 );
 
 const store = await openOperationalStore();
-
-const artifactStore =
-  await FileArtifactStore.open({
-    rootDirectory:
-      process.env.ARTIFACT_DIR ??
-      ".data/documents"
-  });
+const artifactStore = await openArtifactStore();
 
 const server = createServer({
   publicBaseUrl:
@@ -40,6 +34,9 @@ const shutdown = (signal) => {
 
   server.close(async () => {
     try {
+      if (typeof artifactStore.close === "function") {
+        await artifactStore.close();
+      }
       if (typeof store.close === "function") {
         await store.close();
       }
@@ -54,14 +51,8 @@ const shutdown = (signal) => {
   });
 };
 
-process.once(
-  "SIGTERM",
-  () => shutdown("SIGTERM")
-);
-process.once(
-  "SIGINT",
-  () => shutdown("SIGINT")
-);
+process.once("SIGTERM", () => shutdown("SIGTERM"));
+process.once("SIGINT", () => shutdown("SIGINT"));
 
 server.listen(port, () => {
   console.log(
