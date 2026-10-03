@@ -128,4 +128,6 @@ These require the real production/staging infrastructure and are intentionally n
 
 ## Residual product hardening
 
-Full Unicode font embedding remains a functional production-hardening item because the current PDF renderer intentionally fails closed for characters outside its supported font encoding instead of corrupting legal text.
+Production Unicode embedding is now implemented through an adaptive renderer: Latin-1 documents keep the lightweight native path, while extended text uses embedded Noto Sans/Fontsource script subsets. Characters outside the embedded font coverage still fail closed rather than being transliterated or corrupted.
+
+The remaining release blockers are the live infrastructure/security gates above, not the PDF character-encoding path.

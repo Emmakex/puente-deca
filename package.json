@@ -30,7 +30,8 @@
     "production:preflight": "node scripts/production/preflight.mjs",
     "check:release-packages": "node scripts/ci/release-package-check.mjs",
     "release:connectors": "bash scripts/release/package-connectors.sh",
-    "check:security": "node scripts/ci/security-review-check.mjs"
+    "check:security": "node scripts/ci/security-review-check.mjs",
+    "pdf:unicode-smoke": "node scripts/ci/unicode-pdf-visual-smoke.mjs"
   },
   "dependencies": {
     "read-excel-file": "9.3.10",
