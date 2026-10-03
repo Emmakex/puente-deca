@@ -17,6 +17,8 @@ connectors/*
 !connectors/woocommerce/**
 !connectors/prestashop
 !connectors/prestashop/**
+!connectors/file-import
+!connectors/file-import/**
 docs
 examples
 scripts
