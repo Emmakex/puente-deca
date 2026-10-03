@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 
-const [backup, restore] =
+const [backup, restore, acceptance] =
   await Promise.all([
     readFile(
       "scripts/production/backup-deca.mjs",
@@ -8,6 +8,10 @@ const [backup, restore] =
     ),
     readFile(
       "scripts/production/restore-drill.mjs",
+      "utf8"
+    ),
+    readFile(
+      "scripts/production/backup-restore-acceptance.mjs",
       "utf8"
     )
   ]);
@@ -124,13 +128,69 @@ requirePattern(
 );
 requirePattern(
   restore,
+  /for await \([\s\S]*artifactCursor/,
+  "Restore must verify every restored GridFS file"
+);
+requirePattern(
+  restore,
+  /RESTORE_ARTIFACT_NOT_PDF/,
+  "Restore drill must reject non-PDF GridFS artifacts"
+);
+requirePattern(
+  restore,
   /RESTORE_ARTIFACT_INTEGRITY_MISMATCH/,
-  "Restore drill must verify a restored PDF SHA-256"
+  "Restore drill must verify restored PDF SHA-256"
+);
+requirePattern(
+  restore,
+  /allArtifactsVerified:\s*true/,
+  "Restore drill must report full artifact verification"
+);
+requirePattern(
+  restore,
+  /RESTORE_DR_PRESERVE/,
+  "Restore drill must expose explicit isolated-database preservation for inspection"
+);
+requirePattern(
+  restore,
+  /dropDatabase\(\)/,
+  "Restore drill must clean up the isolated DR database by default"
+);
+
+requirePattern(
+  acceptance,
+  /backup-deca\.mjs/,
+  "DR acceptance must execute the backup wrapper"
+);
+requirePattern(
+  acceptance,
+  /restore-drill\.mjs/,
+  "DR acceptance must execute the restore wrapper"
+);
+requirePattern(
+  acceptance,
+  /BACKUP_ARCHIVE:/,
+  "DR acceptance must pass the produced archive directly to restore"
+);
+requirePattern(
+  acceptance,
+  /BACKUP_EXPECTED_SHA256:/,
+  "DR acceptance must pass the produced SHA-256 directly to restore"
+);
+requirePattern(
+  acceptance,
+  /kairoseth_deca_dr_/,
+  "DR acceptance must generate an isolated DR database name"
+);
+requirePattern(
+  acceptance,
+  /allArtifactsVerified/,
+  "DR acceptance evidence must report full GridFS verification"
 );
 
 if (
   /SKIP_|BYPASS_|ALLOW_PRODUCTION_RESTORE|FORCE_RESTORE/i.test(
-    backup + restore
+    backup + restore + acceptance
   )
 ) {
   throw new Error(
@@ -139,5 +199,5 @@ if (
 }
 
 console.log(
-  "Backup/restore automation contract OK (0600 config, scoped archive, SHA-256, isolated namespace remap, GridFS integrity, no production-restore bypass)"
+  "Backup/restore automation contract OK (0600 config, scoped archive, SHA-256, isolated namespace remap, all-GridFS integrity, default DR cleanup, one-command acceptance, no production-restore bypass)"
 );
