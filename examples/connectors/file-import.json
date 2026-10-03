@@ -1,0 +1,20 @@
+{
+  "external_reference": "FILE-CONTRACT-001",
+  "shipper_name": "Example Shipper SL",
+  "shipper_tax_id": "B12345678",
+  "shipper_address": "Calle Ejemplo 1, Madrid",
+  "carrier_name": "Example Carrier SL",
+  "carrier_tax_id": "B87654321",
+  "origin": "Madrid",
+  "destination": "Barcelona",
+  "goods_nature": "Furniture",
+  "weight_value": "420",
+  "weight_unit": "kg",
+  "alternative_measure_value": "",
+  "alternative_measure_unit": "",
+  "transport_date": "2026-10-05",
+  "tractor_registration": "1234ABC",
+  "trailer_registration": "",
+  "special_traffic_authorization": "",
+  "observations": ""
+}

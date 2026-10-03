@@ -1,0 +1,32 @@
+{
+  "externalReference": "REF-CONTRACT-001",
+  "contractualShipper": {
+    "legalName": "Example Shipper SL",
+    "taxId": "B12345678",
+    "address": "Calle Ejemplo 1, Madrid"
+  },
+  "effectiveCarrier": {
+    "legalName": "Example Carrier SL",
+    "taxId": "B87654321"
+  },
+  "route": {
+    "origin": "Madrid",
+    "destination": "Barcelona"
+  },
+  "goods": {
+    "nature": "Furniture",
+    "weight": {
+      "value": 420,
+      "unit": "kg"
+    }
+  },
+  "transport": {
+    "date": "2026-10-05",
+    "vehicle": {
+      "tractorRegistration": "1234ABC",
+      "trailerRegistration": null
+    },
+    "specialTrafficAuthorization": null
+  },
+  "observations": null
+}

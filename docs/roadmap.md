@@ -63,7 +63,7 @@ Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs
 - [x] CSV batch import with row-level validation.\n- [ ] Excel (.xlsx) batch import.
 - [ ] WooCommerce.
 - [ ] PrestaShop.
-- [ ] Reference connector SDK/contract suite.
+- [x] Reference connector SDK/contract suite.
 
 ## Phase 6 — Production hardening
 

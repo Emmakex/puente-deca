@@ -11,6 +11,8 @@
     "check": "node scripts/ci/repo-check.mjs && node scripts/ci/openapi-check.mjs",
     "test": "node --test",
     "server": "node apps/api/src/main.mjs",
-    "file-import:demo": "node connectors/file-import/src/cli.mjs examples/file-import/shipments.csv"
+    "file-import:demo": "node connectors/file-import/src/cli.mjs examples/file-import/shipments.csv",
+    "contract:reference": "node packages/connector-contract-suite/src/cli.mjs connectors/reference/contract.mjs examples/connectors/reference.json",
+    "contract:file-import": "node packages/connector-contract-suite/src/cli.mjs connectors/file-import/contract.mjs examples/connectors/file-import.json"
   }
 }
