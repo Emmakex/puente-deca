@@ -16,9 +16,9 @@
 - [x] Health endpoint.
 - [x] Validation endpoint.
 - [x] Unit/API tests.
-- [ ] Normalize Spanish tax identifiers without over-validating foreign parties.
-- [ ] Registration normalization and articulated-vehicle rules.
-- [ ] Responsibility-aware validation messages.
+- [x] Conservative tax-identifier normalization (trim + uppercase only).
+- [x] Registration normalization without speculative format rejection.
+- [x] Responsibility-aware validation messages.
 
 ## Phase 2 — Document engine
 

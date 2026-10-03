@@ -41,20 +41,18 @@ test("accepts a complete DeCA payload", () => {
   assert.deepEqual(result.errors, []);
 });
 
-test("rejects missing shipper identity and address", () => {
+test("assigns shipper responsibility to identity errors", () => {
   const payload = validPayload();
-  payload.contractualShipper = {};
+  payload.effectiveCarrier = {};
 
   const result = validateDecaRequest(payload);
 
   assert.equal(result.valid, false);
-  assert.deepEqual(
-    result.errors.map((error) => error.path),
-    [
-      "contractualShipper.legalName",
-      "contractualShipper.taxId",
-      "contractualShipper.address"
-    ]
+  assert.equal(
+    result.errors.every(
+      (item) => item.responsibleParty === "contractual_shipper"
+    ),
+    true
   );
 });
 
@@ -70,7 +68,7 @@ test("accepts an alternative measure when exact weight is unavailable", () => {
   assert.equal(result.valid, true);
 });
 
-test("requires tractor registration and a valid transport date", () => {
+test("assigns carrier responsibility to transport date and vehicle", () => {
   const payload = validPayload();
   payload.transport.date = "05/10/2026";
   payload.transport.vehicle.tractorRegistration = "";
@@ -78,14 +76,15 @@ test("requires tractor registration and a valid transport date", () => {
   const result = validateDecaRequest(payload);
 
   assert.equal(result.valid, false);
-  assert.equal(
-    result.errors.some((error) => error.path === "transport.date"),
-    true
+
+  const dateError = result.errors.find(
+    (item) => item.path === "transport.date"
   );
-  assert.equal(
-    result.errors.some(
-      (error) => error.path === "transport.vehicle.tractorRegistration"
-    ),
-    true
+  const vehicleError = result.errors.find(
+    (item) =>
+      item.path === "transport.vehicle.tractorRegistration"
   );
+
+  assert.equal(dateError.responsibleParty, "effective_carrier");
+  assert.equal(vehicleError.responsibleParty, "effective_carrier");
 });

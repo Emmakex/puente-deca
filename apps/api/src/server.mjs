@@ -1,4 +1,5 @@
 import http from "node:http";
+import { normalizeDecaRequest } from "../../../packages/core/src/normalize-deca.mjs";
 import { validateDecaRequest } from "../../../packages/core/src/validate-deca.mjs";
 
 const sendJson = (response, status, body) => {
@@ -42,9 +43,13 @@ export function createServer() {
 
       if (request.method === "POST" && url.pathname === "/v1/deca/validate") {
         const payload = await readJson(request);
-        const validation = validateDecaRequest(payload);
+        const normalized = normalizeDecaRequest(payload);
+        const validation = validateDecaRequest(normalized);
 
-        return sendJson(response, validation.valid ? 200 : 422, validation);
+        return sendJson(response, validation.valid ? 200 : 422, {
+          ...validation,
+          normalized
+        });
       }
 
       return sendJson(response, 404, {

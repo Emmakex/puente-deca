@@ -11,9 +11,23 @@ const isIsoDate = (value) => {
     parsed.toISOString().slice(0, 10) === value;
 };
 
-const pushRequired = (errors, path, value) => {
+const error = (path, code, message, responsibleParty = null) => ({
+  path,
+  code,
+  message,
+  responsibleParty
+});
+
+const pushRequired = (
+  errors,
+  path,
+  value,
+  responsibleParty
+) => {
   if (!hasText(value)) {
-    errors.push({ path, code: "required", message: "Required field" });
+    errors.push(
+      error(path, "required", "Required field", responsibleParty)
+    );
   }
 };
 
@@ -23,48 +37,110 @@ export function validateDecaRequest(input) {
   if (!isRecord(input)) {
     return {
       valid: false,
-      errors: [{ path: "$", code: "invalid_type", message: "Expected an object" }]
+      errors: [
+        error("$", "invalid_type", "Expected an object")
+      ]
     };
   }
 
   const shipper = input.contractualShipper;
   if (!isRecord(shipper)) {
-    errors.push({
-      path: "contractualShipper",
-      code: "required",
-      message: "Contractual shipper is required"
-    });
+    errors.push(
+      error(
+        "contractualShipper",
+        "required",
+        "Contractual shipper is required",
+        "contractual_shipper"
+      )
+    );
   } else {
-    pushRequired(errors, "contractualShipper.legalName", shipper.legalName);
-    pushRequired(errors, "contractualShipper.taxId", shipper.taxId);
-    pushRequired(errors, "contractualShipper.address", shipper.address);
+    pushRequired(
+      errors,
+      "contractualShipper.legalName",
+      shipper.legalName,
+      "contractual_shipper"
+    );
+    pushRequired(
+      errors,
+      "contractualShipper.taxId",
+      shipper.taxId,
+      "contractual_shipper"
+    );
+    pushRequired(
+      errors,
+      "contractualShipper.address",
+      shipper.address,
+      "contractual_shipper"
+    );
   }
 
   const carrier = input.effectiveCarrier;
   if (!isRecord(carrier)) {
-    errors.push({
-      path: "effectiveCarrier",
-      code: "required",
-      message: "Effective carrier is required"
-    });
+    errors.push(
+      error(
+        "effectiveCarrier",
+        "required",
+        "Effective carrier is required",
+        "contractual_shipper"
+      )
+    );
   } else {
-    pushRequired(errors, "effectiveCarrier.legalName", carrier.legalName);
-    pushRequired(errors, "effectiveCarrier.taxId", carrier.taxId);
+    pushRequired(
+      errors,
+      "effectiveCarrier.legalName",
+      carrier.legalName,
+      "contractual_shipper"
+    );
+    pushRequired(
+      errors,
+      "effectiveCarrier.taxId",
+      carrier.taxId,
+      "contractual_shipper"
+    );
   }
 
   const route = input.route;
   if (!isRecord(route)) {
-    errors.push({ path: "route", code: "required", message: "Route is required" });
+    errors.push(
+      error(
+        "route",
+        "required",
+        "Route is required",
+        "contractual_shipper"
+      )
+    );
   } else {
-    pushRequired(errors, "route.origin", route.origin);
-    pushRequired(errors, "route.destination", route.destination);
+    pushRequired(
+      errors,
+      "route.origin",
+      route.origin,
+      "contractual_shipper"
+    );
+    pushRequired(
+      errors,
+      "route.destination",
+      route.destination,
+      "contractual_shipper"
+    );
   }
 
   const goods = input.goods;
   if (!isRecord(goods)) {
-    errors.push({ path: "goods", code: "required", message: "Goods are required" });
+    errors.push(
+      error(
+        "goods",
+        "required",
+        "Goods are required",
+        "contractual_shipper"
+      )
+    );
   } else {
-    pushRequired(errors, "goods.nature", goods.nature);
+    pushRequired(
+      errors,
+      "goods.nature",
+      goods.nature,
+      "contractual_shipper"
+    );
 
     const weight = goods.weight;
     const alternativeMeasure = goods.alternativeMeasure;
@@ -82,42 +158,55 @@ export function validateDecaRequest(input) {
       hasText(alternativeMeasure.unit);
 
     if (!hasValidWeight && !hasAlternativeMeasure) {
-      errors.push({
-        path: "goods.weight",
-        code: "required",
-        message: "A positive weight or alternative measure is required"
-      });
+      errors.push(
+        error(
+          "goods.weight",
+          "required",
+          "A positive weight or alternative measure is required",
+          "contractual_shipper"
+        )
+      );
     }
   }
 
   const transport = input.transport;
   if (!isRecord(transport)) {
-    errors.push({
-      path: "transport",
-      code: "required",
-      message: "Transport data is required"
-    });
+    errors.push(
+      error(
+        "transport",
+        "required",
+        "Transport data is required",
+        "effective_carrier"
+      )
+    );
   } else {
     if (!isIsoDate(transport.date)) {
-      errors.push({
-        path: "transport.date",
-        code: "invalid_date",
-        message: "Transport date must use YYYY-MM-DD"
-      });
+      errors.push(
+        error(
+          "transport.date",
+          "invalid_date",
+          "Transport date must use YYYY-MM-DD",
+          "effective_carrier"
+        )
+      );
     }
 
     const vehicle = transport.vehicle;
     if (!isRecord(vehicle)) {
-      errors.push({
-        path: "transport.vehicle",
-        code: "required",
-        message: "Vehicle is required"
-      });
+      errors.push(
+        error(
+          "transport.vehicle",
+          "required",
+          "Vehicle is required",
+          "effective_carrier"
+        )
+      );
     } else {
       pushRequired(
         errors,
         "transport.vehicle.tractorRegistration",
-        vehicle.tractorRegistration
+        vehicle.tractorRegistration,
+        "effective_carrier"
       );
     }
 
@@ -126,11 +215,14 @@ export function validateDecaRequest(input) {
       transport.specialTrafficAuthorization !== undefined &&
       !hasText(transport.specialTrafficAuthorization)
     ) {
-      errors.push({
-        path: "transport.specialTrafficAuthorization",
-        code: "invalid_value",
-        message: "Special traffic authorization must be text or null"
-      });
+      errors.push(
+        error(
+          "transport.specialTrafficAuthorization",
+          "invalid_value",
+          "Special traffic authorization must be text or null",
+          "effective_carrier"
+        )
+      );
     }
   }
 
