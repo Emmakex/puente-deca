@@ -51,6 +51,7 @@ Characters outside the embedded font set continue to fail closed rather than bei
 - [x] Atomic JSON store for development and contract tests.
 - [x] Retention-aware PDF purge policy with dry-run default, explicit confirmation, immutable metadata and audit evidence.
 - [x] MongoDB Atlas production adapter aligned with Kairoseth Platform.
+- [x] Automated Atlas/GridFS live smoke command with rollback and cleanup.
 - [ ] Live MongoDB Atlas transaction/index smoke acceptance.
 
 ## Phase 4 — Operational API

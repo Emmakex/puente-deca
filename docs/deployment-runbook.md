@@ -81,6 +81,16 @@ npm run contract:kairoseth
 
 This locally validates the canonical Kairoseth server-to-server flow, Unicode DeCA generation, public PDF path, checksum integrity, document reuse and cross-organization isolation.
 
+## Atlas/GridFS live gate
+
+With the intended staging/production-class Atlas environment configured:
+
+```bash
+npm run production:atlas-smoke
+```
+
+This must return `status=ok` before live deployment acceptance. It verifies real Atlas connectivity/index creation, transaction rollback and a GridFS upload/read/SHA-256/delete cycle without leaving test metadata.
+
 ## Acceptance sequence
 
 ### 1. Liveness
