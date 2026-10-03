@@ -209,6 +209,56 @@ export class JsonStore {
     return event;
   }
 
+  async ensureOrganization({
+    organizationId,
+    name,
+    externalReference = null
+  }) {
+    const normalizedOrganizationId = requireText(
+      organizationId,
+      "organizationId"
+    );
+    const normalizedName = requireText(name, "name");
+    const normalizedExternalReference =
+      externalReference === null
+        ? null
+        : requireText(
+            externalReference,
+            "externalReference"
+          );
+
+    return this.#mutate((state) => {
+      const existing =
+        state.organizations[normalizedOrganizationId];
+
+      if (existing) {
+        return clone(existing);
+      }
+
+      const at = this.#nowIso();
+      const organization = {
+        organizationId: normalizedOrganizationId,
+        name: normalizedName,
+        externalReference:
+          normalizedExternalReference,
+        createdAt: at,
+        updatedAt: at
+      };
+
+      state.organizations[normalizedOrganizationId] =
+        organization;
+
+      this.#appendAudit(state, {
+        organizationId:
+          normalizedOrganizationId,
+        type: "organization.provisioned",
+        at
+      });
+
+      return clone(organization);
+    });
+  }
+
   async createOrganization({
     name,
     externalReference = null
@@ -516,6 +566,40 @@ export class JsonStore {
         idempotentReplay: false
       };
     });
+  }
+
+  async listShipments({
+    organizationId,
+    limit = 50
+  }) {
+    const normalizedOrganizationId = requireText(
+      organizationId,
+      "organizationId"
+    );
+    const normalizedLimit = Math.min(
+      100,
+      Math.max(
+        1,
+        Number.isInteger(limit) ? limit : 50
+      )
+    );
+    const state = await this.#readState();
+    const all = Object.values(state.shipments)
+      .filter(
+        (shipment) =>
+          shipment.organizationId ===
+          normalizedOrganizationId
+      )
+      .sort((left, right) =>
+        String(right.updatedAt).localeCompare(
+          String(left.updatedAt)
+        )
+      );
+
+    return {
+      items: clone(all.slice(0, normalizedLimit)),
+      total: all.length
+    };
   }
 
   async getShipment({

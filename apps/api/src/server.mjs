@@ -1,5 +1,5 @@
 import http from "node:http";
-import { createHash } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { normalizeDecaRequest } from "../../../packages/core/src/normalize-deca.mjs";
 import { validateDecaRequest } from "../../../packages/core/src/validate-deca.mjs";
 import {
@@ -103,19 +103,93 @@ const requireOperationalStores = (
   return false;
 };
 
+const secureSecretEqual = (candidate, configured) => {
+  if (
+    typeof candidate !== "string" ||
+    typeof configured !== "string" ||
+    configured.length < 32
+  ) {
+    return false;
+  }
+
+  const candidateHash = createHash("sha256")
+    .update(candidate)
+    .digest();
+  const configuredHash = createHash("sha256")
+    .update(configured)
+    .digest();
+
+  return timingSafeEqual(candidateHash, configuredHash);
+};
+
 const authenticate = async (
   request,
   response,
   store,
-  requiredScope
+  requiredScope,
+  platformServiceSecret = null
 ) => {
+  const serviceSecret =
+    request.headers["x-kairoseth-service-secret"];
+  const serviceOrganizationId =
+    request.headers["x-kairoseth-organization-id"];
+
+  if (serviceSecret || serviceOrganizationId) {
+    if (
+      typeof serviceSecret !== "string" ||
+      typeof serviceOrganizationId !== "string" ||
+      !secureSecretEqual(
+        serviceSecret,
+        platformServiceSecret
+      )
+    ) {
+      sendJson(response, 401, {
+        error: "unauthorized",
+        message:
+          "Kairoseth service authentication is invalid"
+      });
+      return null;
+    }
+
+    const organizationId =
+      serviceOrganizationId.trim();
+
+    if (!organizationId) {
+      sendJson(response, 401, {
+        error: "unauthorized",
+        message:
+          "Kairoseth organization context is required"
+      });
+      return null;
+    }
+
+    await store.ensureOrganization({
+      organizationId,
+      name: `Kairoseth organization ${organizationId}`,
+      externalReference: organizationId
+    });
+
+    return {
+      credentialId: "kairoseth-platform",
+      organizationId,
+      scopes: [
+        "shipments:read",
+        "shipments:write",
+        "documents:read",
+        "documents:write"
+      ],
+      source: "kairoseth-platform"
+    };
+  }
+
   const header = request.headers.authorization ?? "";
   const match = /^Bearer\s+(.+)$/i.exec(header);
 
   if (!match) {
     sendJson(response, 401, {
       error: "unauthorized",
-      message: "Bearer API key is required"
+      message:
+        "Bearer API key or Kairoseth service authentication is required"
     });
     return null;
   }
@@ -170,7 +244,9 @@ export function createServer({
     process.env.PUBLIC_BASE_URL ??
     "https://deca.example.com",
   store = null,
-  artifactStore = null
+  artifactStore = null,
+  platformServiceSecret =
+    process.env.KAIROSETH_SERVICE_SECRET ?? null
 } = {}) {
   return http.createServer(async (request, response) => {
     try {
@@ -328,6 +404,56 @@ export function createServer({
         );
 
       if (
+        request.method === "GET" &&
+        url.pathname === "/v1/shipments"
+      ) {
+        if (
+          !requireOperationalStores(
+            response,
+            store,
+            artifactStore
+          )
+        ) {
+          return;
+        }
+
+        const credential = await authenticate(
+          request,
+          response,
+          store,
+          "shipments:read",
+          platformServiceSecret
+        );
+        if (!credential) return;
+
+        const requestedLimit =
+          Number.parseInt(
+            url.searchParams.get("limit") ?? "50",
+            10
+          );
+        const limit =
+          Number.isInteger(requestedLimit)
+            ? Math.min(
+                100,
+                Math.max(1, requestedLimit)
+              )
+            : 50;
+
+        const shipments =
+          await store.listShipments({
+            organizationId:
+              credential.organizationId,
+            limit
+          });
+
+        return sendJson(
+          response,
+          200,
+          shipments
+        );
+      }
+
+      if (
         request.method === "POST" &&
         url.pathname === "/v1/shipments"
       ) {
@@ -345,7 +471,8 @@ export function createServer({
           request,
           response,
           store,
-          "shipments:write"
+          "shipments:write",
+          platformServiceSecret
         );
         if (!credential) return;
 
@@ -434,7 +561,8 @@ export function createServer({
           request,
           response,
           store,
-          "shipments:write"
+          "shipments:write",
+          platformServiceSecret
         );
         if (!credential) return;
 
@@ -515,7 +643,8 @@ export function createServer({
           request,
           response,
           store,
-          "shipments:read"
+          "shipments:read",
+          platformServiceSecret
         );
         if (!credential) return;
 
@@ -561,7 +690,8 @@ export function createServer({
           request,
           response,
           store,
-          "documents:write"
+          "documents:write",
+          platformServiceSecret
         );
         if (!credential) return;
 
@@ -689,7 +819,8 @@ export function createServer({
           request,
           response,
           store,
-          "documents:read"
+          "documents:read",
+          platformServiceSecret
         );
         if (!credential) return;
 
