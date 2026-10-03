@@ -35,7 +35,7 @@
 
 **Phase 2 status: complete for the initial production-safe character set.**
 
-Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs are production-hardening tasks. Until then, unsupported characters fail closed and intended Puente DeCA URLs remain within the fixed QR capacity.
+Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs are production-hardening tasks.
 
 ## Phase 3 — Persistence and multi-tenant core
 
@@ -44,19 +44,24 @@ Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs
 - [x] Shipments.
 - [x] Document versions.
 - [x] Immutable audit events through the persistence API.
-- [ ] Configurable storage with minimum legal retention safeguards.
+- [x] Minimum one-year retention date recorded on stored DeCA artifacts.
 - [x] Organization-scoped idempotency keys.
 - [x] Atomic JSON store for development and contract tests.
+- [x] Local PDF artifact store for development and initial deployments.
 - [ ] PostgreSQL production adapter.
 
 ## Phase 4 — Operational API
 
-- [ ] POST /v1/shipments.
-- [ ] POST /v1/shipments/:id/deca.
-- [ ] GET /v1/shipments/:id.
-- [ ] GET /v1/deca/:id.
-- [ ] Driver-friendly document endpoint.
+- [x] API-key authentication and scope checks.
+- [x] POST /v1/shipments.
+- [x] POST /v1/shipments/:id/deca.
+- [x] GET /v1/shipments/:id.
+- [x] GET /v1/deca/:id.
+- [x] GET /v1/deca/:id.pdf.
+- [x] Driver/inspection direct-download endpoint /d/<token>.pdf.
+- [x] Content-based reuse avoids duplicate DeCA versions.
 - [ ] OpenAPI contract.
+- [ ] Administrative/bootstrap workflow for organizations and API credentials.
 
 ## Phase 5 — First connectors
 
