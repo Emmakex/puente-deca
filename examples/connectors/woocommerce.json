@@ -1,0 +1,29 @@
+{
+  "blogId": 1,
+  "orderId": 42001,
+  "shipper": {
+    "legalName": "Example Commerce SL",
+    "taxId": "B12345678",
+    "address": "Carrer Example 1, Sabadell"
+  },
+  "carrier": {
+    "legalName": "Example Carrier SL",
+    "taxId": "B87654321"
+  },
+  "origin": "Sabadell",
+  "destination": "Barcelona",
+  "items": [
+    {
+      "name": "Sofa modular"
+    },
+    {
+      "name": "Mesa auxiliar"
+    }
+  ],
+  "weightKg": 164.5,
+  "transportDate": "2026-10-05",
+  "tractorRegistration": "1234ABC",
+  "trailerRegistration": null,
+  "specialTrafficAuthorization": null,
+  "observations": "Delivery window 10:00-12:00"
+}

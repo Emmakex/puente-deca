@@ -68,7 +68,7 @@ Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs
 
 - [x] CSV batch import with row-level validation.
 - [x] Excel (.xlsx) batch import using the same mapping/validation contract.
-- [ ] WooCommerce.
+- [x] WooCommerce plugin: HPOS/CRUD, encrypted API key, manual/automatic generation and revision flow.
 - [ ] PrestaShop.
 - [x] Reference connector SDK/contract suite.
 
@@ -77,6 +77,7 @@ Full Unicode font embedding and dynamic QR sizing for unusually long custom URLs
 - [ ] Production Unicode font embedding.
 - [ ] Dynamic QR sizing for unusually long custom URLs.
 - [ ] Dependency lockfile / reproducible install for the XLSX adapter.
+- [ ] WooCommerce release ZIP packaging and live-store smoke test.
 - [ ] PostgreSQL-backed store.
 - [ ] Object storage.
 - [ ] Backups/restore drill.
