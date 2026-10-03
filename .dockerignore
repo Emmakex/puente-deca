@@ -12,7 +12,11 @@ node_modules
 *.log
 .DS_Store
 
-connectors
+connectors/*
+!connectors/woocommerce
+!connectors/woocommerce/**
+!connectors/prestashop
+!connectors/prestashop/**
 docs
 examples
 scripts
