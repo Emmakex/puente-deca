@@ -20,7 +20,8 @@ const initialState = () => ({
   documentVersions: {},
   apiCredentials: {},
   auditEvents: [],
-  idempotency: {}
+  idempotency: {},
+  artifactPurgeRecords: {}
 });
 
 const clone = (value) => structuredClone(value);
@@ -842,6 +843,229 @@ export class JsonStore {
     }
 
     return null;
+  }
+
+
+  async listArtifactReferences() {
+    const state = await this.#readState();
+
+    return Object.values(state.documentVersions)
+      .filter(
+        (version) =>
+          typeof version?.artifact?.storageKey === "string" &&
+          typeof version?.artifact?.retentionNotBefore === "string"
+      )
+      .map((version) => ({
+        organizationId: version.organizationId,
+        shipmentId: version.shipmentId,
+        documentId: version.documentId,
+        storageKey: version.artifact.storageKey,
+        retentionNotBefore:
+          version.artifact.retentionNotBefore,
+        sha256: version.artifact.sha256 ?? null,
+        size: version.artifact.size ?? null
+      }))
+      .sort((left, right) =>
+        left.documentId.localeCompare(
+          right.documentId
+        )
+      );
+  }
+
+  async listRetentionEligibleArtifacts({
+    asOf,
+    limit = 100
+  }) {
+    const cutoff = new Date(asOf);
+
+    if (Number.isNaN(cutoff.getTime())) {
+      throw new TypeError("asOf must be a valid date");
+    }
+
+    const normalizedLimit = Math.min(
+      1000,
+      Math.max(
+        1,
+        Number.isInteger(limit) ? limit : 100
+      )
+    );
+    const state = await this.#readState();
+    const purgeRecords =
+      state.artifactPurgeRecords ?? {};
+
+    return Object.values(state.documentVersions)
+      .filter((version) => {
+        const artifact = version?.artifact;
+        if (
+          typeof artifact?.storageKey !== "string" ||
+          typeof artifact?.retentionNotBefore !== "string" ||
+          purgeRecords[version.documentId]
+        ) {
+          return false;
+        }
+
+        const floor =
+          new Date(artifact.retentionNotBefore);
+
+        return (
+          !Number.isNaN(floor.getTime()) &&
+          floor <= cutoff
+        );
+      })
+      .sort((left, right) =>
+        left.artifact.retentionNotBefore.localeCompare(
+          right.artifact.retentionNotBefore
+        )
+      )
+      .slice(0, normalizedLimit)
+      .map((version) => ({
+        organizationId: version.organizationId,
+        shipmentId: version.shipmentId,
+        documentId: version.documentId,
+        storageKey: version.artifact.storageKey,
+        retentionNotBefore:
+          version.artifact.retentionNotBefore,
+        sha256: version.artifact.sha256 ?? null,
+        size: version.artifact.size ?? null
+      }));
+  }
+
+  async recordArtifactPurge({
+    organizationId,
+    shipmentId,
+    documentId,
+    storageKey,
+    expectedRetentionNotBefore,
+    artifactWasPresent,
+    reason
+  }) {
+    const normalizedOrganizationId =
+      requireText(
+        organizationId,
+        "organizationId"
+      );
+    const normalizedShipmentId =
+      requireText(
+        shipmentId,
+        "shipmentId"
+      );
+    const normalizedDocumentId =
+      requireText(
+        documentId,
+        "documentId"
+      );
+    const normalizedStorageKey =
+      requireText(
+        storageKey,
+        "storageKey"
+      );
+    const normalizedFloor =
+      requireText(
+        expectedRetentionNotBefore,
+        "expectedRetentionNotBefore"
+      );
+    const normalizedReason =
+      requireText(reason, "reason");
+
+    return this.#mutate((state) => {
+      state.artifactPurgeRecords ??= {};
+
+      const existing =
+        state.artifactPurgeRecords[
+          normalizedDocumentId
+        ];
+
+      if (existing) {
+        return existing;
+      }
+
+      const version =
+        state.documentVersions[
+          normalizedDocumentId
+        ];
+
+      if (
+        !version ||
+        version.organizationId !==
+          normalizedOrganizationId ||
+        version.shipmentId !==
+          normalizedShipmentId ||
+        version.artifact?.storageKey !==
+          normalizedStorageKey ||
+        version.artifact?.retentionNotBefore !==
+          normalizedFloor
+      ) {
+        throw conflict(
+          "Artifact purge target does not match immutable document metadata",
+          "ARTIFACT_PURGE_TARGET_MISMATCH"
+        );
+      }
+
+      const floor = new Date(normalizedFloor);
+      const now = new Date(this.#nowIso());
+
+      if (
+        Number.isNaN(floor.getTime()) ||
+        floor > now
+      ) {
+        throw conflict(
+          "Artifact is still inside the legal retention floor",
+          "ARTIFACT_RETENTION_ACTIVE"
+        );
+      }
+
+      const at = now.toISOString();
+      const record = {
+        purgeId:
+          `purge_${this.#idFactory()}`,
+        organizationId:
+          normalizedOrganizationId,
+        shipmentId:
+          normalizedShipmentId,
+        documentId:
+          normalizedDocumentId,
+        storageKey:
+          normalizedStorageKey,
+        retentionNotBefore:
+          normalizedFloor,
+        artifactWasPresent:
+          Boolean(artifactWasPresent),
+        reason: normalizedReason,
+        purgedAt: at
+      };
+
+      state.artifactPurgeRecords[
+        normalizedDocumentId
+      ] = record;
+
+      this.#appendAudit(state, {
+        organizationId:
+          normalizedOrganizationId,
+        shipmentId:
+          normalizedShipmentId,
+        documentId:
+          normalizedDocumentId,
+        subjectId: record.purgeId,
+        type: "artifact.retention.purged",
+        at
+      });
+
+      return record;
+    });
+  }
+
+  async listArtifactPurgeRecords() {
+    const state = await this.#readState();
+
+    return clone(
+      Object.values(
+        state.artifactPurgeRecords ?? {}
+      ).sort((left, right) =>
+        left.purgedAt.localeCompare(
+          right.purgedAt
+        )
+      )
+    );
   }
 
   async listAuditEvents({

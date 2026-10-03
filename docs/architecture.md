@@ -146,3 +146,14 @@ Production PDF bytes use MongoDB Atlas GridFS in the namespaced `deca_pdf` bucke
 Artifact metadata remains in the immutable document-version record and includes storage key, size, SHA-256 checksum, content type and legal retention floor. The public QR route verifies the persisted bytes against that checksum before returning the PDF.
 
 See [`docs/artifact-storage.md`](artifact-storage.md).
+
+
+## Retention and purge evidence
+
+The one-year legal retention floor applies to the generated DeCA PDF binary. Expiry does not delete immutable document-version metadata or audit history.
+
+After the retention floor, an operator-confirmed purge may remove only the PDF artifact. A separate `deca_artifact_purges` record and `artifact.retention.purged` audit event preserve evidence of what was removed, when, why and whether the artifact was physically present.
+
+Retention commands are dry-run by default. Artifact reconciliation is diagnostic only and detects premature loss, post-retention missing artifacts, unreferenced GridFS objects and purge records whose binary still exists.
+
+See [`docs/retention-and-recovery.md`](retention-and-recovery.md) and [`docs/backup-restore.md`](backup-restore.md).

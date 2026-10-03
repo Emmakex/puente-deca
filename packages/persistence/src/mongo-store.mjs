@@ -222,6 +222,10 @@ export class MongoStore {
     return this.#database.collection("deca_audit_events");
   }
 
+  get #artifactPurges() {
+    return this.#database.collection("deca_artifact_purges");
+  }
+
   async ensureIndexes() {
     await Promise.all([
       this.#organizations.createIndex(
@@ -260,6 +264,13 @@ export class MongoStore {
         { accessPath: 1 },
         { unique: true, name: "document_access_path_unique" }
       ),
+      this.#documents.createIndex(
+        {
+          "artifact.retentionNotBefore": 1,
+          documentId: 1
+        },
+        { name: "document_retention_floor" }
+      ),
       this.#idempotency.createIndex(
         { scope: 1 },
         { unique: true, name: "idempotency_scope_unique" }
@@ -271,6 +282,18 @@ export class MongoStore {
       this.#audit.createIndex(
         { organizationId: 1, shipmentId: 1, at: 1 },
         { name: "audit_shipment_at" }
+      ),
+      this.#artifactPurges.createIndex(
+        { documentId: 1 },
+        { unique: true, name: "artifact_purge_document_unique" }
+      ),
+      this.#artifactPurges.createIndex(
+        { storageKey: 1 },
+        { unique: true, name: "artifact_purge_storage_unique" }
+      ),
+      this.#artifactPurges.createIndex(
+        { purgedAt: 1 },
+        { name: "artifact_purge_at" }
       )
     ]);
   }
@@ -1190,6 +1213,281 @@ export class MongoStore {
     return document
       ? publicDocument(document)
       : null;
+  }
+
+
+  async listArtifactReferences() {
+    const documents = await this.#documents
+      .find(
+        {
+          "artifact.storageKey": {
+            $type: "string"
+          },
+          "artifact.retentionNotBefore": {
+            $type: "string"
+          }
+        },
+        {
+          projection: {
+            _id: 0,
+            organizationId: 1,
+            shipmentId: 1,
+            documentId: 1,
+            artifact: 1
+          }
+        }
+      )
+      .sort({ documentId: 1 })
+      .toArray();
+
+    return documents.map((document) => ({
+      organizationId: document.organizationId,
+      shipmentId: document.shipmentId,
+      documentId: document.documentId,
+      storageKey: document.artifact.storageKey,
+      retentionNotBefore:
+        document.artifact.retentionNotBefore,
+      sha256: document.artifact.sha256 ?? null,
+      size: document.artifact.size ?? null
+    }));
+  }
+
+  async listRetentionEligibleArtifacts({
+    asOf,
+    limit = 100
+  }) {
+    const cutoff = new Date(asOf);
+
+    if (Number.isNaN(cutoff.getTime())) {
+      throw new TypeError("asOf must be a valid date");
+    }
+
+    const normalizedLimit = Math.min(
+      1000,
+      Math.max(
+        1,
+        Number.isInteger(limit) ? limit : 100
+      )
+    );
+
+    const documents = await this.#documents
+      .aggregate([
+        {
+          $match: {
+            "artifact.storageKey": {
+              $type: "string"
+            },
+            "artifact.retentionNotBefore": {
+              $lte: cutoff.toISOString()
+            }
+          }
+        },
+        {
+          $lookup: {
+            from: "deca_artifact_purges",
+            localField: "documentId",
+            foreignField: "documentId",
+            as: "purge"
+          }
+        },
+        {
+          $match: {
+            "purge.0": {
+              $exists: false
+            }
+          }
+        },
+        {
+          $sort: {
+            "artifact.retentionNotBefore": 1,
+            documentId: 1
+          }
+        },
+        {
+          $limit: normalizedLimit
+        }
+      ])
+      .toArray();
+
+    return documents.map((document) => ({
+      organizationId: document.organizationId,
+      shipmentId: document.shipmentId,
+      documentId: document.documentId,
+      storageKey: document.artifact.storageKey,
+      retentionNotBefore:
+        document.artifact.retentionNotBefore,
+      sha256: document.artifact.sha256 ?? null,
+      size: document.artifact.size ?? null
+    }));
+  }
+
+  async recordArtifactPurge({
+    organizationId,
+    shipmentId,
+    documentId,
+    storageKey,
+    expectedRetentionNotBefore,
+    artifactWasPresent,
+    reason
+  }) {
+    const normalizedOrganizationId =
+      requireText(
+        organizationId,
+        "organizationId"
+      );
+    const normalizedShipmentId =
+      requireText(
+        shipmentId,
+        "shipmentId"
+      );
+    const normalizedDocumentId =
+      requireText(
+        documentId,
+        "documentId"
+      );
+    const normalizedStorageKey =
+      requireText(
+        storageKey,
+        "storageKey"
+      );
+    const normalizedFloor =
+      requireText(
+        expectedRetentionNotBefore,
+        "expectedRetentionNotBefore"
+      );
+    const normalizedReason =
+      requireText(reason, "reason");
+
+    return this.#withTransaction(async (session) => {
+      const existing =
+        await this.#artifactPurges.findOne(
+          {
+            documentId:
+              normalizedDocumentId
+          },
+          { session }
+        );
+
+      if (existing) {
+        return {
+          purgeId: existing.purgeId,
+          organizationId: existing.organizationId,
+          shipmentId: existing.shipmentId,
+          documentId: existing.documentId,
+          storageKey: existing.storageKey,
+          retentionNotBefore:
+            existing.retentionNotBefore,
+          artifactWasPresent:
+            Boolean(existing.artifactWasPresent),
+          reason: existing.reason,
+          purgedAt: iso(existing.purgedAt)
+        };
+      }
+
+      const version =
+        await this.#documents.findOne(
+          {
+            organizationId:
+              normalizedOrganizationId,
+            shipmentId:
+              normalizedShipmentId,
+            documentId:
+              normalizedDocumentId
+          },
+          { session }
+        );
+
+      if (
+        !version ||
+        version.artifact?.storageKey !==
+          normalizedStorageKey ||
+        version.artifact?.retentionNotBefore !==
+          normalizedFloor
+      ) {
+        throw conflict(
+          "Artifact purge target does not match immutable document metadata",
+          "ARTIFACT_PURGE_TARGET_MISMATCH"
+        );
+      }
+
+      const floor = new Date(normalizedFloor);
+      const at = this.#nowDate();
+
+      if (
+        Number.isNaN(floor.getTime()) ||
+        floor > at
+      ) {
+        throw conflict(
+          "Artifact is still inside the legal retention floor",
+          "ARTIFACT_RETENTION_ACTIVE"
+        );
+      }
+
+      const record = {
+        purgeId:
+          `purge_${this.#idFactory()}`,
+        organizationId:
+          normalizedOrganizationId,
+        shipmentId:
+          normalizedShipmentId,
+        documentId:
+          normalizedDocumentId,
+        storageKey:
+          normalizedStorageKey,
+        retentionNotBefore:
+          normalizedFloor,
+        artifactWasPresent:
+          Boolean(artifactWasPresent),
+        reason: normalizedReason,
+        purgedAt: at
+      };
+
+      await this.#artifactPurges.insertOne(
+        record,
+        { session }
+      );
+
+      await this.#appendAudit(
+        {
+          organizationId:
+            normalizedOrganizationId,
+          shipmentId:
+            normalizedShipmentId,
+          documentId:
+            normalizedDocumentId,
+          subjectId: record.purgeId,
+          type: "artifact.retention.purged",
+          at
+        },
+        session
+      );
+
+      return {
+        ...record,
+        purgedAt: at.toISOString()
+      };
+    });
+  }
+
+  async listArtifactPurgeRecords() {
+    const documents = await this.#artifactPurges
+      .find({})
+      .sort({ purgedAt: 1, purgeId: 1 })
+      .toArray();
+
+    return documents.map((document) => ({
+      purgeId: document.purgeId,
+      organizationId: document.organizationId,
+      shipmentId: document.shipmentId,
+      documentId: document.documentId,
+      storageKey: document.storageKey,
+      retentionNotBefore:
+        document.retentionNotBefore,
+      artifactWasPresent:
+        Boolean(document.artifactWasPresent),
+      reason: document.reason,
+      purgedAt: iso(document.purgedAt)
+    }));
   }
 
   async listAuditEvents({

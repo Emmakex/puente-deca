@@ -8,7 +8,7 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "check": "node scripts/ci/repo-check.mjs && node scripts/ci/openapi-check.mjs && node scripts/ci/woocommerce-check.mjs && node scripts/ci/prestashop-check.mjs && node scripts/ci/mongodb-check.mjs && node scripts/ci/artifact-storage-check.mjs && node scripts/ci/shared-mongo-client-check.mjs",
+    "check": "node scripts/ci/repo-check.mjs && node scripts/ci/openapi-check.mjs && node scripts/ci/woocommerce-check.mjs && node scripts/ci/prestashop-check.mjs && node scripts/ci/mongodb-check.mjs && node scripts/ci/artifact-storage-check.mjs && node scripts/ci/shared-mongo-client-check.mjs && node scripts/ci/retention-check.mjs",
     "test": "node --test",
     "server": "node apps/api/src/main.mjs",
     "file-import:demo": "node connectors/file-import/src/cli.mjs examples/file-import/shipments.csv",
@@ -19,7 +19,11 @@
     "contract:prestashop": "node packages/connector-contract-suite/src/cli.mjs connectors/prestashop/contract.mjs examples/connectors/prestashop.json",
     "check:mongodb": "node scripts/ci/mongodb-check.mjs",
     "check:artifacts": "node scripts/ci/artifact-storage-check.mjs",
-    "check:shared-mongo": "node scripts/ci/shared-mongo-client-check.mjs"
+    "check:shared-mongo": "node scripts/ci/shared-mongo-client-check.mjs",
+    "check:retention": "node scripts/ci/retention-check.mjs",
+    "retention:inspect": "node scripts/retention/retention-cli.mjs inspect",
+    "retention:purge": "node scripts/retention/retention-cli.mjs purge",
+    "artifacts:reconcile": "node scripts/retention/retention-cli.mjs reconcile"
   },
   "dependencies": {
     "read-excel-file": "9.3.10",
