@@ -89,6 +89,16 @@ const pdfErrorResponse = (response, error) => {
   return false;
 };
 
+const requireStore = (response, store) => {
+  if (store) return true;
+
+  sendJson(response, 503, {
+    error: "operational_store_unavailable",
+    message: "Operational persistence is not configured"
+  });
+  return false;
+};
+
 const requireOperationalStores = (
   response,
   store,
@@ -122,6 +132,64 @@ const secureSecretEqual = (candidate, configured) => {
   return timingSafeEqual(candidateHash, configuredHash);
 };
 
+const authenticatePlatformService = async (
+  request,
+  response,
+  store,
+  platformServiceSecret
+) => {
+  const serviceSecret =
+    request.headers["x-kairoseth-service-secret"];
+  const serviceOrganizationId =
+    request.headers["x-kairoseth-organization-id"];
+
+  if (
+    typeof serviceSecret !== "string" ||
+    typeof serviceOrganizationId !== "string" ||
+    !secureSecretEqual(
+      serviceSecret,
+      platformServiceSecret
+    )
+  ) {
+    sendJson(response, 401, {
+      error: "unauthorized",
+      message:
+        "Kairoseth service authentication is required"
+    });
+    return null;
+  }
+
+  const organizationId =
+    serviceOrganizationId.trim();
+
+  if (!organizationId) {
+    sendJson(response, 401, {
+      error: "unauthorized",
+      message:
+        "Kairoseth organization context is required"
+    });
+    return null;
+  }
+
+  await store.ensureOrganization({
+    organizationId,
+    name: `Kairoseth organization ${organizationId}`,
+    externalReference: organizationId
+  });
+
+  return {
+    credentialId: "kairoseth-platform",
+    organizationId,
+    scopes: [
+      "shipments:read",
+      "shipments:write",
+      "documents:read",
+      "documents:write"
+    ],
+    source: "kairoseth-platform"
+  };
+};
+
 const authenticate = async (
   request,
   response,
@@ -135,51 +203,12 @@ const authenticate = async (
     request.headers["x-kairoseth-organization-id"];
 
   if (serviceSecret || serviceOrganizationId) {
-    if (
-      typeof serviceSecret !== "string" ||
-      typeof serviceOrganizationId !== "string" ||
-      !secureSecretEqual(
-        serviceSecret,
-        platformServiceSecret
-      )
-    ) {
-      sendJson(response, 401, {
-        error: "unauthorized",
-        message:
-          "Kairoseth service authentication is invalid"
-      });
-      return null;
-    }
-
-    const organizationId =
-      serviceOrganizationId.trim();
-
-    if (!organizationId) {
-      sendJson(response, 401, {
-        error: "unauthorized",
-        message:
-          "Kairoseth organization context is required"
-      });
-      return null;
-    }
-
-    await store.ensureOrganization({
-      organizationId,
-      name: `Kairoseth organization ${organizationId}`,
-      externalReference: organizationId
-    });
-
-    return {
-      credentialId: "kairoseth-platform",
-      organizationId,
-      scopes: [
-        "shipments:read",
-        "shipments:write",
-        "documents:read",
-        "documents:write"
-      ],
-      source: "kairoseth-platform"
-    };
+    return authenticatePlatformService(
+      request,
+      response,
+      store,
+      platformServiceSecret
+    );
   }
 
   const header = request.headers.authorization ?? "";
@@ -218,6 +247,42 @@ const authenticate = async (
   }
 
   return credential;
+};
+
+const CONNECTOR_SCOPES = [
+  "shipments:read",
+  "shipments:write",
+  "documents:read",
+  "documents:write"
+];
+
+const normalizeConnectorScopes = (value) => {
+  if (value === undefined) {
+    return [...CONNECTOR_SCOPES];
+  }
+
+  if (!Array.isArray(value) || value.length === 0) {
+    return null;
+  }
+
+  const scopes = [
+    ...new Set(
+      value.filter(
+        (scope) =>
+          typeof scope === "string" &&
+          CONNECTOR_SCOPES.includes(scope)
+      )
+    )
+  ];
+
+  if (
+    scopes.length !== value.length ||
+    scopes.length === 0
+  ) {
+    return null;
+  }
+
+  return scopes.sort();
 };
 
 const sha256 = (bytes) =>
@@ -402,6 +467,131 @@ export function createServer({
         /^\/v1\/deca\/([^/]+)$/.exec(
           url.pathname
         );
+
+      const credentialMatch =
+        /^\/v1\/credentials\/([^/]+)$/.exec(
+          url.pathname
+        );
+
+      if (
+        request.method === "GET" &&
+        url.pathname === "/v1/credentials"
+      ) {
+        if (!requireStore(response, store)) return;
+
+        const platform =
+          await authenticatePlatformService(
+            request,
+            response,
+            store,
+            platformServiceSecret
+          );
+        if (!platform) return;
+
+        const credentials =
+          await store.listApiCredentials(
+            platform.organizationId
+          );
+
+        return sendJson(response, 200, {
+          items: credentials
+        });
+      }
+
+      if (
+        request.method === "POST" &&
+        url.pathname === "/v1/credentials"
+      ) {
+        if (!requireStore(response, store)) return;
+
+        const platform =
+          await authenticatePlatformService(
+            request,
+            response,
+            store,
+            platformServiceSecret
+          );
+        if (!platform) return;
+
+        const payload = await readJson(request);
+        const name =
+          typeof payload?.name === "string"
+            ? payload.name.trim()
+            : "";
+        const scopes =
+          normalizeConnectorScopes(
+            payload?.scopes
+          );
+
+        if (
+          !name ||
+          name.length > 120 ||
+          !scopes
+        ) {
+          return sendJson(response, 422, {
+            error: "invalid_credential_request",
+            message:
+              "Credential name and supported scopes are required"
+          });
+        }
+
+        const created =
+          await store.createApiCredential({
+            organizationId:
+              platform.organizationId,
+            name,
+            scopes
+          });
+
+        return sendJson(response, 201, {
+          credential: created.credential,
+          apiKey: created.apiKey
+        });
+      }
+
+      if (
+        request.method === "DELETE" &&
+        credentialMatch
+      ) {
+        if (!requireStore(response, store)) return;
+
+        const platform =
+          await authenticatePlatformService(
+            request,
+            response,
+            store,
+            platformServiceSecret
+          );
+        if (!platform) return;
+
+        try {
+          const credential =
+            await store.revokeApiCredential({
+              organizationId:
+                platform.organizationId,
+              credentialId:
+                decodeURIComponent(
+                  credentialMatch[1]
+                )
+            });
+
+          return sendJson(response, 200, {
+            credential
+          });
+        } catch (error) {
+          if (
+            error?.code ===
+            "API_CREDENTIAL_NOT_FOUND"
+          ) {
+            return sendJson(response, 404, {
+              error: "credential_not_found",
+              message:
+                "Connector credential was not found"
+            });
+          }
+          throw error;
+        }
+      }
 
       if (
         request.method === "GET" &&

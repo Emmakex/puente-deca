@@ -52,13 +52,18 @@ const withOperationalServer = async (fn) => {
   const directory = await mkdtemp(
     join(tmpdir(), "puente-deca-api-")
   );
+  let apiKeySequence = 0;
   const store = await JsonStore.open({
     filePath: join(
       directory,
       "store.json"
     ),
-    apiKeyFactory: () =>
-      "pdeca_test_operational_abcdefghijklmnop"
+    apiKeyFactory: () => {
+      apiKeySequence += 1;
+      return `pdeca_test_operational_${String(
+        apiKeySequence
+      ).padStart(4, "0")}_abcdefghijklmnop`;
+    }
   });
   const artifactStore =
     await FileArtifactStore.open({
@@ -544,6 +549,179 @@ test("Kairoseth service auth rejects an invalid shared secret", async () => {
       );
 
       assert.equal(response.status, 401);
+    }
+  );
+});
+
+
+test("Kairoseth manages connector credentials with one-time secret reveal", async () => {
+  await withOperationalServer(
+    async ({
+      baseUrl,
+      platformServiceSecret
+    }) => {
+      const organizationId =
+        "kairoseth-org-credentials";
+      const serviceHeaders = {
+        "content-type": "application/json",
+        "x-kairoseth-service-secret":
+          platformServiceSecret,
+        "x-kairoseth-organization-id":
+          organizationId
+      };
+
+      const createResponse = await fetch(
+        `${baseUrl}/v1/credentials`,
+        {
+          method: "POST",
+          headers: serviceHeaders,
+          body: JSON.stringify({
+            name: "WooCommerce production"
+          })
+        }
+      );
+      const created =
+        await createResponse.json();
+
+      assert.equal(createResponse.status, 201);
+      assert.match(
+        created.apiKey,
+        /^pdeca_test_operational_/
+      );
+      assert.equal(
+        created.credential.name,
+        "WooCommerce production"
+      );
+      assert.equal(
+        Object.hasOwn(
+          created.credential,
+          "keyHash"
+        ),
+        false
+      );
+
+      const listResponse = await fetch(
+        `${baseUrl}/v1/credentials`,
+        {
+          headers: {
+            "x-kairoseth-service-secret":
+              platformServiceSecret,
+            "x-kairoseth-organization-id":
+              organizationId
+          }
+        }
+      );
+      const listed =
+        await listResponse.json();
+
+      assert.equal(listResponse.status, 200);
+      assert.equal(listed.items.length, 1);
+      assert.equal(
+        Object.hasOwn(
+          listed.items[0],
+          "apiKey"
+        ),
+        false
+      );
+
+      const connectorResponse = await fetch(
+        `${baseUrl}/v1/shipments`,
+        {
+          headers: {
+            authorization:
+              `Bearer ${created.apiKey}`
+          }
+        }
+      );
+      assert.equal(
+        connectorResponse.status,
+        200
+      );
+
+      const connectorCannotMint =
+        await fetch(
+          `${baseUrl}/v1/credentials`,
+          {
+            method: "POST",
+            headers: {
+              authorization:
+                `Bearer ${created.apiKey}`,
+              "content-type":
+                "application/json"
+            },
+            body: JSON.stringify({
+              name: "forbidden"
+            })
+          }
+        );
+      assert.equal(
+        connectorCannotMint.status,
+        401
+      );
+
+      const revokeResponse = await fetch(
+        `${baseUrl}/v1/credentials/${created.credential.credentialId}`,
+        {
+          method: "DELETE",
+          headers: {
+            "x-kairoseth-service-secret":
+              platformServiceSecret,
+            "x-kairoseth-organization-id":
+              organizationId
+          }
+        }
+      );
+      const revoked =
+        await revokeResponse.json();
+
+      assert.equal(revokeResponse.status, 200);
+      assert.ok(
+        revoked.credential.revokedAt
+      );
+
+      const rejectedAfterRevocation =
+        await fetch(
+          `${baseUrl}/v1/shipments`,
+          {
+            headers: {
+              authorization:
+                `Bearer ${created.apiKey}`
+            }
+          }
+        );
+      assert.equal(
+        rejectedAfterRevocation.status,
+        401
+      );
+    }
+  );
+});
+
+test("credential API rejects unsupported scopes", async () => {
+  await withOperationalServer(
+    async ({
+      baseUrl,
+      platformServiceSecret
+    }) => {
+      const response = await fetch(
+        `${baseUrl}/v1/credentials`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-kairoseth-service-secret":
+              platformServiceSecret,
+            "x-kairoseth-organization-id":
+              "kairoseth-org-scope-test"
+          },
+          body: JSON.stringify({
+            name: "Bad scope",
+            scopes: ["admin:everything"]
+          })
+        }
+      );
+
+      assert.equal(response.status, 422);
     }
   );
 });

@@ -377,6 +377,114 @@
           }
         }
       }
+    },
+    "/v1/credentials": {
+      "get": {
+        "operationId": "listConnectorCredentials",
+        "summary": "List organization-scoped connector credentials",
+        "security": [
+          {
+            "platformServiceSecret": [],
+            "platformOrganizationId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Credential metadata list; secrets are never returned"
+          },
+          "401": {
+            "description": "Kairoseth service authentication required"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createConnectorCredential",
+        "summary": "Create an organization-scoped connector credential",
+        "security": [
+          {
+            "platformServiceSecret": [],
+            "platformOrganizationId": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "scopes": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "shipments:read",
+                        "shipments:write",
+                        "documents:read",
+                        "documents:write"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Credential created; apiKey is revealed once"
+          },
+          "401": {
+            "description": "Kairoseth service authentication required"
+          },
+          "422": {
+            "description": "Invalid name or scope"
+          }
+        }
+      }
+    },
+    "/v1/credentials/{credentialId}": {
+      "delete": {
+        "operationId": "revokeConnectorCredential",
+        "summary": "Revoke an organization-scoped connector credential",
+        "security": [
+          {
+            "platformServiceSecret": [],
+            "platformOrganizationId": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "credentialId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Credential revoked"
+          },
+          "401": {
+            "description": "Kairoseth service authentication required"
+          },
+          "404": {
+            "description": "Credential not found"
+          }
+        }
+      }
     }
   },
   "components": {
