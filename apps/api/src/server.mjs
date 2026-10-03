@@ -1022,7 +1022,11 @@ export function createServer({
 
         return sendJson(
           response,
-          conflicts > 0 ? 409 : 201,
+          conflicts > 0
+            ? 409
+            : created > 0
+              ? 201
+              : 200,
           {
             format,
             total: result.total,
