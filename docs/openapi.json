@@ -565,6 +565,52 @@
           }
         }
       }
+    },
+    "/v1/usage/documents": {
+      "get": {
+        "operationId": "getOrganizationDocumentUsage",
+        "summary": "Count tenant DeCA document versions inside a time window",
+        "security": [
+          {
+            "platformServiceSecret": [],
+            "platformOrganizationId": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Organization-scoped canonical DeCA document count"
+          },
+          "400": {
+            "description": "Invalid or excessive usage window"
+          },
+          "401": {
+            "description": "Kairoseth service authentication required"
+          },
+          "429": {
+            "description": "Authenticated subject exceeded the per-process request limit"
+          }
+        }
+      }
     }
   },
   "components": {
