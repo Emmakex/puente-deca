@@ -330,6 +330,142 @@ test("operational flow stores a DeCA and exposes its prefixed QR URL directly", 
   );
 });
 
+test("Kairoseth usage endpoint counts canonical DeCA versions across connector traffic", async () => {
+  await withOperationalServer(
+    async ({
+      baseUrl,
+      apiKey,
+      organization,
+      platformServiceSecret
+    }) => {
+      const createdResponse = await fetch(
+        `${baseUrl}/v1/shipments`,
+        {
+          method: "POST",
+          headers: {
+            ...authHeaders(apiKey),
+            "idempotency-key":
+              "usage-order-001"
+          },
+          body: JSON.stringify(payload)
+        }
+      );
+      const shipment =
+        await createdResponse.json();
+
+      const firstResponse = await fetch(
+        `${baseUrl}/v1/shipments/${shipment.shipmentId}/deca`,
+        {
+          method: "POST",
+          headers: authHeaders(apiKey)
+        }
+      );
+      assert.equal(firstResponse.status, 201);
+
+      const replayResponse = await fetch(
+        `${baseUrl}/v1/shipments/${shipment.shipmentId}/deca`,
+        {
+          method: "POST",
+          headers: authHeaders(apiKey)
+        }
+      );
+      const replay = await replayResponse.json();
+      assert.equal(replayResponse.status, 200);
+      assert.equal(replay.reused, true);
+
+      const usageHeaders = {
+        "x-kairoseth-service-secret":
+          platformServiceSecret,
+        "x-kairoseth-organization-id":
+          organization.organizationId
+      };
+      const firstUsageResponse = await fetch(
+        `${baseUrl}/v1/usage/documents?from=2020-01-01T00%3A00%3A00.000Z&to=2030-01-01T00%3A00%3A00.000Z`,
+        { headers: usageHeaders }
+      );
+      const firstUsage =
+        await firstUsageResponse.json();
+
+      assert.equal(firstUsageResponse.status, 200);
+      assert.equal(firstUsage.documents, 1);
+      assert.equal(
+        firstUsage.organizationId,
+        organization.organizationId
+      );
+
+      const changed = structuredClone(payload);
+      changed.route.destination = "Valencia";
+      const updateResponse = await fetch(
+        `${baseUrl}/v1/shipments/${shipment.shipmentId}`,
+        {
+          method: "PUT",
+          headers: authHeaders(apiKey),
+          body: JSON.stringify(changed)
+        }
+      );
+      assert.equal(updateResponse.status, 200);
+
+      const secondResponse = await fetch(
+        `${baseUrl}/v1/shipments/${shipment.shipmentId}/deca`,
+        {
+          method: "POST",
+          headers: authHeaders(apiKey)
+        }
+      );
+      assert.equal(secondResponse.status, 201);
+
+      const secondUsageResponse = await fetch(
+        `${baseUrl}/v1/usage/documents?from=2020-01-01T00%3A00%3A00.000Z&to=2030-01-01T00%3A00%3A00.000Z`,
+        { headers: usageHeaders }
+      );
+      const secondUsage =
+        await secondUsageResponse.json();
+
+      assert.equal(secondUsageResponse.status, 200);
+      assert.equal(secondUsage.documents, 2);
+
+      const connectorDenied = await fetch(
+        `${baseUrl}/v1/usage/documents?from=2020-01-01T00%3A00%3A00.000Z&to=2030-01-01T00%3A00%3A00.000Z`,
+        {
+          headers: {
+            authorization: `Bearer ${apiKey}`
+          }
+        }
+      );
+      assert.equal(connectorDenied.status, 401);
+    }
+  );
+});
+
+test("Kairoseth usage endpoint rejects invalid or excessive time windows", async () => {
+  await withOperationalServer(
+    async ({
+      baseUrl,
+      organization,
+      platformServiceSecret
+    }) => {
+      const headers = {
+        "x-kairoseth-service-secret":
+          platformServiceSecret,
+        "x-kairoseth-organization-id":
+          organization.organizationId
+      };
+
+      const invalid = await fetch(
+        `${baseUrl}/v1/usage/documents?from=nope&to=also-nope`,
+        { headers }
+      );
+      assert.equal(invalid.status, 400);
+
+      const excessive = await fetch(
+        `${baseUrl}/v1/usage/documents?from=2020-01-01T00%3A00%3A00.000Z&to=2030-01-01T00%3A00%3A00.000Z`,
+        { headers }
+      );
+      assert.equal(excessive.status, 400);
+    }
+  );
+});
+
 test("operational routes reject missing API credentials", async () => {
   await withOperationalServer(
     async ({ baseUrl }) => {
