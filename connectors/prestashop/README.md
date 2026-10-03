@@ -112,3 +112,10 @@ Rendering the order card performs no remote call. The post-status hook is a docu
 ## Acceptance status
 
 v0.1.0 includes a deterministic connector-contract fixture, static architecture/security gates and PHP syntax lint when PHP is available on CI. A reproducible ZIP and real PrestaShop runtime compatibility matrix remain production-hardening gates before public release.
+
+## Connection check
+
+After saving the Kairoseth Cargo endpoint and connector API key, use **Test Kairoseth Cargo connection** in the module configuration.
+
+The check is non-destructive and calls `GET /v1/shipments?limit=1`. It verifies endpoint reachability, the organization-scoped credential, current commercial connector access and read permission without creating or modifying an order shipment.
+
