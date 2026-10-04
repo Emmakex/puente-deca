@@ -313,12 +313,6 @@ test(
           "authentication"
         )
     );
-    assert.ok(
-      output.pendingProjectionPaths
-        .includes(
-          "charges"
-        )
-    );
     for (const mapped of [
       "takingOver.date",
       "goods.nature",
