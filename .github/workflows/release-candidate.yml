@@ -5,6 +5,9 @@ on:
   push:
     branches: [main]
     paths:
+      - connectors/**
+      - scripts/ci/connector-bootstrap-smoke.sh
+      - scripts/ci/php/**
       - scripts/release/**
       - .github/workflows/release-candidate.yml
       - package.json
