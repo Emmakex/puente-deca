@@ -12,8 +12,14 @@ const required = [
   "IDEMPOTENCY_RETRY",
   "DOCUMENT_VERSION_EXISTS",
   "DOCUMENT_LINEAGE_CONFLICT",
+  "REGULATORY_VERSION_CONFLICT",
+  "REGULATORY_VERSION_HEAD_CONFLICT",
+  "deca_regulatory_versions",
+  "regulatory.version.created",
   "idempotencyConcurrency",
   "documentVersionConcurrency",
+  "regulatoryVersionConcurrency",
+  "regulatoryLineageConsistent",
   "cleanupVerified",
   "deleteMany",
   "countDocuments"
@@ -48,5 +54,5 @@ if (
 }
 
 console.log(
-  "Atlas concurrency smoke contract OK (idempotency race, document-version race, convergence, scoped cleanup)"
+  "Atlas concurrency smoke contract OK (idempotency race, document-version race, regulatory-head race, convergence, scoped cleanup)"
 );
