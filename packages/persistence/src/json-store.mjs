@@ -12,12 +12,16 @@ import {
   timingSafeEqual
 } from "node:crypto";
 import { canonicalJson } from "../../core/src/canonical-json.mjs";
+import {
+  verifyEcmrAmendmentChain
+} from "../../ecmr-amendment/src/amendment-chain.mjs";
 
 const initialState = () => ({
   schemaVersion: 1,
   organizations: {},
   shipments: {},
   documentVersions: {},
+  ecmrAmendmentVersions: {},
   apiCredentials: {},
   auditEvents: [],
   idempotency: {},
@@ -989,6 +993,203 @@ export class JsonStore {
 
       return version;
     });
+  }
+
+  async appendEcmrAmendmentVersion({
+    organizationId,
+    shipmentId,
+    record
+  }) {
+    const normalizedOrganizationId =
+      requireText(
+        organizationId,
+        "organizationId"
+      );
+    const normalizedShipmentId =
+      requireText(
+        shipmentId,
+        "shipmentId"
+      );
+    const normalizedRecord =
+      requireRecord(
+        record,
+        "record"
+      );
+    const versionId =
+      requireText(
+        normalizedRecord.versionId,
+        "record.versionId"
+      );
+
+    if (
+      !Number.isInteger(
+        normalizedRecord.version
+      ) ||
+      normalizedRecord.version < 1
+    ) {
+      throw new TypeError(
+        "record.version must be a positive integer"
+      );
+    }
+
+    return this.#mutate((state) => {
+      const shipment =
+        state.shipments[
+          normalizedShipmentId
+        ];
+
+      if (
+        !shipment ||
+        shipment.organizationId !==
+          normalizedOrganizationId
+      ) {
+        throw conflict(
+          "Shipment does not exist in this organization",
+          "SHIPMENT_NOT_FOUND"
+        );
+      }
+
+      state.ecmrAmendmentVersions ??=
+        {};
+
+      if (
+        state.ecmrAmendmentVersions[
+          versionId
+        ]
+      ) {
+        throw conflict(
+          "eCMR amendment version already exists",
+          "ECMR_AMENDMENT_VERSION_EXISTS"
+        );
+      }
+
+      const existing =
+        Object.values(
+          state.ecmrAmendmentVersions
+        )
+          .filter(
+            (entry) =>
+              entry.organizationId ===
+                normalizedOrganizationId &&
+              entry.shipmentId ===
+                normalizedShipmentId
+          )
+          .sort(
+            (left, right) =>
+              left.version -
+              right.version
+          );
+
+      const chain =
+        existing.map(
+          ({
+            organizationId:
+              _organizationId,
+            shipmentId:
+              _shipmentId,
+            storedAt:
+              _storedAt,
+            ...amendment
+          }) =>
+            clone(
+              amendment
+            )
+        );
+
+      chain.push(
+        clone(
+          normalizedRecord
+        )
+      );
+
+      const verification =
+        verifyEcmrAmendmentChain(
+          chain
+        );
+
+      if (!verification.valid) {
+        const error =
+          conflict(
+            "eCMR amendment lineage is invalid",
+            "ECMR_AMENDMENT_LINEAGE_CONFLICT"
+          );
+        error.verification =
+          verification;
+        throw error;
+      }
+
+      const at =
+        this.#nowIso();
+      const persisted = {
+        organizationId:
+          normalizedOrganizationId,
+        shipmentId:
+          normalizedShipmentId,
+        ...clone(
+          normalizedRecord
+        ),
+        storedAt: at
+      };
+
+      state.ecmrAmendmentVersions[
+        versionId
+      ] = persisted;
+
+      this.#appendAudit(
+        state,
+        {
+          organizationId:
+            normalizedOrganizationId,
+          shipmentId:
+            normalizedShipmentId,
+          subjectId:
+            versionId,
+          type:
+            "ecmr.amendment.version.created",
+          at
+        }
+      );
+
+      return clone(
+        persisted
+      );
+    });
+  }
+
+  async listEcmrAmendmentVersions({
+    organizationId,
+    shipmentId
+  }) {
+    const normalizedOrganizationId =
+      requireText(
+        organizationId,
+        "organizationId"
+      );
+    const normalizedShipmentId =
+      requireText(
+        shipmentId,
+        "shipmentId"
+      );
+    const state =
+      await this.#readState();
+
+    return Object.values(
+      state.ecmrAmendmentVersions ??
+        {}
+    )
+      .filter(
+        (entry) =>
+          entry.organizationId ===
+            normalizedOrganizationId &&
+          entry.shipmentId ===
+            normalizedShipmentId
+      )
+      .sort(
+        (left, right) =>
+          left.version -
+          right.version
+      )
+      .map(clone);
   }
 
   async getDocumentVersion({
