@@ -79,15 +79,40 @@ and record a compact chain summary in `integrity.amendmentChain`.
 
 This prevents a valid historical chain for one document from being attached to a different signed final form.
 
+## Persistence boundary
+
+Both persistence drivers now expose the same append/list contract:
+
+```text
+appendEcmrAmendmentVersion()
+listEcmrAmendmentVersions()
+```
+
+Production MongoDB uses the Kairoseth-aligned collection:
+
+```text
+deca_ecmr_amendment_versions
+```
+
+and unique indexes for:
+
+- `versionId`;
+- `organizationId + shipmentId + version`.
+
+Every append runs inside a MongoDB transaction, verifies the complete persisted chain plus the candidate record, and writes an immutable audit event. Duplicate/concurrent next heads fail closed rather than silently branching.
+
+The Atlas concurrency smoke now creates two simultaneous version-2 candidates from the same version-1 head and requires exactly one winner.
+
+Backup already targets `deca_*`, and the DR restore gate now explicitly requires `deca_ecmr_amendment_versions`.
+
 ## Remaining production work
 
-The cryptographic chain core is complete, but the lifecycle is not production-complete until:
+The cryptographic and persistence cores are implemented, but the lifecycle is not production-complete until:
 
-- amendment versions are persisted immutably in MongoDB Atlas;
 - APIs/workspace operations append versions rather than replacing history;
 - authorization policy defines who may amend each eCMR;
-- signatures/identity evidence for versions are retained as required;
-- backup/restore acceptance includes the amendment collection;
-- production concurrency tests prove two simultaneous amendments cannot create divergent accepted heads.
+- signatures/identity evidence for versions are retained according to the selected production policy;
+- the Atlas single-head concurrency smoke is executed against the intended staging/production-class environment;
+- the backup/restore drill is executed and preserves the amendment collection.
 
 Until those gates are complete, the top-level roadmap item remains open.
