@@ -20,6 +20,7 @@ deca_organizations
 deca_api_credentials
 deca_shipments
 deca_document_versions
+deca_regulatory_versions
 deca_idempotency
 deca_audit_events
 deca_artifact_purges
@@ -71,6 +72,9 @@ The adapter creates idempotent indexes for:
 - shipment lookup by organization and update time;
 - unique document ID;
 - unique shipment + document version lineage;
+- unique regulatory-version ID;
+- unique organization + shipment + regulatory type + version lineage;
+- regulatory history lookup by organization/shipment/type and creation time;
 - unique public access path;
 - retention-floor lookup by artifact retention date;
 - unique idempotency scope;
@@ -87,7 +91,8 @@ Operations that change more than one collection use MongoDB sessions and transac
 - connector credential create/revoke + audit;
 - shipment create + idempotency + audit;
 - shipment updates + audit;
-- document version + shipment lineage + audit.
+- document version + shipment lineage + audit;
+- regulatory-version append + current-head verification + audit.
 
 The production Atlas deployment must therefore support transactions.
 
