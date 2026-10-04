@@ -109,8 +109,8 @@ Characters outside the embedded font set continue to fail closed rather than bei
 - [x] Artifact reconciliation tooling for premature loss, post-retention loss, orphans and incomplete purges.
 - [ ] Live GridFS upload/read/delete and orphan-reconciliation smoke acceptance.
 - [x] MongoDB Atlas + GridFS backup/restore runbook.
-- [x] Guarded logical backup + isolated DR restore automation with SHA-256 and GridFS integrity verification.
-- [ ] Live backup/restore drill against a staging/DR Atlas target.
+- [x] Guarded logical backup + isolated DR restore automation with SHA-256, metadata↔GridFS reconciliation, per-artifact link verification and failure-path DR cleanup.
+- [ ] Live backup/restore drill against a staging/DR Atlas target (automation complete; pending execution with the intended DR Atlas target).
 - [x] Per-organization/per-credential authenticated API rate limiting with 429 + Retry-After.
 - [x] Kairoseth application-level public PDF concurrency guard (default 16 / max 64 per process) with 503 + Retry-After and no IP coupling.
 - [x] Kairoseth DeCA public-route changes are covered by the Hostinger Production Smoke path.
