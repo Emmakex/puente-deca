@@ -42,14 +42,22 @@ const requireText = (
 
 const xmlBytes = (
   xml
-) =>
-  Buffer.from(
-    requireText(
-      xml,
-      "xml"
-    ),
+) => {
+  if (
+    typeof xml !== "string" ||
+    xml.trim().length === 0
+  ) {
+    throw fail(
+      "ECMR_SIGNATURE_INPUT_INVALID",
+      "xml is required"
+    );
+  }
+
+  return Buffer.from(
+    xml,
     "utf8"
   );
+};
 
 const sha256 = (
   value
