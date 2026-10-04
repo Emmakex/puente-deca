@@ -259,7 +259,17 @@ const jurisdictionGate = (
         ?.publicKeyFingerprint &&
     policy
       ?.signatureMethod ===
-      authorization?.method;
+      authorization?.method &&
+    policy
+      ?.identityAssurance ===
+      authorization
+        ?.signer
+        ?.identityAssurance &&
+    policy
+      ?.custodyModel ===
+      authorization
+        ?.custody
+        ?.controlModel;
 
   return gate(
     "jurisdiction_signature_policy",
