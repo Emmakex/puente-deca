@@ -39,6 +39,19 @@ export const emptyEcmrProjection = () => ({
     packingMethodCode: null,
     dangerousGoodsDescription:
       null,
+    dangerousGoods: {
+      declared: false,
+      undgIdentificationCode:
+        null,
+      regulationCode: null,
+      technicalName: null,
+      properShippingName:
+        null,
+      packagingDangerLevelCode:
+        null,
+      hazardClassificationId:
+        null
+    },
     packages: {
       count: null,
       marksAndNumbers: []
