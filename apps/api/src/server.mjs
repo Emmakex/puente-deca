@@ -1617,6 +1617,16 @@ export function createServer({
           url.pathname
         );
 
+      const signerKeyRevokeMatch =
+        /^\/v1\/ecmr\/signer-keys\/([^/]+)\/revoke$/.exec(
+          url.pathname
+        );
+
+      const signerKeyRotateMatch =
+        /^\/v1\/ecmr\/signer-keys\/([^/]+)\/rotate$/.exec(
+          url.pathname
+        );
+
       if (
         request.method === "POST" &&
         ecmrPreviewMatch
@@ -2585,6 +2595,329 @@ export function createServer({
                   "invalid_ecmr_amendment",
                 message:
                   "eCMR amendment input was rejected"
+              }
+            );
+          }
+
+          throw error;
+        }
+      }
+
+      if (
+        request.method === "GET" &&
+        url.pathname ===
+          "/v1/ecmr/signer-keys"
+      ) {
+        if (!requireStore(response, store)) return;
+
+        const platform =
+          await authenticatePlatformService(
+            request,
+            response,
+            store,
+            platformServiceSecret,
+            rateLimiter
+          );
+        if (!platform) return;
+
+        const items =
+          await store
+            .listEcmrSignerKeys({
+              organizationId:
+                platform.organizationId
+            });
+
+        return sendJson(
+          response,
+          200,
+          {
+            items
+          }
+        );
+      }
+
+      if (
+        request.method === "POST" &&
+        url.pathname ===
+          "/v1/ecmr/signer-keys"
+      ) {
+        if (!requireStore(response, store)) return;
+
+        const platform =
+          await authenticatePlatformService(
+            request,
+            response,
+            store,
+            platformServiceSecret,
+            rateLimiter
+          );
+        if (!platform) return;
+
+        const payload =
+          await readJson(
+            request
+          );
+
+        try {
+          const signerKey =
+            await store
+              .registerEcmrSignerKey({
+                organizationId:
+                  platform.organizationId,
+                label:
+                  payload?.label,
+                publicKey:
+                  payload
+                    ?.publicKeyPem,
+                signer:
+                  payload?.signer,
+                custody:
+                  payload?.custody,
+                validUntil:
+                  payload
+                    ?.validUntil ??
+                  null
+              });
+
+          return sendJson(
+            response,
+            201,
+            {
+              signerKey
+            }
+          );
+        } catch (error) {
+          if (
+            error?.code ===
+              "ECMR_SIGNER_KEY_DUPLICATE"
+          ) {
+            return sendJson(
+              response,
+              409,
+              {
+                error:
+                  "ecmr_signer_key_duplicate",
+                message:
+                  error.message
+              }
+            );
+          }
+
+          if (
+            typeof error?.code ===
+              "string" &&
+            error.code.startsWith(
+              "ECMR_SIGNER_"
+            )
+          ) {
+            return sendJson(
+              response,
+              422,
+              {
+                error:
+                  "invalid_ecmr_signer_key",
+                code:
+                  error.code,
+                message:
+                  error.message
+              }
+            );
+          }
+
+          throw error;
+        }
+      }
+
+      if (
+        request.method === "POST" &&
+        signerKeyRevokeMatch
+      ) {
+        if (!requireStore(response, store)) return;
+
+        const platform =
+          await authenticatePlatformService(
+            request,
+            response,
+            store,
+            platformServiceSecret,
+            rateLimiter
+          );
+        if (!platform) return;
+
+        const payload =
+          await readJson(
+            request
+          );
+
+        try {
+          const signerKey =
+            await store
+              .revokeEcmrSignerKey({
+                organizationId:
+                  platform.organizationId,
+                signerKeyId:
+                  decodeURIComponent(
+                    signerKeyRevokeMatch[
+                      1
+                    ]
+                  ),
+                reason:
+                  payload?.reason
+              });
+
+          return sendJson(
+            response,
+            200,
+            {
+              signerKey
+            }
+          );
+        } catch (error) {
+          if (
+            error?.code ===
+              "ECMR_SIGNER_KEY_NOT_FOUND"
+          ) {
+            return sendJson(
+              response,
+              404,
+              {
+                error:
+                  "ecmr_signer_key_not_found",
+                message:
+                  "eCMR signer key was not found"
+              }
+            );
+          }
+
+          if (
+            typeof error?.code ===
+              "string" &&
+            error.code.startsWith(
+              "ECMR_SIGNER_"
+            )
+          ) {
+            return sendJson(
+              response,
+              422,
+              {
+                error:
+                  "invalid_ecmr_signer_key_revocation",
+                code:
+                  error.code,
+                message:
+                  error.message
+              }
+            );
+          }
+
+          throw error;
+        }
+      }
+
+      if (
+        request.method === "POST" &&
+        signerKeyRotateMatch
+      ) {
+        if (!requireStore(response, store)) return;
+
+        const platform =
+          await authenticatePlatformService(
+            request,
+            response,
+            store,
+            platformServiceSecret,
+            rateLimiter
+          );
+        if (!platform) return;
+
+        const payload =
+          await readJson(
+            request
+          );
+
+        try {
+          const rotation =
+            await store
+              .rotateEcmrSignerKey({
+                organizationId:
+                  platform.organizationId,
+                signerKeyId:
+                  decodeURIComponent(
+                    signerKeyRotateMatch[
+                      1
+                    ]
+                  ),
+                label:
+                  payload?.label,
+                publicKey:
+                  payload
+                    ?.publicKeyPem,
+                custody:
+                  payload?.custody,
+                validUntil:
+                  payload
+                    ?.validUntil ??
+                  null,
+                reason:
+                  payload?.reason ??
+                  "scheduled key rotation"
+              });
+
+          return sendJson(
+            response,
+            201,
+            rotation
+          );
+        } catch (error) {
+          if (
+            error?.code ===
+              "ECMR_SIGNER_KEY_NOT_FOUND"
+          ) {
+            return sendJson(
+              response,
+              404,
+              {
+                error:
+                  "ecmr_signer_key_not_found",
+                message:
+                  "eCMR signer key was not found"
+              }
+            );
+          }
+
+          if (
+            error?.code ===
+              "ECMR_SIGNER_KEY_DUPLICATE"
+          ) {
+            return sendJson(
+              response,
+              409,
+              {
+                error:
+                  "ecmr_signer_key_duplicate",
+                message:
+                  error.message
+              }
+            );
+          }
+
+          if (
+            typeof error?.code ===
+              "string" &&
+            error.code.startsWith(
+              "ECMR_SIGNER_"
+            )
+          ) {
+            return sendJson(
+              response,
+              422,
+              {
+                error:
+                  "invalid_ecmr_signer_key_rotation",
+                code:
+                  error.code,
+                message:
+                  error.message
               }
             );
           }

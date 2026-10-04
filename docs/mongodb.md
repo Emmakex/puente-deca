@@ -18,6 +18,7 @@ Puente DeCA stores only product/service data in namespaced collections using the
 ```text
 deca_organizations
 deca_api_credentials
+deca_ecmr_signer_keys
 deca_shipments
 deca_document_versions
 deca_regulatory_versions
@@ -69,6 +70,8 @@ The adapter creates idempotent indexes for:
 
 - unique organization/service IDs;
 - unique credential IDs and API-key hashes;
+- unique eCMR signer-key IDs and organization + public-key fingerprints;
+- eCMR signer-key history lookup by organization and creation time;
 - shipment lookup by organization and update time;
 - unique document ID;
 - unique shipment + document version lineage;
@@ -81,7 +84,7 @@ The adapter creates idempotent indexes for:
 - audit lookup by organization/shipment and time;
 - unique artifact-purge evidence by document/storage key.
 
-The live `production:atlas-smoke` command does not merely call `createIndex`. It reads the indexes back from Atlas and verifies the expected key order/direction and uniqueness contract for all 16 DeCA metadata indexes plus the GridFS filename index. Any drift fails closed.
+The live `production:atlas-smoke` command does not merely call `createIndex`. It reads the indexes back from Atlas and verifies the expected key order/direction and uniqueness contract for all 22 DeCA metadata indexes plus the GridFS filename index. Any drift fails closed.
 
 ## Atomicity
 
@@ -89,6 +92,7 @@ Operations that change more than one collection use MongoDB sessions and transac
 
 - organization provisioning + audit;
 - connector credential create/revoke + audit;
+- eCMR signer-key register/revoke/rotation + audit;
 - shipment create + idempotency + audit;
 - shipment updates + audit;
 - document version + shipment lineage + audit;

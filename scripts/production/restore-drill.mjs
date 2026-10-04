@@ -96,6 +96,7 @@ const requiredMetadataCollections =
   [
     "deca_organizations",
     "deca_api_credentials",
+    "deca_ecmr_signer_keys",
     "deca_shipments",
     "deca_document_versions",
     "deca_regulatory_versions",

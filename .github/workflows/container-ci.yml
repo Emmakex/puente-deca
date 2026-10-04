@@ -18,6 +18,7 @@ on:
       - packages/core/**
       - packages/document-engine/**
       - packages/ecmr-amendment/**
+      - packages/ecmr-signature/**
       - packages/ecmr-xml/**
       - packages/persistence/**
     tags:
@@ -38,11 +39,12 @@ on:
       - packages/core/**
       - packages/document-engine/**
       - packages/ecmr-amendment/**
+      - packages/ecmr-signature/**
       - packages/ecmr-xml/**
       - packages/persistence/**
 
 concurrency:
-  group: container-ci-${{ github.ref }}
+  group: container-ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:

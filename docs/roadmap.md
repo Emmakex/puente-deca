@@ -167,7 +167,10 @@ Characters outside the embedded font set continue to fail closed rather than bei
     - [x] Fail-closed verification for content/key/identity/signature tampering.
     - [x] Verified-only projection binding with private-key material excluded from evidence/logging.
     - [x] Cryptographic verification kept distinct from legal authentication and amendment-history readiness.
-    - [ ] Production signer identity policy, authorized-key registry/custody, revocation/rotation and jurisdiction-specific authentication acceptance.
+    - [x] Tenant-scoped signer authorization policy and public-key registry with external custody metadata, validity windows, audit, revocation and rotation.
+    - [x] Kairoseth-only signer-key administration API with connector isolation and no private-key storage/custody.
+    - [x] MongoDB signer-key persistence/indexes plus backup/restore DR collection coverage.
+    - [ ] Jurisdiction-specific identity assurance, signature/custody acceptance and production signing-provider integration.
   - [ ] Amendment/version lifecycle preserving original particulars.
     - [x] Immutable exact-XML version records with original-content, predecessor-content and predecessor-chain hash links.
     - [x] Deterministic chain verification detects content/metadata tampering, deletion/reordering and predecessor rewiring.

@@ -123,6 +123,11 @@ requirePattern(
 );
 requirePattern(
   restore,
+  /deca_ecmr_signer_keys/,
+  "Restore drill must require the eCMR signer-key registry collection"
+);
+requirePattern(
+  restore,
   /deca_pdf\.files/,
   "Restore must verify GridFS files"
 );

@@ -24,6 +24,31 @@ const metadataIndexContracts = [
     unique: false
   },
   {
+    collection: "deca_ecmr_signer_keys",
+    name: "ecmr_signer_key_id_unique",
+    key: { signerKeyId: 1 },
+    unique: true
+  },
+  {
+    collection: "deca_ecmr_signer_keys",
+    name: "ecmr_signer_org_fingerprint_unique",
+    key: {
+      organizationId: 1,
+      publicKeyFingerprint: 1
+    },
+    unique: true
+  },
+  {
+    collection: "deca_ecmr_signer_keys",
+    name: "ecmr_signer_org_created",
+    key: {
+      organizationId: 1,
+      createdAt: -1,
+      signerKeyId: -1
+    },
+    unique: false
+  },
+  {
     collection: "deca_shipments",
     name: "shipment_id_unique",
     key: { shipmentId: 1 },

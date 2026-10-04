@@ -1266,6 +1266,322 @@
           }
         }
       }
+    },
+    "/v1/ecmr/signer-keys": {
+      "get": {
+        "operationId": "listEcmrSignerKeys",
+        "summary": "List authorized eCMR signer public keys",
+        "description": "Kairoseth Platform administration only. Returns tenant-scoped signer authorization metadata and public-key fingerprints. Public-key PEM and all private-key material are excluded.",
+        "security": [
+          {
+            "platformServiceSecret": [],
+            "platformOrganizationId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tenant-scoped signer-key registry"
+          },
+          "401": {
+            "description": "Kairoseth Platform authentication required"
+          },
+          "429": {
+            "description": "Authenticated platform subject exceeded the request limit"
+          }
+        }
+      },
+      "post": {
+        "operationId": "registerEcmrSignerKey",
+        "summary": "Register an authorized eCMR signer public key",
+        "description": "Kairoseth Platform administration only. Registers an Ed25519 verification key with cryptographically bound signer identity metadata and external-custody metadata. Puente DeCA never accepts or stores the private key.",
+        "security": [
+          {
+            "platformServiceSecret": [],
+            "platformOrganizationId": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "label",
+                  "publicKeyPem",
+                  "signer",
+                  "custody"
+                ],
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 160
+                  },
+                  "publicKeyPem": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Ed25519 public key in SPKI PEM format."
+                  },
+                  "validUntil": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date-time"
+                  },
+                  "signer": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "signerId",
+                      "partyRole",
+                      "identityScheme"
+                    ],
+                    "properties": {
+                      "signerId": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "partyRole": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "identityScheme": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "identityAssurance": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    }
+                  },
+                  "custody": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "mode",
+                      "provider",
+                      "keyReference",
+                      "controlModel"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "external"
+                      },
+                      "provider": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "keyReference": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "controlModel": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Signer public key registered; private/public PEM material is not returned"
+          },
+          "401": {
+            "description": "Kairoseth Platform authentication required"
+          },
+          "409": {
+            "description": "Public-key fingerprint already registered for the organization"
+          },
+          "422": {
+            "description": "Invalid signer identity, key, validity or custody metadata"
+          },
+          "429": {
+            "description": "Authenticated platform subject exceeded the request limit"
+          }
+        }
+      }
+    },
+    "/v1/ecmr/signer-keys/{signerKeyId}/revoke": {
+      "post": {
+        "operationId": "revokeEcmrSignerKey",
+        "summary": "Revoke an authorized eCMR signer key",
+        "description": "Kairoseth Platform administration only. Revocation is server-timestamped and retained for signature-time authorization checks.",
+        "security": [
+          {
+            "platformServiceSecret": [],
+            "platformOrganizationId": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "signerKeyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "reason"
+                ],
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Signer key revoked"
+          },
+          "401": {
+            "description": "Kairoseth Platform authentication required"
+          },
+          "404": {
+            "description": "Signer key not found in this organization"
+          },
+          "422": {
+            "description": "Invalid revocation request"
+          },
+          "429": {
+            "description": "Authenticated platform subject exceeded the request limit"
+          }
+        }
+      }
+    },
+    "/v1/ecmr/signer-keys/{signerKeyId}/rotate": {
+      "post": {
+        "operationId": "rotateEcmrSignerKey",
+        "summary": "Rotate an authorized eCMR signer key",
+        "description": "Kairoseth Platform administration only. Revokes the previous key at the server-controlled rotation instant and registers a different Ed25519 public key with explicit lineage. Private keys remain externally custodied.",
+        "security": [
+          {
+            "platformServiceSecret": [],
+            "platformOrganizationId": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "signerKeyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "label",
+                  "publicKeyPem",
+                  "custody"
+                ],
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 160
+                  },
+                  "publicKeyPem": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "validUntil": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date-time"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  "custody": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "mode",
+                      "provider",
+                      "keyReference",
+                      "controlModel"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "external"
+                      },
+                      "provider": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "keyReference": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "controlModel": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Previous key revoked and replacement key registered"
+          },
+          "401": {
+            "description": "Kairoseth Platform authentication required"
+          },
+          "404": {
+            "description": "Signer key not found in this organization"
+          },
+          "409": {
+            "description": "Replacement public key is already registered"
+          },
+          "422": {
+            "description": "Invalid rotation request"
+          },
+          "429": {
+            "description": "Authenticated platform subject exceeded the request limit"
+          }
+        }
+      }
     }
   },
   "components": {

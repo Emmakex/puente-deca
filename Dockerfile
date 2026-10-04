@@ -34,6 +34,7 @@ COPY --chown=node:node packages/contracts ./packages/contracts
 COPY --chown=node:node packages/core ./packages/core
 COPY --chown=node:node packages/document-engine ./packages/document-engine
 COPY --chown=node:node packages/ecmr-amendment ./packages/ecmr-amendment
+COPY --chown=node:node packages/ecmr-signature ./packages/ecmr-signature
 COPY --chown=node:node packages/ecmr-xml ./packages/ecmr-xml
 COPY --chown=node:node packages/persistence ./packages/persistence
 

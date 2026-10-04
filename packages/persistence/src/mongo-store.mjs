@@ -13,6 +13,12 @@ import {
   assertRegulatoryVersionAppend,
   normalizeRegulatoryType
 } from "./regulatory-version-record.mjs";
+import {
+  createAuthorizedEcmrSignerKey,
+  publicEcmrSignerKey,
+  revokeAuthorizedEcmrSignerKey,
+  rotateAuthorizedEcmrSignerKey
+} from "../../ecmr-signature/src/signer-registry.mjs";
 
 const clone = (value) => structuredClone(value);
 
@@ -100,6 +106,29 @@ const publicCredential = (document) => ({
     ? iso(document.expiresAt)
     : null
 });
+
+const signerRecordFromDocument = (
+  document
+) => {
+  const {
+    _id:
+      _id,
+    ...record
+  } = document;
+
+  return clone(
+    record
+  );
+};
+
+const publicSignerKeyDocument = (
+  document
+) =>
+  publicEcmrSignerKey(
+    signerRecordFromDocument(
+      document
+    )
+  );
 
 const publicShipment = (document) => ({
   shipmentId: document.shipmentId,
@@ -285,6 +314,12 @@ export class MongoStore {
     return this.#database.collection("deca_api_credentials");
   }
 
+  get #signerKeys() {
+    return this.#database.collection(
+      "deca_ecmr_signer_keys"
+    );
+  }
+
   get #shipments() {
     return this.#database.collection("deca_shipments");
   }
@@ -326,6 +361,33 @@ export class MongoStore {
       this.#credentials.createIndex(
         { organizationId: 1, createdAt: -1 },
         { name: "credential_org_created" }
+      ),
+      this.#signerKeys.createIndex(
+        { signerKeyId: 1 },
+        {
+          unique: true,
+          name: "ecmr_signer_key_id_unique"
+        }
+      ),
+      this.#signerKeys.createIndex(
+        {
+          organizationId: 1,
+          publicKeyFingerprint: 1
+        },
+        {
+          unique: true,
+          name: "ecmr_signer_org_fingerprint_unique"
+        }
+      ),
+      this.#signerKeys.createIndex(
+        {
+          organizationId: 1,
+          createdAt: -1,
+          signerKeyId: -1
+        },
+        {
+          name: "ecmr_signer_org_created"
+        }
       ),
       this.#shipments.createIndex(
         { shipmentId: 1 },
@@ -977,6 +1039,394 @@ export class MongoStore {
         }
       );
     });
+  }
+
+  async registerEcmrSignerKey({
+    organizationId,
+    label,
+    publicKey,
+    signer,
+    custody,
+    validUntil = null
+  }) {
+    const normalizedOrganizationId =
+      requireText(
+        organizationId,
+        "organizationId"
+      );
+
+    return this.#withTransaction(
+      async (
+        session
+      ) => {
+        const organization =
+          await this.#organizations
+            .findOne(
+              {
+                organizationId:
+                  normalizedOrganizationId
+              },
+              {
+                session
+              }
+            );
+
+        if (!organization) {
+          throw conflict(
+            "Organization does not exist",
+            "ORGANIZATION_NOT_FOUND"
+          );
+        }
+
+        const at =
+          this.#nowDate();
+        const isoAt =
+          at.toISOString();
+        const record =
+          createAuthorizedEcmrSignerKey({
+            signerKeyId:
+              `skey_${this.#idFactory()}`,
+            organizationId:
+              normalizedOrganizationId,
+            label,
+            publicKey,
+            signer,
+            custody,
+            validFrom:
+              isoAt,
+            validUntil,
+            createdAt:
+              isoAt
+          });
+
+        try {
+          await this.#signerKeys
+            .insertOne(
+              record,
+              {
+                session
+              }
+            );
+        } catch (error) {
+          if (
+            error?.code ===
+              11000
+          ) {
+            throw conflict(
+              "Signer public key is already registered in this organization",
+              "ECMR_SIGNER_KEY_DUPLICATE"
+            );
+          }
+
+          throw error;
+        }
+
+        await this.#appendAudit(
+          {
+            organizationId:
+              normalizedOrganizationId,
+            subjectId:
+              record.signerKeyId,
+            type:
+              "ecmr.signer_key.registered",
+            at
+          },
+          session
+        );
+
+        return publicEcmrSignerKey(
+          record
+        );
+      }
+    );
+  }
+
+  async listEcmrSignerKeys({
+    organizationId
+  }) {
+    const documents =
+      await this.#signerKeys
+        .find({
+          organizationId:
+            requireText(
+              organizationId,
+              "organizationId"
+            )
+        })
+        .sort({
+          createdAt: -1,
+          signerKeyId: -1
+        })
+        .toArray();
+
+    return documents.map(
+      publicSignerKeyDocument
+    );
+  }
+
+  async getEcmrSignerKey({
+    organizationId,
+    signerKeyId
+  }) {
+    const document =
+      await this.#signerKeys
+        .findOne({
+          organizationId:
+            requireText(
+              organizationId,
+              "organizationId"
+            ),
+          signerKeyId:
+            requireText(
+              signerKeyId,
+              "signerKeyId"
+            )
+        });
+
+    return document
+      ? signerRecordFromDocument(
+          document
+        )
+      : null;
+  }
+
+  async revokeEcmrSignerKey({
+    organizationId,
+    signerKeyId,
+    reason
+  }) {
+    const normalizedOrganizationId =
+      requireText(
+        organizationId,
+        "organizationId"
+      );
+    const normalizedSignerKeyId =
+      requireText(
+        signerKeyId,
+        "signerKeyId"
+      );
+
+    return this.#withTransaction(
+      async (
+        session
+      ) => {
+        const currentDocument =
+          await this.#signerKeys
+            .findOne(
+              {
+                organizationId:
+                  normalizedOrganizationId,
+                signerKeyId:
+                  normalizedSignerKeyId
+              },
+              {
+                session
+              }
+            );
+
+        if (
+          !currentDocument
+        ) {
+          throw conflict(
+            "eCMR signer key does not exist in this organization",
+            "ECMR_SIGNER_KEY_NOT_FOUND"
+          );
+        }
+
+        const current =
+          signerRecordFromDocument(
+            currentDocument
+          );
+
+        if (
+          current.revokedAt
+        ) {
+          return publicEcmrSignerKey(
+            current
+          );
+        }
+
+        const at =
+          this.#nowDate();
+        const revoked =
+          revokeAuthorizedEcmrSignerKey(
+            current,
+            {
+              revokedAt:
+                at.toISOString(),
+              reason
+            }
+          );
+
+        await this.#signerKeys
+          .replaceOne(
+            {
+              organizationId:
+                normalizedOrganizationId,
+              signerKeyId:
+                normalizedSignerKeyId,
+              revokedAt:
+                null
+            },
+            revoked,
+            {
+              session
+            }
+          );
+
+        await this.#appendAudit(
+          {
+            organizationId:
+              normalizedOrganizationId,
+            subjectId:
+              normalizedSignerKeyId,
+            type:
+              "ecmr.signer_key.revoked",
+            at
+          },
+          session
+        );
+
+        return publicEcmrSignerKey(
+          revoked
+        );
+      }
+    );
+  }
+
+  async rotateEcmrSignerKey({
+    organizationId,
+    signerKeyId,
+    label,
+    publicKey,
+    custody,
+    validUntil = null,
+    reason =
+      "scheduled key rotation"
+  }) {
+    const normalizedOrganizationId =
+      requireText(
+        organizationId,
+        "organizationId"
+      );
+    const normalizedSignerKeyId =
+      requireText(
+        signerKeyId,
+        "signerKeyId"
+      );
+
+    return this.#withTransaction(
+      async (
+        session
+      ) => {
+        const currentDocument =
+          await this.#signerKeys
+            .findOne(
+              {
+                organizationId:
+                  normalizedOrganizationId,
+                signerKeyId:
+                  normalizedSignerKeyId
+              },
+              {
+                session
+              }
+            );
+
+        if (
+          !currentDocument
+        ) {
+          throw conflict(
+            "eCMR signer key does not exist in this organization",
+            "ECMR_SIGNER_KEY_NOT_FOUND"
+          );
+        }
+
+        const current =
+          signerRecordFromDocument(
+            currentDocument
+          );
+        const at =
+          this.#nowDate();
+        const rotation =
+          rotateAuthorizedEcmrSignerKey(
+            current,
+            {
+              signerKeyId:
+                `skey_${this.#idFactory()}`,
+              label,
+              publicKey,
+              custody,
+              rotatedAt:
+                at.toISOString(),
+              validUntil,
+              reason
+            }
+          );
+
+        try {
+          await this.#signerKeys
+            .insertOne(
+              rotation.next,
+              {
+                session
+              }
+            );
+        } catch (error) {
+          if (
+            error?.code ===
+              11000
+          ) {
+            throw conflict(
+              "Replacement signer public key is already registered in this organization",
+              "ECMR_SIGNER_KEY_DUPLICATE"
+            );
+          }
+
+          throw error;
+        }
+
+        await this.#signerKeys
+          .replaceOne(
+            {
+              organizationId:
+                normalizedOrganizationId,
+              signerKeyId:
+                normalizedSignerKeyId,
+              revokedAt:
+                null
+            },
+            rotation.previous,
+            {
+              session
+            }
+          );
+
+        await this.#appendAudit(
+          {
+            organizationId:
+              normalizedOrganizationId,
+            subjectId:
+              normalizedSignerKeyId,
+            type:
+              "ecmr.signer_key.rotated",
+            at
+          },
+          session
+        );
+
+        return {
+          previous:
+            publicEcmrSignerKey(
+              rotation.previous
+            ),
+          next:
+            publicEcmrSignerKey(
+              rotation.next
+            )
+        };
+      }
+    );
   }
 
   async createShipment({

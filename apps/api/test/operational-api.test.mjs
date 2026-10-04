@@ -4,6 +4,9 @@ import { once } from "node:events";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import {
+  generateKeyPairSync
+} from "node:crypto";
 import { createServer } from "../src/server.mjs";
 import {
   createFixedWindowRateLimiter
@@ -1629,6 +1632,232 @@ test("Kairoseth can synchronize connector credential expiry and expired keys sto
         }
       );
       assert.equal(invalid.status, 422);
+    }
+  );
+});
+
+test("Kairoseth platform manages tenant-scoped eCMR signer keys without private-key custody", async () => {
+  await withOperationalServer(
+    async ({
+      baseUrl,
+      apiKey,
+      organization,
+      platformServiceSecret
+    }) => {
+      const first =
+        generateKeyPairSync(
+          "ed25519"
+        );
+      const second =
+        generateKeyPairSync(
+          "ed25519"
+        );
+      const publicPem = (
+        pair
+      ) =>
+        pair.publicKey
+          .export({
+            type: "spki",
+            format: "pem"
+          })
+          .toString();
+      const serviceHeaders = {
+        "content-type":
+          "application/json",
+        "x-kairoseth-service-secret":
+          platformServiceSecret,
+        "x-kairoseth-organization-id":
+          organization.organizationId,
+        "x-kairoseth-user-id":
+          "user_signer_admin"
+      };
+      const signer = {
+        signerId:
+          "kairoseth-user:user_signer_admin",
+        partyRole:
+          "sender",
+        identityScheme:
+          "kairoseth-user",
+        identityAssurance:
+          "platform-authenticated"
+      };
+      const custody = (
+        reference
+      ) => ({
+        mode: "external",
+        provider:
+          "Example External HSM",
+        keyReference:
+          reference,
+        controlModel:
+          "external-sole-control"
+      });
+
+      const createdResponse =
+        await fetch(
+          `${baseUrl}/v1/ecmr/signer-keys`,
+          {
+            method: "POST",
+            headers:
+              serviceHeaders,
+            body:
+              JSON.stringify({
+                label:
+                  "Sender key v1",
+                publicKeyPem:
+                  publicPem(
+                    first
+                  ),
+                signer,
+                custody:
+                  custody(
+                    "hsm://org/key-001"
+                  )
+              })
+          }
+        );
+      const created =
+        await createdResponse
+          .json();
+
+      assert.equal(
+        createdResponse.status,
+        201
+      );
+      assert.match(
+        created.signerKey
+          .publicKeyFingerprint,
+        /^sha256:[0-9a-f]{64}$/
+      );
+      assert.equal(
+        Object.hasOwn(
+          created.signerKey,
+          "publicKeyPem"
+        ),
+        false
+      );
+      assert.equal(
+        created.signerKey
+          .custody
+          .privateKeyStored,
+        false
+      );
+
+      const listedResponse =
+        await fetch(
+          `${baseUrl}/v1/ecmr/signer-keys`,
+          {
+            headers:
+              serviceHeaders
+          }
+        );
+      const listed =
+        await listedResponse
+          .json();
+
+      assert.equal(
+        listedResponse.status,
+        200
+      );
+      assert.equal(
+        listed.items.length,
+        1
+      );
+      assert.equal(
+        Object.hasOwn(
+          listed.items[0],
+          "publicKeyPem"
+        ),
+        false
+      );
+
+      const connectorDenied =
+        await fetch(
+          `${baseUrl}/v1/ecmr/signer-keys`,
+          {
+            headers: {
+              authorization:
+                `Bearer ${apiKey}`
+            }
+          }
+        );
+
+      assert.equal(
+        connectorDenied.status,
+        401
+      );
+
+      const rotateResponse =
+        await fetch(
+          `${baseUrl}/v1/ecmr/signer-keys/${created.signerKey.signerKeyId}/rotate`,
+          {
+            method: "POST",
+            headers:
+              serviceHeaders,
+            body:
+              JSON.stringify({
+                label:
+                  "Sender key v2",
+                publicKeyPem:
+                  publicPem(
+                    second
+                  ),
+                custody:
+                  custody(
+                    "hsm://org/key-002"
+                  ),
+                reason:
+                  "scheduled rotation"
+              })
+          }
+        );
+      const rotation =
+        await rotateResponse
+          .json();
+
+      assert.equal(
+        rotateResponse.status,
+        201
+      );
+      assert.equal(
+        rotation.previous
+          .revokedReason,
+        "scheduled rotation"
+      );
+      assert.equal(
+        rotation.next
+          .replacesSignerKeyId,
+        created.signerKey
+          .signerKeyId
+      );
+
+      const revokeResponse =
+        await fetch(
+          `${baseUrl}/v1/ecmr/signer-keys/${rotation.next.signerKeyId}/revoke`,
+          {
+            method: "POST",
+            headers:
+              serviceHeaders,
+            body:
+              JSON.stringify({
+                reason:
+                  "retired"
+              })
+          }
+        );
+      const revoked =
+        await revokeResponse
+          .json();
+
+      assert.equal(
+        revokeResponse.status,
+        200
+      );
+      assert.equal(
+        revoked.signerKey
+          .revokedReason,
+        "retired"
+      );
     }
   );
 });
