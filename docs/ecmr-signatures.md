@@ -8,11 +8,11 @@ The Additional Protocol to CMR requires an electronic consignment note to be aut
 
 Puente DeCA therefore keeps three states separate:
 
-1. **cryptographic verification** — implemented here;
-2. **identity/authentication policy acceptance** — pending production/national policy integration;
-3. **amendment-history preservation** — pending the next Phase 7 block.
+1. **cryptographic verification** — implemented;
+2. **authorized signer/key policy** — implemented internally with tenant-scoped public-key registration, external custody metadata, validity windows, rotation and revocation;
+3. **jurisdiction-specific authentication acceptance** — intentionally still pending external/legal acceptance.
 
-A valid Ed25519 signature alone does not make the projection pass `validateEcmrElectronicReadiness()`.
+Immutable amendment-history preservation is implemented separately in the regulatory-version ledger. A valid Ed25519 signature plus a locally authorized signer key still does not, by itself, constitute jurisdiction-specific legal acceptance.
 
 ## Signature profile
 
@@ -86,18 +86,70 @@ integrity.contentHash = <signed SHA-256>
 integrity.amendmentHistoryPreserved = false
 ```
 
-The last value intentionally remains false. The next Phase 7 block must implement immutable amendment/version history before Protocol Article 4 can be considered ready.
+The signature bridge intentionally does not infer amendment-history readiness from a signature. Amendment-history preservation is established independently by the immutable regulatory-version chain.
 
 ## Identity and key custody
 
-The signed `signerId`, `partyRole` and `identityScheme` are cryptographically bound assertions. They are **not**, by themselves, proof that an authority or qualified trust provider validated the person or company behind the key.
+The signed `signerId`, `partyRole` and `identityScheme` are cryptographically bound assertions. Puente DeCA now also provides a tenant-scoped authorization registry that binds an Ed25519 public key fingerprint to:
 
-Production readiness still needs an explicit policy for:
+- one Kairoseth organization;
+- an explicit signer identity and party role;
+- optional identity-assurance metadata;
+- an authorization validity interval;
+- external custody provider/reference/control metadata;
+- revocation state;
+- rotation lineage.
 
-- how a public key is registered to an authorized signer;
-- acceptable identity assurance;
-- key custody / sole-control requirements;
-- revocation or key rotation;
-- jurisdiction-specific authentication/signature requirements.
+The policy version is:
 
-No private-key generation or custody mechanism is introduced into Kairoseth by this module. Production keys remain an external responsibility until that policy is selected.
+```text
+ecmr-signer-authorization-v1
+```
+
+Puente DeCA accepts **public verification keys only**. Private-key custody is deliberately outside Puente DeCA/Kairoseth:
+
+```text
+custody.mode = external
+custody.privateKeyStored = false
+```
+
+The registry rejects non-Ed25519 public keys, internal custody mode, duplicate organization + public-key fingerprints, invalid validity windows and rotations that reuse the same key.
+
+At signature-evaluation time, authorization additionally requires:
+
+- cryptographic verification already succeeded;
+- evidence/verification fingerprint matches the registered public key;
+- signer ID, party role, identity scheme and assurance match the authorization record;
+- signing instant falls within the key validity window;
+- signing instant predates revocation, when revoked.
+
+A successful internal result deliberately records:
+
+```text
+jurisdictionAcceptance = pending
+```
+
+That prevents an internally authorized key from being confused with a jurisdiction-specific legal/signature-policy acceptance.
+
+## Kairoseth administration boundary
+
+Signer-key administration is available only through authenticated Kairoseth Platform service context:
+
+```text
+GET  /v1/ecmr/signer-keys
+POST /v1/ecmr/signer-keys
+POST /v1/ecmr/signer-keys/{signerKeyId}/rotate
+POST /v1/ecmr/signer-keys/{signerKeyId}/revoke
+```
+
+Connector API credentials cannot administer signer keys.
+
+Public API responses return signer metadata and the public-key fingerprint but omit the stored public-key PEM. Private-key material is never accepted, returned, logged or persisted.
+
+Both JSON development persistence and MongoDB production persistence support this lifecycle. MongoDB uses the dedicated `deca_ecmr_signer_keys` collection with unique signer-key IDs and unique organization + fingerprint constraints. Registration, revocation and rotation produce audit events and the collection is included in backup/restore DR acceptance.
+
+## Remaining legal acceptance
+
+The engineering policy for registration, external custody metadata, validity, rotation and revocation is implemented. Production issuance remains blocked until the intended jurisdiction/signature policy confirms what identity assurance and signature/custody mechanism is acceptable for the deployment.
+
+This repository therefore does **not** claim that `ecmr-signer-authorization-v1` is, by itself, a qualified or otherwise legally accepted electronic-signature scheme.
