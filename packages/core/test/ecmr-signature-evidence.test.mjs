@@ -81,7 +81,7 @@ test(
     assert.equal(
       signed.authentication
         .state,
-      "authenticated"
+      "cryptographically-verified"
     );
     assert.equal(
       signed.authentication
@@ -144,7 +144,7 @@ test(
 );
 
 test(
-  "signature evidence alone does not falsely satisfy Protocol Article 4 amendment-history readiness",
+  "cryptographic evidence alone does not falsely satisfy Protocol Articles 3 or 4 readiness",
   () => {
     const projection =
       emptyEcmrProjection();
@@ -161,6 +161,13 @@ test(
     assert.equal(
       result.valid,
       false
+    );
+    assert.ok(
+      result.errors.some(
+        (entry) =>
+          entry.legalBasis ===
+          "ECMR_PROTOCOL_ARTICLE_3"
+      )
     );
     assert.ok(
       result.errors.some(
