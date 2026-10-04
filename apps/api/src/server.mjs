@@ -13,6 +13,12 @@ import {
 import { normalizeDecaRequest } from "../../../packages/core/src/normalize-deca.mjs";
 import { validateDecaRequest } from "../../../packages/core/src/validate-deca.mjs";
 import {
+  shipmentAggregateFromDeca
+} from "../../../packages/core/src/shipment-adapter.mjs";
+import {
+  validateShipmentAggregate
+} from "../../../packages/core/src/validate-shipment.mjs";
+import {
   createDocumentSnapshot,
   reviseDocumentSnapshot
 } from "../../../packages/document-engine/src/snapshot.mjs";
@@ -23,6 +29,36 @@ import {
 import {
   createFixedWindowRateLimiter
 } from "./rate-limit.mjs";
+import {
+  publicShipmentResponse,
+  publicShipmentListResponse
+} from "./shipment-response.mjs";
+
+const internalShipmentAggregate = (
+  decaRequest
+) => {
+  const aggregate =
+    shipmentAggregateFromDeca(
+      decaRequest
+    );
+  const validation =
+    validateShipmentAggregate(
+      aggregate
+    );
+
+  if (!validation.valid) {
+    const error = new Error(
+      "Internal Shipment aggregate validation failed"
+    );
+    error.code =
+      "SHIPMENT_AGGREGATE_INVALID";
+    error.validationErrors =
+      validation.errors;
+    throw error;
+  }
+
+  return aggregate;
+};
 
 const commonSecurityHeaders = () => ({
   "cache-control": "no-store",
@@ -1061,6 +1097,10 @@ export function createServer({
                 externalReference:
                   record.request.externalReference,
                 data: record.request,
+                aggregate:
+                  internalShipmentAggregate(
+                    record.request
+                  ),
                 idempotencyKey:
                   `file-import:${record.request.externalReference}:v1`
               });
@@ -1431,7 +1471,9 @@ export function createServer({
         return sendJson(
           response,
           200,
-          shipments
+          publicShipmentListResponse(
+            shipments
+          )
         );
       }
 
@@ -1499,6 +1541,10 @@ export function createServer({
               externalReference:
                 normalized.externalReference,
               data: normalized,
+              aggregate:
+                internalShipmentAggregate(
+                  normalized
+                ),
               idempotencyKey:
                 request.headers[
                   "idempotency-key"
@@ -1510,7 +1556,9 @@ export function createServer({
             shipment.idempotentReplay
               ? 200
               : 201,
-            shipment
+            publicShipmentResponse(
+              shipment
+            )
           );
         } catch (error) {
           if (
@@ -1599,13 +1647,19 @@ export function createServer({
             organizationId:
               credential.organizationId,
             shipmentId,
-            data: normalized
+            data: normalized,
+            aggregate:
+              internalShipmentAggregate(
+                normalized
+              )
           });
 
         return sendJson(
           response,
           200,
-          updated
+          publicShipmentResponse(
+            updated
+          )
         );
       }
 
@@ -1653,7 +1707,9 @@ export function createServer({
         return sendJson(
           response,
           200,
-          shipment
+          publicShipmentResponse(
+            shipment
+          )
         );
       }
 

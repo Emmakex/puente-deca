@@ -82,6 +82,8 @@ Production metadata persistence uses MongoDB Atlas, matching Kairoseth Platform.
 
 The storage interface keeps the domain independent from the selected driver, so shipment/document contracts stay unchanged between JSON development tests and MongoDB production.
 
+During the Phase 7 migration, new and updated records dual-write the current normalized DeCA `data` plus an internal versioned generic `aggregate`. The engine can inspect that aggregate, but API serializers remove it from customer/connector responses. Existing idempotency fingerprints remain based on the established DeCA request until the legacy migration is complete, preventing retries from changing identity merely because the internal representation evolved.
+
 ## Current flow
 
 ```text

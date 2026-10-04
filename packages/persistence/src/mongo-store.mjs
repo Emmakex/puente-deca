@@ -101,6 +101,10 @@ const publicShipment = (document) => ({
   organizationId: document.organizationId,
   externalReference: document.externalReference,
   data: clone(document.data),
+  aggregate:
+    document.aggregate
+      ? clone(document.aggregate)
+      : null,
   documentVersionIds: [
     ...(document.documentVersionIds ?? [])
   ],
@@ -883,6 +887,7 @@ export class MongoStore {
     organizationId,
     externalReference,
     data,
+    aggregate = undefined,
     idempotencyKey = null
   }) {
     const normalizedOrganizationId =
@@ -897,6 +902,13 @@ export class MongoStore {
       );
     const normalizedData =
       requireRecord(data, "data");
+    const normalizedAggregate =
+      aggregate === undefined
+        ? undefined
+        : requireRecord(
+            aggregate,
+            "aggregate"
+          );
     const normalizedIdempotencyKey =
       idempotencyKey === null
         ? null
@@ -981,6 +993,14 @@ export class MongoStore {
         externalReference:
           normalizedExternalReference,
         data: clone(normalizedData),
+        ...(normalizedAggregate ===
+        undefined
+          ? {}
+          : {
+              aggregate: clone(
+                normalizedAggregate
+              )
+            }),
         documentVersionIds: [],
         createdAt: at,
         updatedAt: at
@@ -1100,7 +1120,8 @@ export class MongoStore {
   async updateShipment({
     organizationId,
     shipmentId,
-    data
+    data,
+    aggregate = undefined
   }) {
     const normalizedOrganizationId =
       requireText(
@@ -1114,6 +1135,13 @@ export class MongoStore {
       );
     const normalizedData =
       requireRecord(data, "data");
+    const normalizedAggregate =
+      aggregate === undefined
+        ? undefined
+        : requireRecord(
+            aggregate,
+            "aggregate"
+          );
 
     return this.#withTransaction(async (session) => {
       const current =
@@ -1158,6 +1186,15 @@ export class MongoStore {
           {
             $set: {
               data: clone(normalizedData),
+              ...(normalizedAggregate ===
+              undefined
+                ? {}
+                : {
+                    aggregate:
+                      clone(
+                        normalizedAggregate
+                      )
+                  }),
               updatedAt: at
             }
           },

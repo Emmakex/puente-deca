@@ -138,6 +138,11 @@ Characters outside the embedded font set continue to fail closed rather than bei
   - [x] Structural Shipment validator with unique role-based parties.
   - [x] Canonical DeCA ↔ Shipment semantic round-trip adapter/tests.
   - [ ] Internal persistence migration from DeCA-shaped data to Shipment aggregate.
+    - [x] Dual-write new/updated shipments to legacy DeCA `data` + internal generic `aggregate`.
+    - [x] Keep internal `aggregate` out of public shipment API responses.
+    - [x] Preserve existing idempotency semantics during the compatibility stage.
+    - [ ] Backfill legacy Atlas shipment records without an `aggregate`.
+    - [ ] Switch internal reads to Shipment-first with legacy-data fallback.
   - [ ] DeCA document engine consumes Shipment through the adapter boundary.
 - [ ] eCMR adapter.
 - [ ] eFTI compatibility track.

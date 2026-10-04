@@ -84,6 +84,107 @@ test("persists organizations across store instances", async () => {
   });
 });
 
+test("persists the internal generic shipment aggregate without requiring it for legacy callers", async () => {
+  await withStore(async ({ store }) => {
+    const organization =
+      await store.createOrganization({
+        name: "Organization 001"
+      });
+
+    const aggregate = {
+      contractVersion: "2026-10",
+      externalReference: "SHIP-AGG-1",
+      transportMode: "road",
+      parties: [],
+      route: {},
+      cargo: {},
+      movement: {},
+      notes: null,
+      regulatoryContexts: [],
+      extensions: {}
+    };
+
+    const shipment =
+      await store.createShipment({
+        organizationId:
+          organization.organizationId,
+        externalReference:
+          "SHIP-AGG-1",
+        data: shipmentData(),
+        aggregate
+      });
+
+    assert.deepEqual(
+      shipment.aggregate,
+      aggregate
+    );
+
+    const loaded =
+      await store.getShipment({
+        organizationId:
+          organization.organizationId,
+        shipmentId:
+          shipment.shipmentId
+      });
+
+    assert.deepEqual(
+      loaded.aggregate,
+      aggregate
+    );
+
+    const updatedAggregate = {
+      ...aggregate,
+      route: {
+        destination: "Valencia"
+      }
+    };
+
+    const updated =
+      await store.updateShipment({
+        organizationId:
+          organization.organizationId,
+        shipmentId:
+          shipment.shipmentId,
+        data: {
+          ...shipmentData(),
+          route: {
+            origin: "Madrid",
+            destination:
+              "Valencia"
+          }
+        },
+        aggregate:
+          updatedAggregate
+      });
+
+    assert.equal(
+      updated.changed,
+      true
+    );
+    assert.deepEqual(
+      updated.aggregate,
+      updatedAggregate
+    );
+
+    const legacy =
+      await store.createShipment({
+        organizationId:
+          organization.organizationId,
+        externalReference:
+          "SHIP-LEGACY-1",
+        data: shipmentData()
+      });
+
+    assert.equal(
+      Object.hasOwn(
+        legacy,
+        "aggregate"
+      ),
+      false
+    );
+  });
+});
+
 test("scopes shipments to their organization", async () => {
   await withStore(async ({ store }) => {
     const first = await store.createOrganization({

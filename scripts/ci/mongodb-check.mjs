@@ -66,6 +66,21 @@ requirePattern(
   "Idempotency scope needs a unique MongoDB index"
 );
 requirePattern(
+  adapter,
+  /aggregate:\s*document\.aggregate[\s\S]*clone\(document\.aggregate\)/,
+  "MongoDB store must expose the internal Shipment aggregate to the engine"
+);
+requirePattern(
+  adapter,
+  /aggregate\s*=\s*undefined[\s\S]*requireRecord\([\s\S]*aggregate[\s\S]*"aggregate"/,
+  "MongoDB shipment writes must validate the optional generic aggregate"
+);
+requirePattern(
+  adapter,
+  /aggregate:\s*clone\([\s\S]*normalizedAggregate/,
+  "MongoDB shipment writes must persist the generic aggregate"
+);
+requirePattern(
   factory,
   /MONGODB_URI/,
   "MongoDB Atlas configuration is missing"
@@ -83,5 +98,5 @@ if (/postgres|DATABASE_URL|\bpg\b/i.test(adapter + factory)) {
 }
 
 console.log(
-  "MongoDB persistence contract OK (Kairoseth-aligned collections, indexes, transactions, production fail-closed)"
+  "MongoDB persistence contract OK (Kairoseth-aligned collections, indexes, transactions, generic Shipment dual-write, production fail-closed)"
 );

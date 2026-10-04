@@ -643,6 +643,7 @@ export class JsonStore {
     organizationId,
     externalReference,
     data,
+    aggregate = undefined,
     idempotencyKey = null
   }) {
     const normalizedOrganizationId = requireText(
@@ -654,6 +655,13 @@ export class JsonStore {
       "externalReference"
     );
     const normalizedData = requireRecord(data, "data");
+    const normalizedAggregate =
+      aggregate === undefined
+        ? undefined
+        : requireRecord(
+            aggregate,
+            "aggregate"
+          );
     const normalizedIdempotencyKey =
       idempotencyKey === null
         ? null
@@ -703,6 +711,14 @@ export class JsonStore {
         organizationId: normalizedOrganizationId,
         externalReference: normalizedExternalReference,
         data: clone(normalizedData),
+        ...(normalizedAggregate ===
+        undefined
+          ? {}
+          : {
+              aggregate: clone(
+                normalizedAggregate
+              )
+            }),
         documentVersionIds: [],
         createdAt: at,
         updatedAt: at
@@ -799,7 +815,8 @@ export class JsonStore {
   async updateShipment({
     organizationId,
     shipmentId,
-    data
+    data,
+    aggregate = undefined
   }) {
     const normalizedOrganizationId = requireText(
       organizationId,
@@ -810,6 +827,13 @@ export class JsonStore {
       "shipmentId"
     );
     const normalizedData = requireRecord(data, "data");
+    const normalizedAggregate =
+      aggregate === undefined
+        ? undefined
+        : requireRecord(
+            aggregate,
+            "aggregate"
+          );
 
     return this.#mutate((state) => {
       const shipment =
@@ -838,6 +862,15 @@ export class JsonStore {
 
       const at = this.#nowIso();
       shipment.data = clone(normalizedData);
+      if (
+        normalizedAggregate !==
+        undefined
+      ) {
+        shipment.aggregate =
+          clone(
+            normalizedAggregate
+          );
+      }
       shipment.updatedAt = at;
 
       this.#appendAudit(state, {
