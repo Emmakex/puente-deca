@@ -189,6 +189,7 @@ Characters outside the embedded font set continue to fail closed rather than bei
     - [x] Kairoseth structured customer review/preparation UX (no raw XML editor).
     - [x] Persisted human-review snapshot for structured versions, with canonical review hash and reserialization check against the immutable XML content hash.
     - [x] Verified human-readable eCMR review PDF with explicit NOT ISSUED / NOT SIGNED boundary and integrity checks before rendering.
-    - [ ] Production signing and issuance UX after official D25A XSD acceptance and signer identity/key-custody policy.
+    - [x] Kairoseth-only fail-closed issuance-readiness gate: current immutable head + verified review + amendment integrity + official D25A evidence + authorized signature + jurisdiction policy + Article 5 procedure agreement.
+    - [ ] Production signing and issuance action/UX after official D25A XSD acceptance, live policy/provider integration and remaining live acceptance gates.
 - [ ] eFTI compatibility track.
 - [ ] Additional transport-document modules.
