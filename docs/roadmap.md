@@ -155,7 +155,8 @@ Characters outside the embedded font set continue to fail closed rather than bei
     - [x] Guarded local schema-bundle installer with archive/root SHA-256 manifest and path-traversal rejection.
     - [x] Offline fail-closed `xmllint --nonet` validation boundary.
     - [x] Deterministic namespace-pinned XML envelope serializer for confirmed UN/CEFACT eCMR/MMT nodes.
-    - [ ] Complete mapping for all required projection fields.
+    - [x] Core pickup/goods/package mappings: taking-over date, cargo nature, package count and shipping marks.
+    - [ ] Complete mapping for all required projection fields (packing method, structured dangerous goods, charges, customs/formalities and CMR applicability still pending).
     - [ ] Full generated XML passes the installed official D25A XSD bundle with preserved hash evidence.
   - [ ] Cryptographic authentication/signature implementation.
   - [ ] Amendment/version lifecycle preserving original particulars.
