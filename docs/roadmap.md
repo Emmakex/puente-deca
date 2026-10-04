@@ -162,6 +162,11 @@ Characters outside the embedded font set continue to fail closed rather than bei
     - [x] Complete mapping for all current Article 6 projection fields: free-text packing method, customs/formalities and explicit CMR applicability clause included.
     - [ ] Full generated XML passes the installed official D25A XSD bundle with preserved hash evidence.
   - [ ] Cryptographic authentication/signature implementation.
+    - [x] Identity-bound detached Ed25519 evidence over the exact XML SHA-256, verification-key fingerprint, signer metadata and signing instant.
+    - [x] Fail-closed verification for content/key/identity/signature tampering.
+    - [x] Verified-only projection binding with private-key material excluded from evidence/logging.
+    - [x] Cryptographic verification kept distinct from legal authentication and amendment-history readiness.
+    - [ ] Production signer identity policy, authorized-key registry/custody, revocation/rotation and jurisdiction-specific authentication acceptance.
   - [ ] Amendment/version lifecycle preserving original particulars.
   - [ ] eCMR API/rendering/production issuance acceptance.
 - [ ] eFTI compatibility track.
