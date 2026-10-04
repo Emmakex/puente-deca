@@ -80,6 +80,7 @@ export const emptyEcmrProjection = () => ({
     state: "pending",
     contentHash: null,
     amendmentHistoryPreserved:
-      false
+      false,
+    amendmentChain: null
   }
 });
