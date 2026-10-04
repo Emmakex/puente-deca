@@ -37,6 +37,21 @@ Acceptance requires:
 - exactly one `document.version.created` audit event;
 - the shipment lineage to contain exactly the winning document ID.
 
+### Regulatory-version head race
+
+After persisting the original eCMR version, two different amendments derived from the same accepted head attempt to become version 2 concurrently.
+
+Acceptance requires:
+
+- exactly one amendment to become the accepted version 2;
+- the competing append to fail with `REGULATORY_VERSION_CONFLICT` or `REGULATORY_VERSION_HEAD_CONFLICT`;
+- exactly two regulatory records total: original v1 + winning v2;
+- exactly two `regulatory.version.created` audit events;
+- the stored lineage to remain contiguous `[1, 2]`;
+- the latest stored version ID to equal the winning append.
+
+This proves the MongoDB uniqueness + transaction/current-head contract prevents divergent accepted eCMR histories.
+
 ## Data hygiene
 
 All smoke records are scoped to a random organization ID beginning with:
@@ -72,8 +87,10 @@ The command never prints:
   "idempotencyConverged": true,
   "documentVersionConcurrency": true,
   "documentLineageConsistent": true,
+  "regulatoryVersionConcurrency": true,
+  "regulatoryLineageConsistent": true,
   "cleanupVerified": true
 }
 ```
 
-A green result is live evidence for the concurrent idempotency/document-version persistence gate. It does not by itself authorize production launch.
+A green result is live evidence for the concurrent idempotency, document-version and regulatory-head persistence gates. It does not by itself authorize production launch.
