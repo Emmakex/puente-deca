@@ -98,6 +98,7 @@ const requiredMetadataCollections =
     "deca_api_credentials",
     "deca_shipments",
     "deca_document_versions",
+    "deca_regulatory_versions",
     "deca_idempotency",
     "deca_audit_events",
     "deca_artifact_purges",
