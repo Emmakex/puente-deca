@@ -161,6 +161,38 @@ test("operational flow stores a DeCA and exposes its prefixed QR URL directly", 
         shipment.shipmentId,
         /^shp_/
       );
+      assert.equal(
+        Object.hasOwn(
+          shipment,
+          "aggregate"
+        ),
+        false
+      );
+
+      const internalShipment =
+        await store.getShipment({
+          organizationId:
+            organization.organizationId,
+          shipmentId:
+            shipment.shipmentId
+        });
+
+      assert.equal(
+        internalShipment.aggregate
+          .contractVersion,
+        "2026-10"
+      );
+      assert.equal(
+        internalShipment.aggregate
+          .externalReference,
+        payload.externalReference
+      );
+      assert.equal(
+        internalShipment.aggregate
+          .regulatoryContexts[0]
+          .type,
+        "deca"
+      );
 
       const replayResponse = await fetch(
         `${baseUrl}/v1/shipments`,
@@ -315,6 +347,42 @@ test("operational flow stores a DeCA and exposes its prefixed QR URL directly", 
         storedShipment.documentVersionIds,
         [generated.document.documentId]
       );
+      assert.equal(
+        Object.hasOwn(
+          storedShipment,
+          "aggregate"
+        ),
+        false
+      );
+
+      const listResponse =
+        await fetch(
+          `${baseUrl}/v1/shipments?limit=10`,
+          {
+            headers:
+              authHeaders(apiKey)
+          }
+        );
+      const listed =
+        await listResponse.json();
+
+      assert.equal(
+        listResponse.status,
+        200
+      );
+      assert.ok(
+        listed.items.length >= 1
+      );
+      assert.equal(
+        listed.items.some(
+          (item) =>
+            Object.hasOwn(
+              item,
+              "aggregate"
+            )
+        ),
+        false
+      );
 
       const events =
         await store.listAuditEvents({
@@ -411,6 +479,21 @@ test("Kairoseth usage endpoint counts canonical DeCA versions across connector t
         }
       );
       assert.equal(updateResponse.status, 200);
+      const updateBody =
+        await updateResponse.json();
+      assert.equal(
+        Object.hasOwn(
+          updateBody,
+          "aggregate"
+        ),
+        false
+      );
+
+      const migratedInternal =
+        await withInternalShipment(
+          baseUrl,
+          shipment.shipmentId
+        );
 
       const secondResponse = await fetch(
         `${baseUrl}/v1/shipments/${shipment.shipmentId}/deca`,
