@@ -17,6 +17,21 @@ const requireText = (
   return value.trim();
 };
 
+const requireExactXml = (
+  value
+) => {
+  if (
+    typeof value !== "string" ||
+    value.trim().length === 0
+  ) {
+    throw new TypeError(
+      "record.xml is required"
+    );
+  }
+
+  return value;
+};
+
 const requireHash = (
   value,
   name
@@ -171,9 +186,8 @@ export function normalizeRegulatoryVersionRecord(
         "record.reason"
       ),
     xml:
-      requireText(
-        record.xml,
-        "record.xml"
+      requireExactXml(
+        record.xml
       ),
     contentHash:
       requireHash(
