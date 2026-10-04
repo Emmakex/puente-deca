@@ -22,6 +22,12 @@ import {
   resolveDecaRequestFromShipment
 } from "../../../packages/core/src/shipment-deca-view.mjs";
 import {
+  prepareEcmrDraft
+} from "../../../packages/core/src/ecmr-draft.mjs";
+import {
+  serializeEcmrD25aEnvelope
+} from "../../../packages/ecmr-xml/src/d25a-serializer.mjs";
+import {
   createEcmrAmendmentChain,
   appendEcmrAmendment,
   verifyEcmrAmendmentChain
@@ -66,6 +72,140 @@ const internalShipmentAggregate = (
   }
 
   return aggregate;
+};
+
+const aggregateFromShipmentRecord = (
+  shipment
+) => {
+  if (
+    shipment?.aggregate &&
+    typeof shipment.aggregate ===
+      "object" &&
+    !Array.isArray(
+      shipment.aggregate
+    )
+  ) {
+    const validation =
+      validateShipmentAggregate(
+        shipment.aggregate
+      );
+
+    if (!validation.valid) {
+      const error =
+        new Error(
+          "Persisted Shipment aggregate is invalid"
+        );
+      error.code =
+        "SHIPMENT_AGGREGATE_INVALID";
+      error.validationErrors =
+        validation.errors;
+      throw error;
+    }
+
+    return structuredClone(
+      shipment.aggregate
+    );
+  }
+
+  const legacyDeca =
+    resolveDecaRequestFromShipment(
+      shipment
+    ).request;
+
+  return internalShipmentAggregate(
+    legacyDeca
+  );
+};
+
+const prepareStructuredEcmr = (
+  shipment,
+  draft
+) => {
+  const aggregate =
+    aggregateFromShipmentRecord(
+      shipment
+    );
+  const prepared =
+    prepareEcmrDraft({
+      shipment:
+        aggregate,
+      input:
+        draft
+    });
+
+  if (!prepared.validation.valid) {
+    return {
+      valid: false,
+      projection:
+        prepared.projection,
+      validation:
+        prepared.validation,
+      wire: null,
+      xml: null
+    };
+  }
+
+  const wire =
+    serializeEcmrD25aEnvelope(
+      prepared.projection
+    );
+
+  return {
+    valid: true,
+    projection:
+      prepared.projection,
+    validation:
+      prepared.validation,
+    wire: {
+      release:
+        wire.release,
+      rootSchema:
+        wire.rootSchema,
+      schemaConformance:
+        wire.schemaConformance,
+      mappedProjectionPaths:
+        wire.mappedProjectionPaths,
+      pendingProjectionPaths:
+        wire.pendingProjectionPaths,
+      contentHash:
+        sha256(
+          Buffer.from(
+            wire.xml,
+            "utf8"
+          )
+        )
+    },
+    xml:
+      wire.xml
+  };
+};
+
+const structuredEcmrPreviewResponse = (
+  shipmentId,
+  prepared
+) => ({
+  shipmentId,
+  regulatoryType:
+    "ecmr",
+  valid:
+    prepared.valid,
+  projection:
+    prepared.projection,
+  validation:
+    prepared.validation,
+  wire:
+    prepared.wire
+});
+
+const regulatoryVersionWithoutXml = (
+  version
+) => {
+  const {
+    xml: _xml,
+    ...safe
+  } = version;
+
+  return safe;
 };
 
 const commonSecurityHeaders = () => ({
