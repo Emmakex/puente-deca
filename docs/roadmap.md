@@ -159,7 +159,7 @@ Characters outside the embedded font set continue to fail closed rather than bei
     - [x] Explicit package-type code mapping without deriving codes from free-text packing method.
     - [x] Structured carriage-charge mapping to `ApplicableLogisticsServiceCharge` with amount/currency validation.
     - [x] Structured dangerous-goods mapping to `ApplicableTransportDangerousGoods` with UNDG/proper-shipping-name fail-closed validation.
-    - [ ] Complete mapping for all required projection fields (free-text packing method representation, customs/formalities and CMR applicability still pending).
+    - [x] Complete mapping for all current Article 6 projection fields: free-text packing method, customs/formalities and explicit CMR applicability clause included.
     - [ ] Full generated XML passes the installed official D25A XSD bundle with preserved hash evidence.
   - [ ] Cryptographic authentication/signature implementation.
   - [ ] Amendment/version lifecycle preserving original particulars.
