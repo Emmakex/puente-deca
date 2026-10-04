@@ -142,6 +142,16 @@ const baseInput = () => ({
       HASH_C,
     signedAt:
       "2026-10-04T19:05:00.000Z",
+    signer: {
+      signerId:
+        "kairoseth-user:user_001",
+      partyRole:
+        "sender",
+      identityScheme:
+        "kairoseth-user",
+      identityAssurance:
+        "platform-authenticated"
+    },
     custody: {
       mode: "external",
       provider:
@@ -149,7 +159,7 @@ const baseInput = () => ({
       keyReference:
         "provider://key/001",
       controlModel:
-        "sole-control",
+        "external-sole-control",
       privateKeyStored:
         false
     }
@@ -165,7 +175,7 @@ const baseInput = () => ({
     acceptedAt:
       "2026-10-04T19:06:00.000Z",
     identityAssurance:
-      "accepted-profile",
+      "platform-authenticated",
     custodyModel:
       "external-sole-control",
     signatureMethod:
