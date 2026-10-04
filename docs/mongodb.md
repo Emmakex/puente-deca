@@ -77,6 +77,8 @@ The adapter creates idempotent indexes for:
 - audit lookup by organization/shipment and time;
 - unique artifact-purge evidence by document/storage key.
 
+The live `production:atlas-smoke` command does not merely call `createIndex`. It reads the indexes back from Atlas and verifies the expected key order/direction and uniqueness contract for all 16 DeCA metadata indexes plus the GridFS filename index. Any drift fails closed.
+
 ## Atomicity
 
 Operations that change more than one collection use MongoDB sessions and transactions. This includes:
@@ -102,8 +104,8 @@ Connector API keys remain one-time-reveal secrets:
 
 Before declaring production readiness:
 
-1. run the adapter against the real Atlas environment;
-2. verify index creation with the service database user;
+1. run `npm run production:atlas-smoke` against the real Atlas environment using the service database user;
+2. preserve the resulting transaction/index/GridFS acceptance evidence;
 3. run concurrent idempotency and document-version smoke tests;
 4. verify backup/restore procedures;
 5. run retention dry-run/purge/reconciliation acceptance;
