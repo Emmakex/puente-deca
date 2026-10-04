@@ -11,6 +11,7 @@ const [
   installCli,
   validateCli,
   acceptanceCli,
+  verifyEvidenceCli,
   acceptanceProjection
 ] = await Promise.all([
   readFile(
@@ -43,6 +44,10 @@ const [
   ),
   readFile(
     "scripts/production/ecmr-d25a-acceptance.mjs",
+    "utf8"
+  ),
+  readFile(
+    "scripts/production/verify-ecmr-d25a-evidence.mjs",
     "utf8"
   ),
   readFile(
@@ -209,6 +214,22 @@ for (const token of [
   if (!acceptanceCli.includes(token)) {
     throw new Error(
       `D25A generated-XML acceptance command is missing ${token}`
+    );
+  }
+}
+
+for (const token of [
+  "ECMR_D25A_EVIDENCE_HASH_MISMATCH",
+  "ECMR_D25A_EVIDENCE_PROJECTION_MISMATCH",
+  "ECMR_D25A_EVIDENCE_XML_MISMATCH",
+  "ECMR_D25A_EVIDENCE_SCHEMA_MISMATCH",
+  "readEcmrD25aSchemaManifest",
+  "serializeEcmrD25aEnvelope",
+  "schemaTreeSha256"
+]) {
+  if (!verifyEvidenceCli.includes(token)) {
+    throw new Error(
+      `D25A acceptance evidence verifier is missing ${token}`
     );
   }
 }
