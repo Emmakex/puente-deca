@@ -23,7 +23,8 @@ import {
 } from "../../../packages/core/src/shipment-deca-view.mjs";
 import {
   createEcmrAmendmentChain,
-  appendEcmrAmendment
+  appendEcmrAmendment,
+  verifyEcmrAmendmentChain
 } from "../../../packages/ecmr-amendment/src/amendment-chain.mjs";
 import {
   createDocumentSnapshot,
@@ -1371,10 +1372,359 @@ export function createServer({
           url.pathname
         );
 
+      const ecmrVersionsMatch =
+        /^\/v1\/shipments\/([^/]+)\/ecmr\/versions$/.exec(
+          url.pathname
+        );
+
       const credentialMatch =
         /^\/v1\/credentials\/([^/]+)$/.exec(
           url.pathname
         );
+
+      if (
+        request.method === "GET" &&
+        ecmrVersionsMatch
+      ) {
+        if (!requireStore(response, store)) return;
+
+        const credential =
+          await authenticate(
+            request,
+            response,
+            store,
+            "regulatory:read",
+            platformServiceSecret,
+            rateLimiter
+          );
+        if (!credential) return;
+
+        const shipmentId =
+          decodeURIComponent(
+            ecmrVersionsMatch[1]
+          );
+        const shipment =
+          await store.getShipment({
+            organizationId:
+              credential.organizationId,
+            shipmentId
+          });
+
+        if (!shipment) {
+          return sendJson(
+            response,
+            404,
+            {
+              error:
+                "shipment_not_found",
+              message:
+                "Shipment was not found"
+            }
+          );
+        }
+
+        const versions =
+          await store
+            .listRegulatoryVersions({
+              organizationId:
+                credential.organizationId,
+              shipmentId,
+              regulatoryType:
+                "ecmr"
+            });
+
+        if (
+          versions.length > 0
+        ) {
+          const verification =
+            verifyEcmrAmendmentChain(
+              versions
+            );
+
+          if (!verification.valid) {
+            return sendJson(
+              response,
+              500,
+              {
+                error:
+                  "ecmr_history_integrity_failure",
+                message:
+                  "Stored eCMR amendment history failed integrity verification"
+              }
+            );
+          }
+        }
+
+        return sendJson(
+          response,
+          200,
+          {
+            shipmentId,
+            regulatoryType:
+              "ecmr",
+            total:
+              versions.length,
+            head:
+              versions.at(-1)
+                ? {
+                    version:
+                      versions.at(-1)
+                        .version,
+                    versionId:
+                      versions.at(-1)
+                        .versionId,
+                    contentHash:
+                      versions.at(-1)
+                        .contentHash,
+                    chainHash:
+                      versions.at(-1)
+                        .chainHash
+                  }
+                : null,
+            versions
+          }
+        );
+      }
+
+      if (
+        request.method === "POST" &&
+        ecmrVersionsMatch
+      ) {
+        if (!requireStore(response, store)) return;
+
+        const credential =
+          await authenticate(
+            request,
+            response,
+            store,
+            "regulatory:write",
+            platformServiceSecret,
+            rateLimiter
+          );
+        if (!credential) return;
+
+        const shipmentId =
+          decodeURIComponent(
+            ecmrVersionsMatch[1]
+          );
+        const shipment =
+          await store.getShipment({
+            organizationId:
+              credential.organizationId,
+            shipmentId
+          });
+
+        if (!shipment) {
+          return sendJson(
+            response,
+            404,
+            {
+              error:
+                "shipment_not_found",
+              message:
+                "Shipment was not found"
+            }
+          );
+        }
+
+        const payload =
+          await readJson(request);
+        const xml =
+          normalizeEcmrXml(
+            payload?.xml
+          );
+        const reason =
+          normalizeAmendmentReason(
+            payload?.reason
+          );
+        const partyRole =
+          normalizeRegulatoryPartyRole(
+            payload?.partyRole
+          );
+        const rawExpectedHead =
+          payload
+            ?.expectedPreviousVersionId;
+        const expectedPreviousVersionId =
+          rawExpectedHead ===
+            undefined ||
+          rawExpectedHead === null
+            ? null
+            : typeof rawExpectedHead ===
+                  "string" &&
+                rawExpectedHead
+                  .trim()
+                  .length > 0
+              ? rawExpectedHead.trim()
+              : undefined;
+
+        if (
+          !xml ||
+          !reason ||
+          !partyRole ||
+          expectedPreviousVersionId ===
+            undefined
+        ) {
+          return sendJson(
+            response,
+            422,
+            {
+              error:
+                "invalid_ecmr_amendment_request",
+              message:
+                "xml, reason, partyRole and a valid expectedPreviousVersionId are required"
+            }
+          );
+        }
+
+        const versions =
+          await store
+            .listRegulatoryVersions({
+              organizationId:
+                credential.organizationId,
+              shipmentId,
+              regulatoryType:
+                "ecmr"
+            });
+        const latest =
+          versions.at(-1) ??
+          null;
+        const currentHead =
+          latest?.versionId ??
+          null;
+
+        if (
+          expectedPreviousVersionId !==
+          currentHead
+        ) {
+          return sendJson(
+            response,
+            409,
+            {
+              error:
+                "ecmr_stale_head",
+              message:
+                "expectedPreviousVersionId does not match the current accepted eCMR head",
+              currentVersionId:
+                currentHead,
+              currentVersion:
+                latest?.version ??
+                0
+            }
+          );
+        }
+
+        const actor =
+          amendmentActorFromCredential(
+            credential,
+            partyRole
+          );
+        const createdAt =
+          amendmentInstant(
+            now,
+            latest
+          );
+
+        let record;
+
+        try {
+          if (!latest) {
+            record =
+              createEcmrAmendmentChain({
+                xml,
+                actor,
+                reason,
+                createdAt
+              })[0];
+          } else {
+            record =
+              appendEcmrAmendment({
+                chain:
+                  versions,
+                xml,
+                actor,
+                reason,
+                createdAt
+              }).at(-1);
+          }
+
+          const stored =
+            await store
+              .appendRegulatoryVersion({
+                organizationId:
+                  credential.organizationId,
+                shipmentId,
+                regulatoryType:
+                  "ecmr",
+                record
+              });
+
+          return sendJson(
+            response,
+            201,
+            {
+              shipmentId,
+              regulatoryType:
+                "ecmr",
+              version:
+                stored,
+              head: {
+                version:
+                  stored.version,
+                versionId:
+                  stored.versionId,
+                contentHash:
+                  stored.contentHash,
+                chainHash:
+                  stored.chainHash
+              }
+            }
+          );
+        } catch (error) {
+          if (
+            [
+              "REGULATORY_VERSION_CONFLICT",
+              "REGULATORY_VERSION_HEAD_CONFLICT",
+              "ECMR_AMENDMENT_NO_CHANGE",
+              "ECMR_AMENDMENT_CHAIN_INVALID",
+              "ECMR_AMENDMENT_TIME_ORDER_INVALID"
+            ].includes(
+              error?.code
+            )
+          ) {
+            return sendJson(
+              response,
+              409,
+              {
+                error:
+                  "ecmr_version_conflict",
+                message:
+                  "eCMR amendment could not extend the current accepted head"
+              }
+            );
+          }
+
+          if (
+            typeof error?.code ===
+              "string" &&
+            error.code.startsWith(
+              "ECMR_AMENDMENT_"
+            )
+          ) {
+            return sendJson(
+              response,
+              422,
+              {
+                error:
+                  "invalid_ecmr_amendment",
+                message:
+                  "eCMR amendment input was rejected"
+              }
+            );
+          }
+
+          throw error;
+        }
+      }
 
       if (
         request.method === "GET" &&
