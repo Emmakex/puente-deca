@@ -650,6 +650,12 @@ main().catch((error) => {
           error?.missingCollections
         )
           ? error.missingCollections
+          : undefined,
+      anomalies:
+        error?.anomalies &&
+        typeof error.anomalies ===
+          "object"
+          ? error.anomalies
           : undefined
     })}\n`
   );
