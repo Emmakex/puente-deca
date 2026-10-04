@@ -25,12 +25,21 @@ import {
   prepareEcmrDraft
 } from "../../../packages/core/src/ecmr-draft.mjs";
 import {
+  evaluateEcmrIssuanceReadiness
+} from "../../../packages/core/src/ecmr-issuance-readiness.mjs";
+import {
   serializeEcmrD25aEnvelope
 } from "../../../packages/ecmr-xml/src/d25a-serializer.mjs";
 import {
   createEcmrReviewSnapshot,
   verifyEcmrReviewSnapshot
 } from "../../../packages/ecmr-xml/src/review-snapshot.mjs";
+import {
+  verifyEcmrDetachedSignature
+} from "../../../packages/ecmr-signature/src/detached-signature.mjs";
+import {
+  evaluateAuthorizedEcmrSignature
+} from "../../../packages/ecmr-signature/src/signer-registry.mjs";
 import {
   createEcmrAmendmentChain,
   appendEcmrAmendment,
@@ -1612,6 +1621,11 @@ export function createServer({
           url.pathname
         );
 
+      const ecmrIssuanceReadinessMatch =
+        /^\/v1\/shipments\/([^/]+)\/ecmr\/versions\/([^/]+)\/issuance-readiness$/.exec(
+          url.pathname
+        );
+
       const credentialMatch =
         /^\/v1\/credentials\/([^/]+)$/.exec(
           url.pathname
@@ -2219,6 +2233,278 @@ export function createServer({
 
           throw error;
         }
+      }
+
+      if (
+        request.method === "POST" &&
+        ecmrIssuanceReadinessMatch
+      ) {
+        if (!requireStore(response, store)) return;
+
+        const platform =
+          await authenticatePlatformService(
+            request,
+            response,
+            store,
+            platformServiceSecret,
+            rateLimiter
+          );
+        if (!platform) return;
+
+        const shipmentId =
+          decodeURIComponent(
+            ecmrIssuanceReadinessMatch[
+              1
+            ]
+          );
+        const versionId =
+          decodeURIComponent(
+            ecmrIssuanceReadinessMatch[
+              2
+            ]
+          );
+        const shipment =
+          await store.getShipment({
+            organizationId:
+              platform.organizationId,
+            shipmentId
+          });
+
+        if (!shipment) {
+          return sendJson(
+            response,
+            404,
+            {
+              error:
+                "shipment_not_found",
+              message:
+                "Shipment was not found"
+            }
+          );
+        }
+
+        const versions =
+          await store
+            .listRegulatoryVersions({
+              organizationId:
+                platform.organizationId,
+              shipmentId,
+              regulatoryType:
+                "ecmr"
+            });
+        const amendmentVerification =
+          verifyEcmrAmendmentChain(
+            versions
+          );
+
+        if (
+          !amendmentVerification
+            .valid
+        ) {
+          return sendJson(
+            response,
+            500,
+            {
+              error:
+                "ecmr_history_integrity_failure",
+              message:
+                "Stored eCMR amendment history failed integrity verification",
+              code:
+                amendmentVerification
+                  .code
+            }
+          );
+        }
+
+        const version =
+          versions.find(
+            (entry) =>
+              entry.versionId ===
+              versionId
+          );
+
+        if (!version) {
+          return sendJson(
+            response,
+            404,
+            {
+              error:
+                "ecmr_version_not_found",
+              message:
+                "eCMR version was not found"
+            }
+          );
+        }
+
+        const reviewVerification =
+          verifyEcmrReviewSnapshot({
+            reviewSnapshot:
+              version.reviewSnapshot,
+            reviewHash:
+              version.reviewHash,
+            contentHash:
+              version.contentHash
+          });
+
+        if (
+          !reviewVerification
+            .valid
+        ) {
+          return sendJson(
+            response,
+            500,
+            {
+              error:
+                "ecmr_review_integrity_failure",
+              message:
+                "Stored eCMR human-review evidence failed integrity verification",
+              versionId:
+                version.versionId,
+              code:
+                reviewVerification.code
+            }
+          );
+        }
+
+        const payload =
+          await readJson(
+            request
+          );
+
+        let signatureVerification = {
+          valid: false,
+          code:
+            "ECMR_SIGNER_VERIFICATION_REQUIRED"
+        };
+        let signatureAuthorization = {
+          authorized: false,
+          code:
+            "ECMR_SIGNER_VERIFICATION_REQUIRED"
+        };
+
+        if (
+          typeof payload
+            ?.signerKeyId ===
+            "string" &&
+          payload.signerKeyId
+            .trim()
+            .length > 0 &&
+          payload
+            ?.signatureEvidence &&
+          typeof payload
+            .signatureEvidence ===
+            "object" &&
+          !Array.isArray(
+            payload
+              .signatureEvidence
+          )
+        ) {
+          const signerKey =
+            await store
+              .getEcmrSignerKey({
+                organizationId:
+                  platform.organizationId,
+                signerKeyId:
+                  payload
+                    .signerKeyId
+                    .trim()
+              });
+
+          if (signerKey) {
+            signatureVerification =
+              verifyEcmrDetachedSignature({
+                xml:
+                  version.xml,
+                evidence:
+                  payload
+                    .signatureEvidence,
+                publicKey:
+                  signerKey
+                    .publicKeyPem
+              });
+
+            if (
+              signatureVerification
+                .valid
+            ) {
+              signatureAuthorization =
+                evaluateAuthorizedEcmrSignature({
+                  signerKey,
+                  evidence:
+                    payload
+                      .signatureEvidence,
+                  verification:
+                    signatureVerification
+                });
+            } else {
+              signatureAuthorization = {
+                authorized:
+                  false,
+                code:
+                  signatureVerification
+                    .code
+              };
+            }
+          } else {
+            signatureAuthorization = {
+              authorized: false,
+              code:
+                "ECMR_SIGNER_KEY_NOT_FOUND"
+            };
+          }
+        }
+
+        const readiness =
+          evaluateEcmrIssuanceReadiness({
+            organizationId:
+              platform.organizationId,
+            version,
+            currentHeadVersionId:
+              versions.at(-1)
+                ?.versionId ??
+              null,
+            reviewVerification,
+            amendmentVerification,
+            schemaAcceptance:
+              payload
+                ?.schemaAcceptance ??
+              null,
+            signatureAuthorization,
+            jurisdictionPolicy:
+              payload
+                ?.jurisdictionPolicy ??
+              null,
+            procedureAgreement:
+              payload
+                ?.procedureAgreement ??
+              null
+          });
+
+        return sendJson(
+          response,
+          200,
+          {
+            shipmentId,
+            regulatoryType:
+              "ecmr",
+            versionId,
+            readiness,
+            signature: {
+              verificationCode:
+                signatureVerification
+                  .valid
+                  ? null
+                  : signatureVerification
+                      .code,
+              authorizationCode:
+                signatureAuthorization
+                  .authorized
+                  ? null
+                  : signatureAuthorization
+                      .code
+            }
+          }
+        );
       }
 
       if (

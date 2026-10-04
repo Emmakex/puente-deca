@@ -207,6 +207,18 @@ test(
         .privateKeyStored,
       false
     );
+    assert.equal(
+      accepted.signatureId,
+      evidence.signatureId
+    );
+    assert.equal(
+      accepted.method,
+      evidence.method
+    );
+    assert.equal(
+      accepted.contentHash,
+      evidence.contentHash
+    );
 
     const revoked =
       revokeAuthorizedEcmrSignerKey(
