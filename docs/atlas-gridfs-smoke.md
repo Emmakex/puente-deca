@@ -14,7 +14,7 @@ Run it only with the same production-style environment validated by `npm run pro
 2. the real MongoDB client connects;
 3. the real `MongoStore` initializes all required indexes;
 4. the real GridFS store initializes its bucket/indexes;
-5. Atlas exposes the expected 16 metadata indexes with the exact key order/direction and `unique` constraints;
+5. Atlas exposes the expected 18 metadata indexes, including the immutable eCMR amendment lineage indexes, with the exact key order/direction and `unique` constraints;
 6. GridFS exposes the required unique `filename` index used by DeCA artifacts;
 7. metadata `ping` succeeds;
 8. GridFS probe succeeds;
@@ -54,7 +54,7 @@ Its success output contains only the database name, GridFS bucket name and boole
   "metadataPing": true,
   "artifactPing": true,
   "indexContract": true,
-  "metadataIndexesVerified": 16,
+  "metadataIndexesVerified": 18,
   "gridFsIndexesVerified": 1,
   "transactionRollback": true,
   "gridfsRoundTrip": true,
