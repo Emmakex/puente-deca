@@ -618,6 +618,12 @@ export function evaluateAuthorizedEcmrSignature({
       privateKeyStored:
         false
     },
+    signatureId:
+      evidence.signatureId,
+    method:
+      evidence.method,
+    contentHash:
+      evidence.contentHash,
     signedAt:
       evidence.signedAt,
     jurisdictionAcceptance:
