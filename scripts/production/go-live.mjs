@@ -35,15 +35,87 @@ const automatedSteps = [
   }
 ];
 
-const manualGatesRemaining = [
-  "kairoseth-engine-production-acceptance",
-  "woocommerce-live-store-smoke",
-  "prestashop-1.7.8-and-8.x-smoke",
-  "backup-restore-drill",
-  "edge-volumetric-protection",
-  "live-infrastructure-security-review",
-  "focused-external-penetration-test"
+const manualGateStatus = [
+  {
+    id:
+      "kairoseth-engine-production-acceptance",
+    automation:
+      "ready",
+    workflow:
+      "Kairoseth Cargo Engine Production Acceptance",
+    command: null,
+    evidence:
+      "PASS from the private kairoseth-platform read-only production workflow"
+  },
+  {
+    id:
+      "woocommerce-live-store-smoke",
+    automation:
+      "ready",
+    workflow: null,
+    command:
+      "PDECA_WP_ROOT=<store-root> npm run production:woocommerce-live-smoke",
+    evidence:
+      "status=ok from an approved live WooCommerce host"
+  },
+  {
+    id:
+      "prestashop-1.7.8-and-8.x-smoke",
+    automation:
+      "ready",
+    workflow: null,
+    command:
+      "PDECA_PRESTASHOP_ROOT=<store-root> npm run production:prestashop-live-smoke",
+    evidence:
+      "status=ok on approved PrestaShop 1.7.8.x and 8.x hosts"
+  },
+  {
+    id:
+      "backup-restore-drill",
+    automation:
+      "ready",
+    workflow: null,
+    command:
+      "npm run production:backup-restore-drill",
+    evidence:
+      "status=ok against the intended staging/DR Atlas target"
+  },
+  {
+    id:
+      "edge-volumetric-protection",
+    automation:
+      "external",
+    workflow: null,
+    command: null,
+    evidence:
+      "Hostinger/CDN/WAF configuration plus edge-level acceptance evidence"
+  },
+  {
+    id:
+      "live-infrastructure-security-review",
+    automation:
+      "external",
+    workflow: null,
+    command: null,
+    evidence:
+      "approved live infrastructure security review"
+  },
+  {
+    id:
+      "focused-external-penetration-test",
+    automation:
+      "external",
+    workflow: null,
+    command: null,
+    evidence:
+      "approved focused external penetration-test report"
+  }
 ];
+
+const manualGatesRemaining =
+  manualGateStatus.map(
+    ({ id }) => id
+  );
 
 const parseJson = (
   source,
@@ -277,6 +349,7 @@ const main = () => {
         automatedSteps:
           results,
         manualGatesRemaining,
+        manualGateStatus,
         productionReady:
           manualGatesRemaining
             .length === 0

@@ -53,18 +53,23 @@ A green automated result contains:
 
 `productionReady` intentionally remains false while manual/external gates are outstanding.
 
-The result also lists `manualGatesRemaining`.
+The result also lists `manualGatesRemaining` and a structured `manualGateStatus` array. Each pending gate is labelled either:
+
+- `automation=ready`: the repository/platform already contains the acceptance command or workflow and only the approved external environment/evidence is missing;
+- `automation=external`: completion belongs to infrastructure/security work outside the engine repository.
+
+This distinction prevents "pending execution" from being confused with "development not implemented".
 
 ## Gates intentionally not automated here
 
 The following remain explicit release gates because the engine alone cannot prove them:
 
-- Kairoseth Cargo engine production acceptance through the private `kairoseth-platform` read-only workflow;
-- WooCommerce live-store smoke;
-- PrestaShop 1.7.8 + 8.x compatibility smoke;
-- backup → isolated restore drill;
-- edge/reverse-proxy volumetric protection;
-- live infrastructure security review;
-- focused external penetration test.
+- Kairoseth Cargo engine production acceptance — automation ready in the private `kairoseth-platform` workflow `Kairoseth Cargo Engine Production Acceptance`;
+- WooCommerce live-store smoke — automation ready via `production:woocommerce-live-smoke`;
+- PrestaShop 1.7.8 + 8.x compatibility smoke — automation ready via `production:prestashop-live-smoke`;
+- backup → isolated restore drill — automation ready via `production:backup-restore-drill`;
+- edge/reverse-proxy volumetric protection — external infrastructure acceptance;
+- live infrastructure security review — external security acceptance;
+- focused external penetration test — external security acceptance.
 
 Do not reinterpret a green `production:go-live` result as final launch authorization until those gates are also complete.

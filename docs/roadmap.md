@@ -129,6 +129,8 @@ Characters outside the embedded font set continue to fail closed rather than bei
 - [x] Static application-security review with CI regression guard.
 - [ ] Live infrastructure security acceptance and focused external penetration test.
 
+**Phase 6 internal engineering status:** complete for the agreed DeCA product scope. Remaining unchecked Phase 6 items are live/external acceptance executions or infrastructure/security evidence; the repository now exposes automation for the Kairoseth engine gate, WooCommerce live smoke, PrestaShop live smoke and backup/restore drill.
+
 ## Phase 7 — Transport Compliance Engine
 
 - [ ] Generic Shipment aggregate.

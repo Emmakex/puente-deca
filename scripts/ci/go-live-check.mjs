@@ -52,6 +52,44 @@ requirePattern(
 );
 
 requirePattern(
+  /manualGateStatus/,
+  "Go-live result must expose structured external-gate status"
+);
+
+for (const automationCommand of [
+  "production:woocommerce-live-smoke",
+  "production:prestashop-live-smoke",
+  "production:backup-restore-drill"
+]) {
+  if (!source.includes(automationCommand)) {
+    throw new Error(
+      `Go-live external-gate status is missing ${automationCommand}`
+    );
+  }
+}
+
+requirePattern(
+  /Kairoseth Cargo Engine Production Acceptance/,
+  "Go-live must name the private Kairoseth engine acceptance workflow"
+);
+
+for (const externallyOwnedGate of [
+  "edge-volumetric-protection",
+  "live-infrastructure-security-review",
+  "focused-external-penetration-test"
+]) {
+  if (
+    !new RegExp(
+      `id:[\\s\\S]{0,120}"${externallyOwnedGate}"[\\s\\S]{0,160}automation:[\\s\\S]{0,40}"external"`
+    ).test(source)
+  ) {
+    throw new Error(
+      `Go-live must mark ${externallyOwnedGate} as externally owned`
+    );
+  }
+}
+
+requirePattern(
   /kairoseth-engine-production-acceptance/,
   "Go-live must disclose the external Kairoseth engine production acceptance gate"
 );
@@ -92,5 +130,5 @@ if (
 }
 
 console.log(
-  "Go-live orchestration contract OK (all automated gates, zero reconciliation anomalies, explicit manual gates, no bypasses)"
+  "Go-live orchestration contract OK (all automated gates, zero reconciliation anomalies, structured external-gate status, no bypasses)"
 );
