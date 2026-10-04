@@ -87,6 +87,21 @@ const shipment = () => ({
           "Pallets",
         packingMethodCode:
           "PX",
+        dangerousGoods: {
+          declared: true,
+          undgIdentificationCode:
+            "1203",
+          regulationCode:
+            "ADR",
+          technicalName:
+            "Gasoline",
+          properShippingName:
+            "GASOLINE",
+          packagingDangerLevelCode:
+            "II",
+          hazardClassificationId:
+            "3"
+        },
         packages: {
           count: 8,
           marksAndNumbers: [
@@ -163,6 +178,25 @@ test(
       projection.goods
         .packingMethodCode,
       "PX"
+    );
+    assert.deepEqual(
+      projection.goods
+        .dangerousGoods,
+      {
+        declared: true,
+        undgIdentificationCode:
+          "1203",
+        regulationCode:
+          "ADR",
+        technicalName:
+          "Gasoline",
+        properShippingName:
+          "GASOLINE",
+        packagingDangerLevelCode:
+          "II",
+        hazardClassificationId:
+          "3"
+      }
     );
     assert.deepEqual(
       projection.charges.items,
@@ -320,6 +354,70 @@ test(
           "charges.items.0.amount" &&
           entry.code ===
           "invalid_amount"
+      )
+    );
+  }
+);
+
+test(
+  "rejects declared dangerous goods without a four-digit UNDG code",
+  () => {
+    const current =
+      shipment();
+    current.extensions.ecmr
+      .goods.dangerousGoods
+      .undgIdentificationCode =
+      "UN1203";
+
+    const result =
+      validateEcmrProjection(
+        ecmrProjectionFromShipment(
+          current
+        )
+      );
+
+    assert.equal(
+      result.valid,
+      false
+    );
+    assert.ok(
+      result.errors.some(
+        (entry) =>
+          entry.path ===
+            "goods.dangerousGoods.undgIdentificationCode" &&
+          entry.code ===
+            "invalid_undg_code"
+      )
+    );
+  }
+);
+
+test(
+  "rejects declared dangerous goods without an explicit proper shipping name",
+  () => {
+    const current =
+      shipment();
+    current.extensions.ecmr
+      .goods.dangerousGoods
+      .properShippingName =
+      "";
+
+    const result =
+      validateEcmrProjection(
+        ecmrProjectionFromShipment(
+          current
+        )
+      );
+
+    assert.equal(
+      result.valid,
+      false
+    );
+    assert.ok(
+      result.errors.some(
+        (entry) =>
+          entry.path ===
+            "goods.dangerousGoods.properShippingName"
       )
     );
   }

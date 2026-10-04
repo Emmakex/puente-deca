@@ -196,6 +196,70 @@ const serviceCharges = (
       )
     : [];
 
+const dangerousGoods = (
+  goods
+) => {
+  const value =
+    goods?.dangerousGoods;
+
+  if (
+    value?.declared !==
+    true
+  ) {
+    return "";
+  }
+
+  return container(
+    "ApplicableTransportDangerousGoods",
+    [
+      element(
+        "SequenceNumeric",
+        1
+      ),
+      element(
+        "UNDGIdentificationCode",
+        text(
+          value
+            .undgIdentificationCode
+        )
+      ),
+      element(
+        "RegulationCode",
+        text(
+          value.regulationCode
+        )
+      ),
+      element(
+        "TechnicalName",
+        text(
+          value.technicalName
+        )
+      ),
+      element(
+        "ProperShippingName",
+        text(
+          value
+            .properShippingName
+        )
+      ),
+      element(
+        "PackagingDangerLevelCode",
+        text(
+          value
+            .packagingDangerLevelCode
+        )
+      ),
+      element(
+        "HazardClassificationID",
+        text(
+          value
+            .hazardClassificationId
+        )
+      )
+    ]
+  );
+};
+
 const consignmentItem = (
   goods
 ) => {
@@ -220,6 +284,9 @@ const consignmentItem = (
             text(goods?.nature)
           )
         ]
+      ),
+      dangerousGoods(
+        goods
       ),
       container(
         "TransportLogisticsPackage",
@@ -448,6 +515,7 @@ export function serializeEcmrD25aEnvelope(
       "goods.quantity",
       "goods.nature",
       "goods.packingMethodCode",
+      "goods.dangerousGoods",
       "goods.packages.count",
       "goods.packages.marksAndNumbers",
       "charges"

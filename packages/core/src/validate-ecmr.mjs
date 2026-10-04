@@ -247,6 +247,76 @@ export function validateEcmrProjection(
     );
   }
 
+  const dangerousGoods =
+    input.goods
+      ?.dangerousGoods;
+
+  if (
+    dangerousGoods?.declared ===
+    true
+  ) {
+    if (
+      !/^\d{4}$/.test(
+        dangerousGoods
+          .undgIdentificationCode ??
+          ""
+      )
+    ) {
+      errors.push(
+        error(
+          "goods.dangerousGoods.undgIdentificationCode",
+          "invalid_undg_code",
+          "Declared dangerous goods require an explicit four-digit UNDG identification code",
+          "CMR_6_1_F"
+        )
+      );
+    }
+
+    if (
+      !hasText(
+        dangerousGoods
+          .properShippingName
+      )
+    ) {
+      errors.push(
+        error(
+          "goods.dangerousGoods.properShippingName",
+          "required",
+          "Declared dangerous goods require an explicit proper shipping name",
+          "CMR_6_1_F"
+        )
+      );
+    }
+
+    for (
+      const key of [
+        "regulationCode",
+        "technicalName",
+        "packagingDangerLevelCode",
+        "hazardClassificationId"
+      ]
+    ) {
+      if (
+        dangerousGoods[key] !==
+          null &&
+        dangerousGoods[key] !==
+          undefined &&
+        !hasText(
+          dangerousGoods[key]
+        )
+      ) {
+        errors.push(
+          error(
+            `goods.dangerousGoods.${key}`,
+            "invalid_code",
+            "Optional dangerous-goods facts must be non-empty when supplied",
+            "CMR_6_1_F"
+          )
+        );
+      }
+    }
+  }
+
   const quantity =
     input.goods?.quantity;
 

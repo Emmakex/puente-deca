@@ -158,7 +158,8 @@ Characters outside the embedded font set continue to fail closed rather than bei
     - [x] Core pickup/goods/package mappings: taking-over date, cargo nature, package count and shipping marks.
     - [x] Explicit package-type code mapping without deriving codes from free-text packing method.
     - [x] Structured carriage-charge mapping to `ApplicableLogisticsServiceCharge` with amount/currency validation.
-    - [ ] Complete mapping for all required projection fields (free-text packing method representation, structured dangerous goods, customs/formalities and CMR applicability still pending).
+    - [x] Structured dangerous-goods mapping to `ApplicableTransportDangerousGoods` with UNDG/proper-shipping-name fail-closed validation.
+    - [ ] Complete mapping for all required projection fields (free-text packing method representation, customs/formalities and CMR applicability still pending).
     - [ ] Full generated XML passes the installed official D25A XSD bundle with preserved hash evidence.
   - [ ] Cryptographic authentication/signature implementation.
   - [ ] Amendment/version lifecycle preserving original particulars.

@@ -168,6 +168,11 @@ export function ecmrProjectionFromShipment(
     record(
       ecmrGoods.packages
     );
+  const dangerousGoods =
+    record(
+      ecmrGoods
+        .dangerousGoods
+    );
   const charges =
     record(
       ecmr.charges
@@ -248,6 +253,41 @@ export function ecmrProjectionFromShipment(
             ecmrGoods
               .dangerousGoodsDescription
           ),
+    dangerousGoods: {
+      declared:
+        dangerousGoods.declared ===
+        true,
+      undgIdentificationCode:
+        text(
+          dangerousGoods
+            .undgIdentificationCode
+        ) || null,
+      regulationCode:
+        text(
+          dangerousGoods
+            .regulationCode
+        ) || null,
+      technicalName:
+        text(
+          dangerousGoods
+            .technicalName
+        ) || null,
+      properShippingName:
+        text(
+          dangerousGoods
+            .properShippingName
+        ) || null,
+      packagingDangerLevelCode:
+        text(
+          dangerousGoods
+            .packagingDangerLevelCode
+        ) || null,
+      hazardClassificationId:
+        text(
+          dangerousGoods
+            .hazardClassificationId
+        ) || null
+    },
     packages: {
       count:
         Number.isInteger(

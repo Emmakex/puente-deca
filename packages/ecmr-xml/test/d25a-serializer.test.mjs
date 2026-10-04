@@ -50,6 +50,21 @@ const projection = () => ({
       "PX",
     dangerousGoodsDescription:
       null,
+    dangerousGoods: {
+      declared: true,
+      undgIdentificationCode:
+        "1203",
+      regulationCode:
+        "ADR",
+      technicalName:
+        "Gasoline",
+      properShippingName:
+        "GASOLINE",
+      packagingDangerLevelCode:
+        "II",
+      hazardClassificationId:
+        "3"
+    },
     packages: {
       count: 8,
       marksAndNumbers: [
@@ -220,6 +235,34 @@ test(
     );
     assert.match(
       first.xml,
+      /<ram:ApplicableTransportDangerousGoods>/
+    );
+    assert.match(
+      first.xml,
+      /<ram:UNDGIdentificationCode>1203<\/ram:UNDGIdentificationCode>/
+    );
+    assert.match(
+      first.xml,
+      /<ram:RegulationCode>ADR<\/ram:RegulationCode>/
+    );
+    assert.match(
+      first.xml,
+      /<ram:TechnicalName>Gasoline<\/ram:TechnicalName>/
+    );
+    assert.match(
+      first.xml,
+      /<ram:ProperShippingName>GASOLINE<\/ram:ProperShippingName>/
+    );
+    assert.match(
+      first.xml,
+      /<ram:PackagingDangerLevelCode>II<\/ram:PackagingDangerLevelCode>/
+    );
+    assert.match(
+      first.xml,
+      /<ram:HazardClassificationID>3<\/ram:HazardClassificationID>/
+    );
+    assert.match(
+      first.xml,
       /<ram:PhysicalLogisticsShippingMarks><ram:Marking>PAL-1<\/ram:Marking><\/ram:PhysicalLogisticsShippingMarks>/
     );
     assert.match(
@@ -318,6 +361,7 @@ test(
       "goods.nature",
       "goods.packages.marksAndNumbers",
       "goods.packingMethodCode",
+      "goods.dangerousGoods",
       "charges"
     ]) {
       assert.ok(

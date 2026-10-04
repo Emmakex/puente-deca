@@ -72,6 +72,11 @@ for (const token of [
   "ApplicableLogisticsServiceCharge",
   "AppliedAmount",
   "currencyID",
+  "ApplicableTransportDangerousGoods",
+  "UNDGIdentificationCode",
+  "ProperShippingName",
+  "RegulationCode",
+  "HazardClassificationID",
   "goods.packingMethodCode",
   "projection.charges"
 ]) {
@@ -158,6 +163,7 @@ for (const mappedPath of [
 
 for (const stillPending of [
   '"goods.packingMethod"',
+  '"goods.dangerousGoodsDescription"',
   '"customsFormalities"',
   '"conventionApplicability"'
 ]) {
