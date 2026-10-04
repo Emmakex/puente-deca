@@ -236,6 +236,28 @@ test(
 );
 
 test(
+  "does not coerce free-text packing method into a coded package type",
+  () => {
+    const output =
+      serializeEcmrD25aEnvelope(
+        projection()
+      );
+
+    assert.ok(
+      !output.xml.includes(
+        "<ram:TypeCode>Pallets</ram:TypeCode>"
+      )
+    );
+    assert.ok(
+      output.pendingProjectionPaths
+        .includes(
+          "goods.packingMethod"
+        )
+    );
+  }
+);
+
+test(
   "keeps schema conformance explicitly pending until official XSD validation runs",
   () => {
     const output =
