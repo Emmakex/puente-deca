@@ -22,6 +22,10 @@ import {
   resolveDecaRequestFromShipment
 } from "../../../packages/core/src/shipment-deca-view.mjs";
 import {
+  createEcmrAmendmentChain,
+  appendEcmrAmendment
+} from "../../../packages/ecmr-amendment/src/amendment-chain.mjs";
+import {
   createDocumentSnapshot,
   reviseDocumentSnapshot
 } from "../../../packages/document-engine/src/snapshot.mjs";
@@ -351,7 +355,9 @@ const authenticatePlatformService = async (
       "shipments:read",
       "shipments:write",
       "documents:read",
-      "documents:write"
+      "documents:write",
+      "regulatory:read",
+      "regulatory:write"
     ],
     source: "kairoseth-platform"
   };
@@ -520,16 +526,22 @@ const normalizeConnectorKind = (value) => {
   return value.trim().toLowerCase();
 };
 
-const CONNECTOR_SCOPES = [
+const DEFAULT_CONNECTOR_SCOPES = [
   "shipments:read",
   "shipments:write",
   "documents:read",
   "documents:write"
 ];
 
+const CONNECTOR_SCOPES = [
+  ...DEFAULT_CONNECTOR_SCOPES,
+  "regulatory:read",
+  "regulatory:write"
+];
+
 const normalizeConnectorScopes = (value) => {
   if (value === undefined) {
-    return [...CONNECTOR_SCOPES];
+    return [...DEFAULT_CONNECTOR_SCOPES];
   }
 
   if (!Array.isArray(value) || value.length === 0) {
@@ -615,7 +627,8 @@ export function createServer({
         process.env.RATE_LIMIT_MAX_ENTRIES
     }),
   standaloneToolsEnabled =
-    process.env.NODE_ENV !== "production"
+    process.env.NODE_ENV !== "production",
+  now = () => new Date()
 } = {}) {
   return http.createServer(async (request, response) => {
     const finishMetrics =
