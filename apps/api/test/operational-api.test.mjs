@@ -1875,6 +1875,111 @@ test("eCMR amendment API preserves exact XML, derives actor identity and rejects
   );
 });
 
+test("Kairoseth service auth binds trusted human user context to eCMR amendments", async () => {
+  await withOperationalServer(
+    async ({
+      baseUrl,
+      platformServiceSecret
+    }) => {
+      const organizationId =
+        "kairoseth-org-ecmr-human";
+      const userId =
+        "user_01HUMANACTOR";
+      const serviceHeaders = {
+        "content-type":
+          "application/json",
+        "x-kairoseth-service-secret":
+          platformServiceSecret,
+        "x-kairoseth-organization-id":
+          organizationId,
+        "x-kairoseth-user-id":
+          userId
+      };
+
+      const shipmentResponse =
+        await fetch(
+          `${baseUrl}/v1/shipments`,
+          {
+            method: "POST",
+            headers:
+              serviceHeaders,
+            body:
+              JSON.stringify(
+                payload
+              )
+          }
+        );
+      const shipment =
+        await shipmentResponse
+          .json();
+
+      assert.equal(
+        shipmentResponse.status,
+        201
+      );
+
+      const appendResponse =
+        await fetch(
+          `${baseUrl}/v1/shipments/${shipment.shipmentId}/ecmr/versions`,
+          {
+            method: "POST",
+            headers:
+              serviceHeaders,
+            body:
+              JSON.stringify({
+                xml:
+                  "<rsm:eCMR>human</rsm:eCMR>",
+                reason:
+                  "authorized workspace amendment",
+                partyRole:
+                  "sender",
+                expectedPreviousVersionId:
+                  null
+              })
+          }
+        );
+      const appended =
+        await appendResponse
+          .json();
+
+      assert.equal(
+        appendResponse.status,
+        201
+      );
+      assert.equal(
+        appended.version.actor
+          .actorId,
+        `kairoseth-user:${userId}`
+      );
+      assert.equal(
+        appended.version.actor
+          .identityScheme,
+        "kairoseth-user"
+      );
+
+      const invalidContext =
+        await fetch(
+          `${baseUrl}/v1/shipments`,
+          {
+            headers: {
+              "x-kairoseth-service-secret":
+                platformServiceSecret,
+              "x-kairoseth-organization-id":
+                organizationId,
+              "x-kairoseth-user-id":
+                "bad user id with spaces"
+            }
+          }
+        );
+
+      assert.equal(
+        invalidContext.status,
+        401
+      );
+    }
+  );
+});
+
 test("eCMR amendment API requires regulatory scopes", async () => {
   await withOperationalServer(
     async ({
