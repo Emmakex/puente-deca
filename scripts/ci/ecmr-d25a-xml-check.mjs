@@ -1,4 +1,7 @@
 import {
+  spawnSync
+} from "node:child_process";
+import {
   readFile
 } from "node:fs/promises";
 
@@ -275,6 +278,35 @@ for (const stillPending of [
   if (!serializer.includes(stillPending)) {
     throw new Error(
       `D25A serializer must keep ambiguous field pending: ${stillPending}`
+    );
+  }
+}
+
+for (const path of [
+  "packages/ecmr-xml/src/schema-integrity.mjs",
+  "packages/ecmr-xml/src/schema-bundle.mjs",
+  "packages/ecmr-xml/src/schema-validation.mjs",
+  "scripts/production/ecmr-d25a-acceptance.mjs",
+  "scripts/production/verify-ecmr-d25a-evidence.mjs"
+]) {
+  const parsed =
+    spawnSync(
+      process.execPath,
+      [
+        "--check",
+        path
+      ],
+      {
+        encoding: "utf8"
+      }
+    );
+
+  if (
+    parsed.status !==
+      0
+  ) {
+    throw new Error(
+      `D25A acceptance source failed syntax check: ${path}\n${parsed.stderr ?? ""}`
     );
   }
 }
