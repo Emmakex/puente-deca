@@ -24,15 +24,12 @@ import {
 import {
   ECMR_D25A_PROFILE
 } from "./d25a-profile.mjs";
+import {
+  createSchemaTreeEvidence,
+  sha256File,
+  verifySchemaTreeEvidence
+} from "./schema-integrity.mjs";
 
-const hashFile = async (
-  path
-) =>
-  `sha256:${createHash("sha256")
-    .update(
-      await readFile(path)
-    )
-    .digest("hex")}`;
 
 const safeEntries = (
   entries
@@ -238,8 +235,13 @@ export async function installEcmrD25aSchemaBundle({
           .rootSchema
       );
 
+    const schemaTree =
+      await createSchemaTreeEvidence(
+        extracted
+      );
+
     const manifest = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       source:
         ECMR_D25A_PROFILE
           .sourcePage,
@@ -261,13 +263,26 @@ export async function installEcmrD25aSchemaBundle({
         ECMR_D25A_PROFILE
           .rootSchema,
       archiveSha256:
-        await hashFile(
+        await sha256File(
           source
         ),
+      nestedSchemaArchiveSha256:
+        await sha256File(
+          nestedArchive
+        ),
       rootSchemaSha256:
-        await hashFile(
+        await sha256File(
           rootSchemaPath
-        )
+        ),
+      schemaFileCount:
+        schemaTree
+          .schemaFileCount,
+      schemaTreeSha256:
+        schemaTree
+          .schemaTreeSha256,
+      schemaFiles:
+        schemaTree
+          .schemaFiles
     };
 
     await writeFile(
@@ -368,6 +383,8 @@ export async function readEcmrD25aSchemaManifest(
     );
 
   if (
+    manifest.schemaVersion !==
+      2 ||
     manifest.release !==
       ECMR_D25A_PROFILE.release ||
     manifest.rootSchema !==
@@ -377,7 +394,10 @@ export async function readEcmrD25aSchemaManifest(
         .sourceFileName ||
     manifest.sourceFileId !==
       ECMR_D25A_PROFILE
-        .sourceFileId
+        .sourceFileId ||
+    manifest.nestedSchemaArchive !==
+      ECMR_D25A_PROFILE
+        .nestedSchemaArchive
   ) {
     const error =
       new Error(
@@ -395,7 +415,7 @@ export async function readEcmrD25aSchemaManifest(
     );
 
   if (
-    await hashFile(root) !==
+    await sha256File(root) !==
     manifest.rootSchemaSha256
   ) {
     const error =
@@ -407,10 +427,17 @@ export async function readEcmrD25aSchemaManifest(
     throw error;
   }
 
+  const schemaTree =
+    await verifySchemaTreeEvidence({
+      directory,
+      manifest
+    });
+
   return {
     directory,
     rootSchemaPath:
       root,
-    manifest
+    manifest,
+    schemaTree
   };
 }
