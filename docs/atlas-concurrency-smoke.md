@@ -37,6 +37,20 @@ Acceptance requires:
 - exactly one `document.version.created` audit event;
 - the shipment lineage to contain exactly the winning document ID.
 
+### eCMR amendment-head race
+
+The smoke first persists an original eCMR version. Two different version-2 amendments are then built from that same immutable original head and appended concurrently.
+
+Acceptance requires:
+
+- exactly one version-2 amendment to win;
+- the competing append to fail only with the documented eCMR concurrency/lineage contract;
+- exactly two amendment records total: original version 1 plus one accepted version 2;
+- exactly two `ecmr.amendment.version.created` audit events;
+- the stored ordered lineage to end at the winning version ID.
+
+This proves the unique organization/shipment/version index and transactional chain verification converge to one accepted head.
+
 ## Data hygiene
 
 All smoke records are scoped to a random organization ID beginning with:
@@ -72,8 +86,10 @@ The command never prints:
   "idempotencyConverged": true,
   "documentVersionConcurrency": true,
   "documentLineageConsistent": true,
+  "ecmrAmendmentConcurrency": true,
+  "ecmrAmendmentSingleHead": true,
   "cleanupVerified": true
 }
 ```
 
-A green result is live evidence for the concurrent idempotency/document-version persistence gate. It does not by itself authorize production launch.
+A green result is live evidence for the concurrent idempotency/document-version/eCMR-amendment persistence gates. It does not by itself authorize production launch.
