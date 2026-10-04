@@ -10,7 +10,9 @@ export const ECMR_SIGNATURE_FORMAT_VERSION =
 export const ECMR_SIGNATURE_ALGORITHM =
   "Ed25519";
 export const ECMR_SIGNATURE_METHOD =
-  "detached-ed25519-exact-xml-v1";
+  "detached-ed25519-bound-statement-v1";
+export const ECMR_SIGNATURE_DOMAIN =
+  "PUENTE-DECA-ECMR-SIGNATURE-V1";
 
 const fail = (
   code,
@@ -61,16 +63,31 @@ const sha256 = (
 const publicKeyObject = (
   key
 ) => {
+  let object;
+
   try {
-    return createPublicKey(
-      key
-    );
+    object =
+      createPublicKey(
+        key
+      );
   } catch {
     throw fail(
       "ECMR_SIGNATURE_PUBLIC_KEY_INVALID",
       "A valid public verification key is required"
     );
   }
+
+  if (
+    object.asymmetricKeyType !==
+    "ed25519"
+  ) {
+    throw fail(
+      "ECMR_SIGNATURE_KEY_TYPE_INVALID",
+      "The eCMR detached-signature profile requires an Ed25519 key"
+    );
+  }
+
+  return object;
 };
 
 const publicKeyFingerprint = (
@@ -153,12 +170,51 @@ const normalizeSignedAt = (
   ) {
     throw fail(
       "ECMR_SIGNATURE_SIGNED_AT_INVALID",
-      "signedAt must be an exact ISO-8601 UTC instant"
+      "signedAt must be an exact ISO-8601 UTC instant with milliseconds"
     );
   }
 
   return value;
 };
+
+const signingStatement = ({
+  contentHash,
+  publicKeyFingerprint:
+    fingerprint,
+  signer,
+  signedAt
+}) => {
+  const payload = {
+    formatVersion:
+      ECMR_SIGNATURE_FORMAT_VERSION,
+    algorithm:
+      ECMR_SIGNATURE_ALGORITHM,
+    method:
+      ECMR_SIGNATURE_METHOD,
+    contentHash,
+    publicKeyFingerprint:
+      fingerprint,
+    signer,
+    signedAt
+  };
+
+  return Buffer.from(
+    `${ECMR_SIGNATURE_DOMAIN}\n${JSON.stringify(
+      payload
+    )}`,
+    "utf8"
+  );
+};
+
+const signatureId = (
+  signature
+) =>
+  `sig_${createHash(
+    "sha256"
+  )
+    .update(signature)
+    .digest("hex")
+    .slice(0, 32)}`;
 
 export function createEcmrDetachedSignature({
   xml,
@@ -182,7 +238,6 @@ export function createEcmrDetachedSignature({
       signedAt
     );
 
-  let signatureBytes;
   let verificationKey;
 
   try {
@@ -190,10 +245,47 @@ export function createEcmrDetachedSignature({
       createPublicKey(
         privateKey
       );
+  } catch {
+    throw fail(
+      "ECMR_SIGNATURE_SIGNING_KEY_INVALID",
+      "The supplied private key cannot produce a verification key"
+    );
+  }
+
+  if (
+    verificationKey
+      .asymmetricKeyType !==
+    "ed25519"
+  ) {
+    throw fail(
+      "ECMR_SIGNATURE_KEY_TYPE_INVALID",
+      "The eCMR detached-signature profile requires an Ed25519 key"
+    );
+  }
+
+  const contentHash =
+    sha256(bytes);
+  const fingerprint =
+    publicKeyFingerprint(
+      verificationKey
+    );
+  const statement =
+    signingStatement({
+      contentHash,
+      publicKeyFingerprint:
+        fingerprint,
+      signer: identity,
+      signedAt:
+        instant
+    });
+
+  let signatureBytes;
+
+  try {
     signatureBytes =
       sign(
         null,
-        bytes,
+        statement,
         privateKey
       );
   } catch {
@@ -203,21 +295,6 @@ export function createEcmrDetachedSignature({
     );
   }
 
-  const signatureValue =
-    signatureBytes
-      .toString(
-        "base64url"
-      );
-  const signatureId =
-    `sig_${createHash(
-      "sha256"
-    )
-      .update(
-        signatureBytes
-      )
-      .digest("hex")
-      .slice(0, 32)}`;
-
   return {
     formatVersion:
       ECMR_SIGNATURE_FORMAT_VERSION,
@@ -225,17 +302,21 @@ export function createEcmrDetachedSignature({
       ECMR_SIGNATURE_ALGORITHM,
     method:
       ECMR_SIGNATURE_METHOD,
-    signatureId,
+    signatureId:
+      signatureId(
+        signatureBytes
+      ),
     signer: identity,
     signedAt:
       instant,
-    contentHash:
-      sha256(bytes),
+    contentHash,
     publicKeyFingerprint:
-      publicKeyFingerprint(
-        verificationKey
-      ),
-    signatureValue
+      fingerprint,
+    signatureValue:
+      signatureBytes
+        .toString(
+          "base64url"
+        )
   };
 }
 
@@ -247,6 +328,29 @@ const evidenceFailure = (
   code,
   message
 });
+
+const decodeSignature = (
+  value
+) => {
+  if (
+    typeof value !== "string" ||
+    !/^[A-Za-z0-9_-]+$/.test(
+      value
+    )
+  ) {
+    return null;
+  }
+
+  const decoded =
+    Buffer.from(
+      value,
+      "base64url"
+    );
+
+  return decoded.length === 64
+    ? decoded
+    : null;
+};
 
 export function verifyEcmrDetachedSignature({
   xml,
@@ -298,20 +402,21 @@ export function verifyEcmrDetachedSignature({
     );
   }
 
+  let signer;
+  let signedAt;
+
   try {
-    normalizeSigner(
-      evidence.signer
-    );
-    normalizeSignedAt(
-      evidence.signedAt
-    );
+    signer =
+      normalizeSigner(
+        evidence.signer
+      );
+    signedAt =
+      normalizeSignedAt(
+        evidence.signedAt
+      );
     requireText(
       evidence.signatureId,
       "evidence.signatureId"
-    );
-    requireText(
-      evidence.signatureValue,
-      "evidence.signatureValue"
     );
     requireText(
       evidence.contentHash,
@@ -360,20 +465,36 @@ export function verifyEcmrDetachedSignature({
     );
   }
 
-  let signature;
+  const signature =
+    decodeSignature(
+      evidence.signatureValue
+    );
 
-  try {
-    signature =
-      Buffer.from(
-        evidence.signatureValue,
-        "base64url"
-      );
-  } catch {
+  if (!signature) {
     return evidenceFailure(
       "ECMR_SIGNATURE_VALUE_INVALID",
-      "Signature value is not valid base64url"
+      "Signature value must be a 64-byte Ed25519 signature encoded as base64url"
     );
   }
+
+  if (
+    evidence.signatureId !==
+    signatureId(signature)
+  ) {
+    return evidenceFailure(
+      "ECMR_SIGNATURE_ID_MISMATCH",
+      "Signature ID does not match the detached signature value"
+    );
+  }
+
+  const statement =
+    signingStatement({
+      contentHash,
+      publicKeyFingerprint:
+        fingerprint,
+      signer,
+      signedAt
+    });
 
   let valid = false;
 
@@ -381,7 +502,7 @@ export function verifyEcmrDetachedSignature({
     valid =
       verify(
         null,
-        bytes,
+        statement,
         key,
         signature
       );
@@ -392,21 +513,23 @@ export function verifyEcmrDetachedSignature({
   if (!valid) {
     return evidenceFailure(
       "ECMR_SIGNATURE_CRYPTOGRAPHIC_VERIFICATION_FAILED",
-      "The detached eCMR signature is not valid for the supplied content and key"
+      "The detached eCMR signature is not valid for the supplied content, identity statement and key"
     );
   }
 
   return {
     valid: true,
     code: null,
+    formatVersion:
+      evidence.formatVersion,
+    algorithm:
+      evidence.algorithm,
+    method:
+      evidence.method,
     signatureId:
       evidence.signatureId,
-    signer:
-      structuredClone(
-        evidence.signer
-      ),
-    signedAt:
-      evidence.signedAt,
+    signer,
+    signedAt,
     contentHash,
     publicKeyFingerprint:
       fingerprint
