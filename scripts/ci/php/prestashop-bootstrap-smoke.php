@@ -226,9 +226,13 @@ class Order
     }
 }
 
-$moduleFile = dirname(__DIR__, 3)
-    . '/connectors/prestashop/puentedeca.php';
+$moduleOverride = getenv('PDECA_PS_MODULE_FILE');
+$moduleFile = is_string($moduleOverride) && trim($moduleOverride) !== ''
+    ? $moduleOverride
+    : dirname(__DIR__, 3)
+        . '/connectors/prestashop/puentedeca.php';
 
+pdeca_assert(is_file($moduleFile), 'PrestaShop module entrypoint was not found.');
 require $moduleFile;
 
 pdeca_assert(class_exists('PuenteDeca'), 'PrestaShop module class did not load.');

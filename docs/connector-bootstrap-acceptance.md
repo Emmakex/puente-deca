@@ -51,3 +51,14 @@ npm run check:connector-bootstrap
 ```
 
 The command fails closed when PHP is unavailable rather than silently skipping the executable connector checks.
+
+## Packaged ZIP acceptance
+
+`npm run check:release-packages` now goes one step further than archive-layout and checksum validation:
+
+1. it builds each connector ZIP twice and requires byte-for-byte reproducibility;
+2. it verifies the allowed/required archive layout;
+3. it extracts the first deterministic WooCommerce and PrestaShop ZIPs to an isolated temporary directory;
+4. it reruns the same executable PHP bootstrap suite against the **extracted release entrypoints**, not the source-tree files.
+
+This closes the packaging boundary: a release ZIP cannot pass merely because the repository source works while a required PHP class is absent, relocated or broken inside the deliverable.

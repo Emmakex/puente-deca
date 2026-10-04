@@ -98,6 +98,7 @@ Characters outside the embedded font set continue to fail closed rather than bei
 - [x] Dependency lockfile, npm cache and reproducible `npm ci` install for runtime/XLSX dependencies.
 - [x] WooCommerce deterministic release ZIP packaging with SHA-256 manifest.
 - [x] Dedicated reproducible connector release workflow with uploaded ZIP/checksum bundle.
+- [x] Extracted release-ZIP PHP runtime bootstrap acceptance for WooCommerce and PrestaShop.
 - [x] Release-candidate evidence bundle with deterministic CycloneDX SBOM and SHA-256 release manifest.
 - [x] WooCommerce executable PHP host-contract bootstrap smoke (HPOS/hooks/encryption/connection/payload).
 - [ ] WooCommerce live-store smoke test.
