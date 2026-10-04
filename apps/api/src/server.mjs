@@ -568,6 +568,136 @@ const normalizeConnectorScopes = (value) => {
   return scopes.sort();
 };
 
+const normalizeRegulatoryPartyRole = (
+  value
+) => {
+  if (
+    typeof value !== "string"
+  ) {
+    return null;
+  }
+
+  const normalized =
+    value.trim().toLowerCase();
+
+  return /^[a-z][a-z0-9_-]{0,63}$/.test(
+    normalized
+  )
+    ? normalized
+    : null;
+};
+
+const normalizeAmendmentReason = (
+  value
+) => {
+  if (
+    typeof value !== "string"
+  ) {
+    return null;
+  }
+
+  const normalized =
+    value.trim();
+
+  return (
+    normalized.length >= 1 &&
+    normalized.length <= 500
+  )
+    ? normalized
+    : null;
+};
+
+const normalizeEcmrXml = (
+  value
+) => {
+  if (
+    typeof value !== "string"
+  ) {
+    return null;
+  }
+
+  const normalized =
+    value.trim();
+
+  return (
+    normalized.length >= 1 &&
+    normalized.length <=
+      950_000
+  )
+    ? normalized
+    : null;
+};
+
+const amendmentActorFromCredential = (
+  credential,
+  partyRole
+) => ({
+  actorId:
+    credential.source ===
+      "kairoseth-platform"
+      ? `kairoseth-platform:${credential.organizationId}`
+      : `credential:${credential.credentialId}`,
+  partyRole,
+  identityScheme:
+    credential.source ===
+      "kairoseth-platform"
+      ? "kairoseth-platform-service"
+      : "kairoseth-api-credential"
+});
+
+const amendmentInstant = (
+  now,
+  latest
+) => {
+  const raw =
+    typeof now === "function"
+      ? now()
+      : new Date();
+  const date =
+    raw instanceof Date
+      ? new Date(
+          raw.getTime()
+        )
+      : new Date(raw);
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    const error =
+      new Error(
+        "Server clock returned an invalid amendment timestamp"
+      );
+    error.code =
+      "ECMR_SERVER_CLOCK_INVALID";
+    throw error;
+  }
+
+  if (
+    latest?.createdAt
+  ) {
+    const previous =
+      new Date(
+        latest.createdAt
+      );
+
+    if (
+      !Number.isNaN(
+        previous.getTime()
+      ) &&
+      date.getTime() <=
+        previous.getTime()
+    ) {
+      return new Date(
+        previous.getTime() + 1
+      ).toISOString();
+    }
+  }
+
+  return date.toISOString();
+};
+
 const sha256 = (bytes) =>
   `sha256:${createHash("sha256")
     .update(bytes)
