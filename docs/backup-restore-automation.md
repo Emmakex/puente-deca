@@ -91,13 +91,17 @@ A successful drill verifies:
 - all required DeCA metadata collections exist;
 - `deca_pdf.files` exists and contains at least one controlled PDF;
 - `deca_pdf.chunks` exists;
+- restored document references and GridFS reconcile with zero premature loss, post-retention loss, orphaned artifacts or purged artifacts still present;
 - every restored GridFS artifact can be downloaded;
 - every artifact starts with the PDF signature;
 - every artifact remains under the 5 MB DeCA ceiling;
-- every artifact matches its `metadata.sha256`;
-- collection/document counts, verified artifact count and verified bytes are reported for evidence.
+- every artifact matches its GridFS `metadata.sha256`;
+- every stored artifact also matches the corresponding `deca_document_versions.artifact` storage key, document ID, SHA-256 and recorded size;
+- collection/document counts, reconciliation counts, verified metadata/GridFS links, verified artifact count and verified bytes are reported for evidence.
 
 After success the isolated DR database is deleted automatically so the drill is repeatable and stale recovery databases do not accumulate.
+
+If post-restore validation fails, cleanup is still attempted from the `finally` path. A cleanup failure emits a sanitized `RESTORE_CLEANUP_FAILED` warning so operators know an isolated `kairoseth_deca_dr_*` database may require manual removal; production database names remain forbidden.
 
 For a deliberate inspection run only, set:
 
