@@ -8,7 +8,7 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "check": "node scripts/ci/repo-check.mjs && node scripts/ci/openapi-check.mjs && node scripts/ci/woocommerce-check.mjs && node scripts/ci/prestashop-check.mjs && node scripts/ci/mongodb-check.mjs && node scripts/ci/artifact-storage-check.mjs && node scripts/ci/shared-mongo-client-check.mjs && node scripts/ci/retention-check.mjs && node scripts/ci/operations-check.mjs && node scripts/ci/rate-limit-check.mjs && node scripts/ci/production-preflight-check.mjs && node scripts/ci/release-package-check.mjs && node scripts/ci/security-review-check.mjs && node scripts/ci/atlas-gridfs-smoke-check.mjs && node scripts/ci/public-pdf-smoke-check.mjs && node scripts/ci/kairoseth-health-smoke-check.mjs && node scripts/ci/container-check.mjs && node scripts/ci/release-evidence-check.mjs && node scripts/ci/go-live-check.mjs && node scripts/ci/backup-restore-check.mjs",
+    "check": "node scripts/ci/repo-check.mjs && node scripts/ci/openapi-check.mjs && node scripts/ci/woocommerce-check.mjs && node scripts/ci/prestashop-check.mjs && node scripts/ci/mongodb-check.mjs && node scripts/ci/artifact-storage-check.mjs && node scripts/ci/shared-mongo-client-check.mjs && node scripts/ci/retention-check.mjs && node scripts/ci/operations-check.mjs && node scripts/ci/rate-limit-check.mjs && node scripts/ci/production-preflight-check.mjs && node scripts/ci/release-package-check.mjs && node scripts/ci/security-review-check.mjs && node scripts/ci/atlas-gridfs-smoke-check.mjs && node scripts/ci/atlas-concurrency-smoke-check.mjs && node scripts/ci/public-pdf-smoke-check.mjs && node scripts/ci/kairoseth-health-smoke-check.mjs && node scripts/ci/container-check.mjs && node scripts/ci/release-evidence-check.mjs && node scripts/ci/go-live-check.mjs && node scripts/ci/backup-restore-check.mjs",
     "test": "node --test",
     "server": "node apps/api/src/main.mjs",
     "file-import:demo": "node connectors/file-import/src/cli.mjs examples/file-import/shipments.csv",
@@ -49,7 +49,9 @@
     "production:backup": "node scripts/production/backup-deca.mjs",
     "production:restore-drill": "node scripts/production/restore-drill.mjs",
     "production:backup-restore-drill": "node scripts/production/backup-restore-acceptance.mjs",
-    "check:backup-restore": "node scripts/ci/backup-restore-check.mjs"
+    "check:backup-restore": "node scripts/ci/backup-restore-check.mjs",
+    "production:atlas-concurrency-smoke": "node scripts/production/atlas-concurrency-smoke.mjs",
+    "check:atlas-concurrency-smoke": "node scripts/ci/atlas-concurrency-smoke-check.mjs"
   },
   "dependencies": {
     "read-excel-file": "9.3.10",

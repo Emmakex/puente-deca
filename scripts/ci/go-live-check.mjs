@@ -17,6 +17,7 @@ const requirePattern = (
 for (const requiredScript of [
   "production:preflight",
   "production:atlas-smoke",
+  "production:atlas-concurrency-smoke",
   "production:kairoseth-health-smoke",
   "production:public-pdf-smoke",
   "artifacts:reconcile"

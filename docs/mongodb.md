@@ -106,7 +106,7 @@ Before declaring production readiness:
 
 1. run `npm run production:atlas-smoke` against the real Atlas environment using the service database user;
 2. preserve the resulting transaction/index/GridFS acceptance evidence;
-3. run concurrent idempotency and document-version smoke tests;
+3. run `npm run production:atlas-concurrency-smoke` and preserve its scoped-cleanup evidence;
 4. verify backup/restore procedures;
 5. run retention dry-run/purge/reconciliation acceptance;
 6. validate GridFS backup and restore together with DeCA metadata.

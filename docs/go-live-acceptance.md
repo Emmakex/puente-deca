@@ -23,10 +23,11 @@ The controlled DeCA URL must already exist; the command does not create a retain
 The command has no skip/bypass switches and runs:
 
 1. production configuration preflight;
-2. Atlas metadata + GridFS live smoke;
-3. protected Kairoseth → Puente DeCA health smoke;
-4. public Kairoseth PDF/TLS/header/SHA-256 smoke;
-5. artifact reconciliation.
+2. Atlas metadata + index + GridFS live smoke;
+3. Atlas concurrent idempotency + document-version smoke;
+4. protected Kairoseth → Puente DeCA health smoke;
+5. public Kairoseth PDF/TLS/header/SHA-256 smoke;
+6. artifact reconciliation.
 
 Artifact reconciliation is green only when all are zero:
 

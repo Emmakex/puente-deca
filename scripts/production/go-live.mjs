@@ -19,6 +19,11 @@ const automatedSteps = [
       "production:atlas-smoke"
   },
   {
+    id: "atlas-concurrency",
+    script:
+      "production:atlas-concurrency-smoke"
+  },
+  {
     id: "kairoseth-health",
     script:
       "production:kairoseth-health-smoke"

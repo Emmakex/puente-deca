@@ -52,7 +52,8 @@ Characters outside the embedded font set continue to fail closed rather than bei
 - [x] Retention-aware PDF purge policy with dry-run default, explicit confirmation, immutable metadata and audit evidence.
 - [x] MongoDB Atlas production adapter aligned with Kairoseth Platform.
 - [x] Automated Atlas/GridFS live smoke command with rollback and cleanup.
-- [ ] Live MongoDB Atlas transaction/index smoke acceptance (fail-closed index contract implemented; pending execution against the intended Atlas environment).
+- [x] Automated Atlas concurrency smoke for idempotent shipment creation and document-version lineage with scoped cleanup.
+- [ ] Live MongoDB Atlas transaction/index/concurrency smoke acceptance (fail-closed checks implemented; pending execution against the intended Atlas environment).
 
 ## Phase 4 — Operational API
 
@@ -102,7 +103,7 @@ Characters outside the embedded font set continue to fail closed rather than bei
 - [x] PrestaShop deterministic release ZIP packaging with SHA-256 manifest.
 - [ ] PrestaShop real 1.7.8/8.x compatibility matrix.
 - [x] MongoDB Atlas metadata store aligned with Kairoseth Platform.
-- [ ] Production Atlas transaction/index smoke acceptance.
+- [ ] Production Atlas transaction/index/concurrency smoke acceptance.
 - [ ] GridFS backup/restore acceptance.
 - [x] MongoDB Atlas GridFS PDF artifact storage aligned with Kairoseth Platform.
 - [x] Artifact reconciliation tooling for premature loss, post-retention loss, orphans and incomplete purges.
