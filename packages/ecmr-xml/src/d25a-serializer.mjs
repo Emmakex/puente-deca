@@ -134,6 +134,68 @@ const shippingMarks = (
         )
     : [];
 
+const serviceCharge = (
+  charge
+) =>
+  container(
+    "ApplicableLogisticsServiceCharge",
+    [
+      element(
+        "ID",
+        text(charge?.id)
+      ),
+      element(
+        "Description",
+        text(
+          charge?.description
+        )
+      ),
+      element(
+        "ChargeCategoryCode",
+        text(
+          charge
+            ?.chargeCategoryCode
+        )
+      ),
+      element(
+        "AppliedAmount",
+        charge?.amount?.value,
+        {
+          attributes: {
+            currencyID:
+              text(
+                charge?.amount
+                  ?.currency
+              )
+          }
+        }
+      ),
+      element(
+        "PayingPartyRoleCode",
+        text(
+          charge
+            ?.payingPartyRoleCode
+        )
+      ),
+      element(
+        "TransportPaymentMethodCode",
+        text(
+          charge
+            ?.transportPaymentMethodCode
+        )
+      )
+    ]
+  );
+
+const serviceCharges = (
+  charges
+) =>
+  Array.isArray(charges?.items)
+    ? charges.items.map(
+        serviceCharge
+      )
+    : [];
+
 const consignmentItem = (
   goods
 ) => {
@@ -167,6 +229,13 @@ const consignmentItem = (
             Number.isInteger(count)
               ? count
               : null
+          ),
+          element(
+            "TypeCode",
+            text(
+              goods
+                ?.packingMethodCode
+            )
           ),
           ...shippingMarks(
             marks
@@ -340,6 +409,9 @@ export function serializeEcmrD25aEnvelope(
         ),
         consignmentItem(
           projection.goods
+        ),
+        ...serviceCharges(
+          projection.charges
         )
       ],
       "rsm"
@@ -375,13 +447,14 @@ export function serializeEcmrD25aEnvelope(
       "consignee",
       "goods.quantity",
       "goods.nature",
+      "goods.packingMethodCode",
       "goods.packages.count",
-      "goods.packages.marksAndNumbers"
+      "goods.packages.marksAndNumbers",
+      "charges"
     ],
     pendingProjectionPaths: [
       "goods.packingMethod",
       "goods.dangerousGoodsDescription",
-      "charges",
       "customsFormalities",
       "conventionApplicability",
       "authentication",
