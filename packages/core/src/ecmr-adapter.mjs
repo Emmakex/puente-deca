@@ -181,6 +181,11 @@ export function ecmrProjectionFromShipment(
     record(
       ecmr.customsFormalities
     );
+  const conventionApplicability =
+    record(
+      ecmr
+        .conventionApplicability
+    );
 
   projection.externalReference =
     text(
@@ -384,10 +389,13 @@ export function ecmrProjectionFromShipment(
   projection.conventionApplicability = {
     convention: "CMR",
     declared:
-      record(
-        ecmr
-          .conventionApplicability
-      ).declared === true
+      conventionApplicability
+        .declared === true,
+    statement:
+      text(
+        conventionApplicability
+          .statement
+      ) || null
   };
 
   return projection;
