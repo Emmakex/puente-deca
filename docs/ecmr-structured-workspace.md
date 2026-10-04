@@ -102,9 +102,11 @@ The engine:
 3. checks the caller's expected accepted head;
 4. derives actor identity from the authenticated credential/Kairoseth context;
 5. uses the server-controlled amendment timestamp;
-6. appends the exact generated XML to the immutable regulatory ledger.
+6. creates a canonical human-review snapshot from the validated eCMR projection;
+7. proves that reserializing that snapshot reproduces the exact immutable XML content hash;
+8. appends the exact generated XML plus the review snapshot/hash evidence to the immutable regulatory ledger.
 
-The response contains safe version metadata, head hashes and the structured preview. The stored XML is stripped.
+The response contains safe version metadata, head hashes, the structured preview and the human-review snapshot. The stored XML is stripped.
 
 ## Why preview and append regenerate independently
 
@@ -119,6 +121,29 @@ This avoids:
 - hidden server draft state;
 - stale draft tokens;
 - another persistence model before issuance is ready.
+
+## Verifiable human-review snapshots
+
+Structured versions persist two additional pieces of derived evidence:
+
+```text
+reviewSnapshot
+reviewHash = SHA-256(canonical JSON(reviewSnapshot))
+```
+
+The review snapshot is not treated as independent truth.
+
+Before history is returned, Puente DeCA:
+
+1. verifies the immutable amendment chain;
+2. validates the stored review projection;
+3. verifies the canonical review hash;
+4. serializes the review projection through the pinned D25A serializer;
+5. requires the resulting XML SHA-256 to equal the immutable version `contentHash`.
+
+If any of those checks fail, history fails closed with `ecmr_review_integrity_failure`.
+
+Legacy/raw-XML versions remain readable with no review snapshot. A structured review is therefore available only where the engine can prove it corresponds to the preserved wire content.
 
 ## Legacy Shipment compatibility
 
@@ -138,11 +163,12 @@ Implemented:
 - optimistic head control;
 - credential-derived actor;
 - server timestamp;
-- legacy Shipment fallback.
+- legacy Shipment fallback;
+- Kairoseth structured customer form/review workflow with no raw XML;
+- cryptographically cross-checked human-review snapshots for structured versions.
 
 Still pending before production eCMR issuance:
 
-- Kairoseth structured customer form/review workflow;
 - official D25A XSD PASS with preserved hash evidence;
 - accepted signer/key-custody policy;
 - live Atlas concurrency and DR evidence;
