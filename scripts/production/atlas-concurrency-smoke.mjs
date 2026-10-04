@@ -699,6 +699,10 @@ try {
           true,
         documentLineageConsistent:
           true,
+        regulatoryVersionConcurrency:
+          true,
+        regulatoryLineageConsistent:
+          true,
         cleanupVerified:
           true
       },
