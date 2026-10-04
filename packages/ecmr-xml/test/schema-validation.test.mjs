@@ -11,23 +11,19 @@ import {
 import {
   join
 } from "node:path";
-import {
-  createHash
-} from "node:crypto";
 
+import {
+  createSchemaTreeEvidence
+} from "../src/schema-integrity.mjs";
 import {
   validateEcmrD25aXmlFile
 } from "../src/schema-validation.mjs";
 import {
   ECMR_D25A_PROFILE
 } from "../src/d25a-profile.mjs";
-
-const sha = (
-  value
-) =>
-  `sha256:${createHash("sha256")
-    .update(value)
-    .digest("hex")}`;
+import {
+  sha256File
+} from "../src/schema-integrity.mjs";
 
 const fixture = async () => {
   const root =
@@ -37,36 +33,71 @@ const fixture = async () => {
         "pdeca-ecmr-validation-"
       )
     );
-  const schemaRoot =
+  const schemaDirectory =
     join(
       root,
+      "schema"
+    );
+  const schemaRoot =
+    join(
+      schemaDirectory,
       ECMR_D25A_PROFILE
         .rootSchema
     );
 
-  await mkdir(
-    join(
-      root,
-      "uncefact"
+  await Promise.all([
+    mkdir(
+      join(
+        schemaDirectory,
+        "uncefact"
+      ),
+      {
+        recursive: true
+      }
     ),
-    {
-      recursive: true
-    }
-  );
+    mkdir(
+      join(
+        schemaDirectory,
+        "common"
+      ),
+      {
+        recursive: true
+      }
+    )
+  ]);
 
   const schema =
     '<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>';
-  await writeFile(
-    schemaRoot,
-    schema
-  );
+  const importedSchema =
+    join(
+      schemaDirectory,
+      "common",
+      "Reusable.xsd"
+    );
+
+  await Promise.all([
+    writeFile(
+      schemaRoot,
+      schema
+    ),
+    writeFile(
+      importedSchema,
+      schema
+    )
+  ]);
+
+  const tree =
+    await createSchemaTreeEvidence(
+      schemaDirectory
+    );
+
   await writeFile(
     join(
-      root,
+      schemaDirectory,
       "pdeca-manifest.json"
     ),
     JSON.stringify({
-      schemaVersion: 1,
+      schemaVersion: 2,
       source:
         ECMR_D25A_PROFILE
           .sourcePage,
@@ -89,9 +120,19 @@ const fixture = async () => {
         ECMR_D25A_PROFILE
           .rootSchema,
       archiveSha256:
-        "sha256:fixture",
+        "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      nestedSchemaArchiveSha256:
+        "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       rootSchemaSha256:
-        sha(schema)
+        await sha256File(
+          schemaRoot
+        ),
+      schemaFileCount:
+        tree.schemaFileCount,
+      schemaTreeSha256:
+        tree.schemaTreeSha256,
+      schemaFiles:
+        tree.schemaFiles
     })
   );
 
@@ -100,6 +141,7 @@ const fixture = async () => {
       root,
       "document.xml"
     );
+
   await writeFile(
     xml,
     "<eCMR/>"
@@ -107,15 +149,18 @@ const fixture = async () => {
 
   return {
     root,
+    schemaDirectory,
+    schemaRoot,
+    importedSchema,
     xml
   };
 };
 
 test(
-  "runs xmllint in offline mode against the pinned root schema",
+  "runs xmllint in offline mode and returns complete acceptance hashes",
   async () => {
     const {
-      root,
+      schemaDirectory,
       xml
     } = await fixture();
     let observed = null;
@@ -123,8 +168,7 @@ test(
     const result =
       await validateEcmrD25aXmlFile({
         xmlPath: xml,
-        schemaDirectory:
-          root,
+        schemaDirectory,
         spawn: (
           command,
           args
@@ -165,6 +209,22 @@ test(
         "--schema"
       )
     );
+    assert.match(
+      result.xmlSha256,
+      /^sha256:[0-9a-f]{64}$/
+    );
+    assert.match(
+      result.schemaTreeSha256,
+      /^sha256:[0-9a-f]{64}$/
+    );
+    assert.equal(
+      result.schemaFileCount,
+      2
+    );
+    assert.equal(
+      result.networkAccess,
+      false
+    );
   }
 );
 
@@ -172,7 +232,7 @@ test(
   "fails closed when xmllint is unavailable",
   async () => {
     const {
-      root,
+      schemaDirectory,
       xml
     } = await fixture();
 
@@ -180,8 +240,7 @@ test(
       () =>
         validateEcmrD25aXmlFile({
           xmlPath: xml,
-          schemaDirectory:
-            root,
+          schemaDirectory,
           spawn: () => ({
             status: null,
             error: {
@@ -201,7 +260,7 @@ test(
   "fails closed on official schema validation errors",
   async () => {
     const {
-      root,
+      schemaDirectory,
       xml
     } = await fixture();
 
@@ -209,8 +268,7 @@ test(
       () =>
         validateEcmrD25aXmlFile({
           xmlPath: xml,
-          schemaDirectory:
-            root,
+          schemaDirectory,
           spawn: () => ({
             status: 3,
             stdout: "",
@@ -223,6 +281,42 @@ test(
           "ECMR_D25A_SCHEMA_VALIDATION_FAILED" &&
         error.validationOutput
           .length === 1
+    );
+  }
+);
+
+test(
+  "fails closed if an imported schema changes after manifest creation",
+  async () => {
+    const {
+      schemaDirectory,
+      importedSchema,
+      xml
+    } = await fixture();
+
+    await writeFile(
+      importedSchema,
+      '<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"><!-- tampered imported schema --></xsd:schema>'
+    );
+
+    await assert.rejects(
+      () =>
+        validateEcmrD25aXmlFile({
+          xmlPath: xml,
+          schemaDirectory,
+          spawn: () => ({
+            status: 0,
+            stdout: "",
+            stderr: ""
+          })
+        }),
+      (error) =>
+        [
+          "ECMR_D25A_SCHEMA_TREE_HASH_MISMATCH",
+          "ECMR_D25A_SCHEMA_FILE_HASH_MISMATCH"
+        ].includes(
+          error.code
+        )
     );
   }
 );

@@ -1,0 +1,94 @@
+{
+  "contractVersion": "2026-10",
+  "documentType": "eCMR",
+  "messageStandard": "UN/CEFACT eCMR",
+  "messageRelease": "D25A",
+  "externalReference": "ECMR-ACCEPTANCE-001",
+  "issue": {
+    "date": "2026-10-04",
+    "place": "Barcelona"
+  },
+  "sender": {
+    "legalName": "Example Sender SL",
+    "address": "Carrer Example 1, Barcelona"
+  },
+  "contractualCarrier": {
+    "legalName": "Example Carrier SL",
+    "address": "Carrer Carrier 2, Barcelona"
+  },
+  "takingOver": {
+    "place": "Barcelona",
+    "date": "2026-10-05"
+  },
+  "delivery": {
+    "place": "Lyon"
+  },
+  "consignee": {
+    "legalName": "Example Consignee SAS",
+    "address": "10 Rue Example, Lyon"
+  },
+  "goods": {
+    "nature": "Furniture",
+    "packingMethod": "Pallets",
+    "packingMethodCode": "PX",
+    "dangerousGoodsDescription": null,
+    "dangerousGoods": {
+      "declared": false,
+      "undgIdentificationCode": null,
+      "regulationCode": null,
+      "technicalName": null,
+      "properShippingName": null,
+      "packagingDangerLevelCode": null,
+      "hazardClassificationId": null
+    },
+    "packages": {
+      "count": 4,
+      "marksAndNumbers": [
+        "PAL-001",
+        "PAL-004"
+      ]
+    },
+    "quantity": {
+      "kind": "weight",
+      "value": 420,
+      "unit": "kg"
+    }
+  },
+  "charges": {
+    "declared": true,
+    "items": [
+      {
+        "id": "FREIGHT",
+        "description": "Main carriage",
+        "chargeCategoryCode": null,
+        "amount": {
+          "value": 250,
+          "currency": "EUR"
+        },
+        "payingPartyRoleCode": null,
+        "transportPaymentMethodCode": null
+      }
+    ]
+  },
+  "customsFormalities": {
+    "declared": true,
+    "instructions": [
+      "Keep commercial invoice with transport documents"
+    ]
+  },
+  "conventionApplicability": {
+    "convention": "CMR",
+    "declared": true,
+    "statement": "This carriage is subject to the CMR Convention notwithstanding any clause to the contrary."
+  },
+  "authentication": {
+    "state": "pending",
+    "method": null,
+    "signatures": []
+  },
+  "integrity": {
+    "state": "pending",
+    "contentHash": null,
+    "amendmentHistoryPreserved": false
+  }
+}

@@ -65,7 +65,9 @@
     "ecmr:d25a:schema-validate": "node scripts/production/validate-ecmr-d25a-xml.mjs",
     "check:ecmr-signatures": "node scripts/ci/ecmr-signature-check.mjs",
     "check:ecmr-amendments": "node scripts/ci/ecmr-amendment-check.mjs",
-    "check:ecmr-structured-flow": "node scripts/ci/ecmr-structured-flow-check.mjs"
+    "check:ecmr-structured-flow": "node scripts/ci/ecmr-structured-flow-check.mjs",
+    "production:ecmr-d25a-acceptance": "node scripts/production/ecmr-d25a-acceptance.mjs",
+    "production:ecmr-d25a-evidence-verify": "node scripts/production/verify-ecmr-d25a-evidence.mjs"
   },
   "dependencies": {
     "read-excel-file": "9.3.10",

@@ -69,8 +69,14 @@ try {
           result.rootSchema,
         archiveSha256:
           result.archiveSha256,
+        nestedSchemaArchiveSha256:
+          result.nestedSchemaArchiveSha256,
         rootSchemaSha256:
           result.rootSchemaSha256,
+        schemaFileCount:
+          result.schemaFileCount,
+        schemaTreeSha256:
+          result.schemaTreeSha256,
         targetDirectory:
           result.targetDirectory
       },

@@ -1,4 +1,7 @@
 import {
+  spawnSync
+} from "node:child_process";
+import {
   readFile
 } from "node:fs/promises";
 
@@ -6,9 +9,13 @@ const [
   profile,
   serializer,
   bundle,
+  integrity,
   validator,
   installCli,
-  validateCli
+  validateCli,
+  acceptanceCli,
+  verifyEvidenceCli,
+  acceptanceProjection
 ] = await Promise.all([
   readFile(
     "packages/ecmr-xml/src/d25a-profile.mjs",
@@ -23,6 +30,10 @@ const [
     "utf8"
   ),
   readFile(
+    "packages/ecmr-xml/src/schema-integrity.mjs",
+    "utf8"
+  ),
+  readFile(
     "packages/ecmr-xml/src/schema-validation.mjs",
     "utf8"
   ),
@@ -32,6 +43,18 @@ const [
   ),
   readFile(
     "scripts/production/validate-ecmr-d25a-xml.mjs",
+    "utf8"
+  ),
+  readFile(
+    "scripts/production/ecmr-d25a-acceptance.mjs",
+    "utf8"
+  ),
+  readFile(
+    "scripts/production/verify-ecmr-d25a-evidence.mjs",
+    "utf8"
+  ),
+  readFile(
+    "examples/ecmr/d25a-acceptance-projection.json",
     "utf8"
   )
 ]);
@@ -97,8 +120,14 @@ for (const token of [
 
 for (const token of [
   "safeEntries",
+  "schemaVersion: 2",
   "archiveSha256",
+  "nestedSchemaArchiveSha256",
   "rootSchemaSha256",
+  "schemaFileCount",
+  "schemaTreeSha256",
+  "schemaFiles",
+  "verifySchemaTreeEvidence",
   "pdeca-manifest.json",
   "ECMR_D25A_ROOT_SCHEMA_HASH_MISMATCH"
 ]) {
@@ -110,12 +139,29 @@ for (const token of [
 }
 
 for (const token of [
+  "createSchemaTreeEvidence",
+  "verifySchemaTreeEvidence",
+  "ECMR_D25A_SCHEMA_TREE_EVIDENCE_MISSING",
+  "ECMR_D25A_SCHEMA_TREE_HASH_MISMATCH",
+  "ECMR_D25A_SCHEMA_FILE_HASH_MISMATCH"
+]) {
+  if (!integrity.includes(token)) {
+    throw new Error(
+      `D25A schema tree integrity guard is missing ${token}`
+    );
+  }
+}
+
+for (const token of [
   '"xmllint"',
   '"--nonet"',
   '"--noout"',
   '"--schema"',
   "ECMR_D25A_XMLLINT_REQUIRED",
-  "ECMR_D25A_SCHEMA_VALIDATION_FAILED"
+  "ECMR_D25A_SCHEMA_VALIDATION_FAILED",
+  "xmlSha256",
+  "schemaTreeSha256",
+  "nestedSchemaArchiveSha256"
 ]) {
   if (!validator.includes(token)) {
     throw new Error(
@@ -157,6 +203,58 @@ if (
   );
 }
 
+for (const token of [
+  "ECMR_D25A_PROJECTION",
+  "ECMR_D25A_EVIDENCE",
+  "serializeEcmrD25aEnvelope",
+  "validateEcmrD25aXmlFile",
+  "official-d25a-xsd-pass",
+  "projectionSha256",
+  "evidenceSha256",
+  "schemaTreeSha256",
+  "xmlSha256"
+]) {
+  if (!acceptanceCli.includes(token)) {
+    throw new Error(
+      `D25A generated-XML acceptance command is missing ${token}`
+    );
+  }
+}
+
+for (const token of [
+  "ECMR_D25A_EVIDENCE_HASH_MISMATCH",
+  "ECMR_D25A_EVIDENCE_PROJECTION_MISMATCH",
+  "ECMR_D25A_EVIDENCE_XML_MISMATCH",
+  "ECMR_D25A_EVIDENCE_SCHEMA_MISMATCH",
+  "readEcmrD25aSchemaManifest",
+  "serializeEcmrD25aEnvelope",
+  "schemaTreeSha256"
+]) {
+  if (!verifyEvidenceCli.includes(token)) {
+    throw new Error(
+      `D25A acceptance evidence verifier is missing ${token}`
+    );
+  }
+}
+
+const acceptanceFixture =
+  JSON.parse(
+    acceptanceProjection
+  );
+
+if (
+  acceptanceFixture
+    .messageRelease !==
+      "D25A" ||
+  acceptanceFixture
+    .documentType !==
+      "eCMR"
+) {
+  throw new Error(
+    "D25A acceptance projection must be a canonical structured eCMR D25A fixture"
+  );
+}
+
 for (const mappedPath of [
   '"takingOver.date"',
   '"goods.nature"',
@@ -184,6 +282,35 @@ for (const stillPending of [
   }
 }
 
+for (const path of [
+  "packages/ecmr-xml/src/schema-integrity.mjs",
+  "packages/ecmr-xml/src/schema-bundle.mjs",
+  "packages/ecmr-xml/src/schema-validation.mjs",
+  "scripts/production/ecmr-d25a-acceptance.mjs",
+  "scripts/production/verify-ecmr-d25a-evidence.mjs"
+]) {
+  const parsed =
+    spawnSync(
+      process.execPath,
+      [
+        "--check",
+        path
+      ],
+      {
+        encoding: "utf8"
+      }
+    );
+
+  if (
+    parsed.status !==
+      0
+  ) {
+    throw new Error(
+      `D25A acceptance source failed syntax check: ${path}\n${parsed.stderr ?? ""}`
+    );
+  }
+}
+
 console.log(
-  "eCMR D25A XML boundary OK (official package pinned, Article 6 projection fields mapped without inference, local schema manifest/hash, xmllint --nonet fail-closed validation)"
+  "eCMR D25A XML boundary OK (official package pinned, full schema-tree integrity manifest, generated-XML acceptance evidence, xmllint --nonet fail-closed validation)"
 );
