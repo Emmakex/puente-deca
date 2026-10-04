@@ -125,10 +125,14 @@ const shipment = () => ({
       },
       customsFormalities: {
         declared: true,
-        instructions: []
+        instructions: [
+          "Present export MRN at border"
+        ]
       },
       conventionApplicability: {
-        declared: true
+        declared: true,
+        statement:
+          "This carriage is subject to the CMR Convention notwithstanding any clause to the contrary."
       }
     }
   }
@@ -196,6 +200,25 @@ test(
           "II",
         hazardClassificationId:
           "3"
+      }
+    );
+    assert.deepEqual(
+      projection.customsFormalities,
+      {
+        declared: true,
+        instructions: [
+          "Present export MRN at border"
+        ]
+      }
+    );
+    assert.deepEqual(
+      projection
+        .conventionApplicability,
+      {
+        convention: "CMR",
+        declared: true,
+        statement:
+          "This carriage is subject to the CMR Convention notwithstanding any clause to the contrary."
       }
     );
     assert.deepEqual(
@@ -321,6 +344,38 @@ test(
         )
       );
     }
+  }
+);
+
+test(
+  "requires explicit CMR clause text instead of treating a boolean as document content",
+  () => {
+    const current =
+      shipment();
+    current.extensions.ecmr
+      .conventionApplicability
+      .statement = "";
+
+    const result =
+      validateEcmrProjection(
+        ecmrProjectionFromShipment(
+          current
+        )
+      );
+
+    assert.equal(
+      result.valid,
+      false
+    );
+    assert.ok(
+      result.errors.some(
+        (entry) =>
+          entry.path ===
+          "conventionApplicability.statement" &&
+          entry.legalBasis ===
+          "CMR_6_1_K"
+      )
+    );
   }
 );
 
