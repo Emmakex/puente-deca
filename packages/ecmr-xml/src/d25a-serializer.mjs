@@ -94,6 +94,89 @@ const party = (
     ]
   );
 
+const dateTime102 = (
+  value
+) =>
+  container(
+    "ActualOccurrenceDateTime",
+    [
+      element(
+        "DateTimeString",
+        date102(value),
+        {
+          prefix: "udt",
+          attributes: {
+            format: "102"
+          }
+        }
+      )
+    ]
+  );
+
+const shippingMarks = (
+  marks
+) =>
+  Array.isArray(marks)
+    ? marks
+        .map(text)
+        .filter(Boolean)
+        .map(
+          (mark) =>
+            container(
+              "PhysicalLogisticsShippingMarks",
+              [
+                element(
+                  "Marking",
+                  mark
+                )
+              ]
+            )
+        )
+    : [];
+
+const consignmentItem = (
+  goods
+) => {
+  const count =
+    goods?.packages?.count;
+  const marks =
+    goods?.packages
+      ?.marksAndNumbers;
+
+  return container(
+    "IncludedSupplyChainConsignmentItem",
+    [
+      element(
+        "SequenceNumeric",
+        1
+      ),
+      container(
+        "NatureIdentificationTransportCargo",
+        [
+          element(
+            "Identification",
+            text(goods?.nature)
+          )
+        ]
+      ),
+      container(
+        "TransportLogisticsPackage",
+        [
+          element(
+            "ItemQuantity",
+            Number.isInteger(count)
+              ? count
+              : null
+          ),
+          ...shippingMarks(
+            marks
+          )
+        ]
+      )
+    ]
+  );
+};
+
 const quantityMeasure = (
   quantity
 ) => {
@@ -235,6 +318,16 @@ export function serializeEcmrD25aEnvelope(
           ]
         ),
         container(
+          "PickUpTransportEvent",
+          [
+            dateTime102(
+              projection
+                .takingOver
+                .date
+            )
+          ]
+        ),
+        container(
           "ConsigneeReceiptLogisticsLocation",
           [
             element(
@@ -244,6 +337,9 @@ export function serializeEcmrD25aEnvelope(
                 .place
             )
           ]
+        ),
+        consignmentItem(
+          projection.goods
         )
       ],
       "rsm"
@@ -274,16 +370,16 @@ export function serializeEcmrD25aEnvelope(
       "sender",
       "contractualCarrier",
       "takingOver.place",
+      "takingOver.date",
       "delivery.place",
       "consignee",
       "goods.quantity",
-      "goods.packages.count"
+      "goods.nature",
+      "goods.packages.count",
+      "goods.packages.marksAndNumbers"
     ],
     pendingProjectionPaths: [
-      "takingOver.date",
-      "goods.nature",
       "goods.packingMethod",
-      "goods.packages.marksAndNumbers",
       "goods.dangerousGoodsDescription",
       "charges",
       "customsFormalities",
