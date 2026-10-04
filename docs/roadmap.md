@@ -145,5 +145,14 @@ Characters outside the embedded font set continue to fail closed rather than bei
     - [x] Switch internal reads to Shipment-first with legacy-data fallback.
   - [x] DeCA document engine consumes Shipment through the adapter boundary.
 - [ ] eCMR adapter.
+  - [x] Authoritative baseline fixed to CMR Article 6 + e-CMR Protocol + UN/CEFACT eCMR D25A.
+  - [x] Canonical internal eCMR projection contract.
+  - [x] Shipment → eCMR adapter with explicit sender/contractual-carrier/consignee roles.
+  - [x] CMR Article 6 mandatory-particular validation with legal-basis identifiers.
+  - [x] Separate electronic authentication/integrity readiness validation.
+  - [ ] UN/CEFACT D25A XML serialization + schema validation.
+  - [ ] Cryptographic authentication/signature implementation.
+  - [ ] Amendment/version lifecycle preserving original particulars.
+  - [ ] eCMR API/rendering/production issuance acceptance.
 - [ ] eFTI compatibility track.
 - [ ] Additional transport-document modules.
