@@ -142,8 +142,8 @@ Characters outside the embedded font set continue to fail closed rather than bei
     - [x] Keep internal `aggregate` out of public shipment API responses.
     - [x] Preserve existing idempotency semantics during the compatibility stage.
     - [ ] Backfill legacy Atlas shipment records without an `aggregate` (guarded inspect/apply tooling implemented; pending controlled Atlas execution and zero-missing evidence).
-    - [ ] Switch internal reads to Shipment-first with legacy-data fallback.
-  - [ ] DeCA document engine consumes Shipment through the adapter boundary.
+    - [x] Switch internal reads to Shipment-first with legacy-data fallback.
+  - [x] DeCA document engine consumes Shipment through the adapter boundary.
 - [ ] eCMR adapter.
 - [ ] eFTI compatibility track.
 - [ ] Additional transport-document modules.
