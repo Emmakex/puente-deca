@@ -483,6 +483,21 @@ export function validateEcmrProjection(
         "CMR_6_1_K"
       )
     );
+  } else if (
+    !hasText(
+      input
+        .conventionApplicability
+        .statement
+    )
+  ) {
+    errors.push(
+      error(
+        "conventionApplicability.statement",
+        "required",
+        "An explicit CMR applicability statement is required in the consignment note",
+        "CMR_6_1_K"
+      )
+    );
   }
 
   return {
