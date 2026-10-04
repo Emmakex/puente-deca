@@ -496,6 +496,168 @@ try {
     );
   }
 
+  const originalChain =
+    createEcmrAmendmentChain({
+      xml:
+        "<rsm:eCMR>original</rsm:eCMR>",
+      actor: {
+        actorId:
+          "ES-B12345678",
+        partyRole:
+          "sender",
+        identityScheme:
+          "tax-id"
+      },
+      reason:
+        "initial issue",
+      createdAt:
+        "2026-10-05T10:00:00.000Z",
+      idFactory:
+        () => "atlas_original"
+    });
+
+  await store.appendRegulatoryVersion({
+    organizationId:
+      smokeOrganizationId,
+    shipmentId,
+    regulatoryType:
+      "ecmr",
+    record:
+      originalChain[0]
+  });
+
+  const amendmentA =
+    appendEcmrAmendment({
+      chain:
+        originalChain,
+      xml:
+        "<rsm:eCMR>amendment-a</rsm:eCMR>",
+      actor: {
+        actorId:
+          "ES-B12345678",
+        partyRole:
+          "sender",
+        identityScheme:
+          "tax-id"
+      },
+      reason:
+        "concurrency branch a",
+      createdAt:
+        "2026-10-05T10:05:00.000Z",
+      idFactory:
+        () => "atlas_branch_a"
+    })[1];
+
+  const amendmentB =
+    appendEcmrAmendment({
+      chain:
+        originalChain,
+      xml:
+        "<rsm:eCMR>amendment-b</rsm:eCMR>",
+      actor: {
+        actorId:
+          "ES-B87654321",
+        partyRole:
+          "carrier",
+        identityScheme:
+          "tax-id"
+      },
+      reason:
+        "concurrency branch b",
+      createdAt:
+        "2026-10-05T10:05:01.000Z",
+      idFactory:
+        () => "atlas_branch_b"
+    })[1];
+
+  const regulatoryRace =
+    await Promise.allSettled([
+      store.appendRegulatoryVersion({
+        organizationId:
+          smokeOrganizationId,
+        shipmentId,
+        regulatoryType:
+          "ecmr",
+        record:
+          amendmentA
+      }),
+      store.appendRegulatoryVersion({
+        organizationId:
+          smokeOrganizationId,
+        shipmentId,
+        regulatoryType:
+          "ecmr",
+        record:
+          amendmentB
+      })
+    ]);
+
+  const winningRegulatoryVersion =
+    assertConcurrentRegulatoryResult(
+      regulatoryRace
+    );
+
+  const [
+    regulatoryCount,
+    regulatoryAuditCount,
+    regulatoryLineage
+  ] =
+    await Promise.all([
+      database
+        .collection(
+          "deca_regulatory_versions"
+        )
+        .countDocuments({
+          organizationId:
+            smokeOrganizationId,
+          shipmentId,
+          regulatoryType:
+            "ecmr"
+        }),
+      database
+        .collection(
+          "deca_audit_events"
+        )
+        .countDocuments({
+          organizationId:
+            smokeOrganizationId,
+          shipmentId,
+          type:
+            "regulatory.version.created"
+        }),
+      store.listRegulatoryVersions({
+        organizationId:
+          smokeOrganizationId,
+        shipmentId,
+        regulatoryType:
+          "ecmr"
+      })
+    ]);
+
+  if (
+    regulatoryCount !== 2 ||
+    regulatoryAuditCount !== 2 ||
+    regulatoryLineage.length !== 2 ||
+    regulatoryLineage[0]
+      .version !== 1 ||
+    regulatoryLineage[1]
+      .version !== 2 ||
+    regulatoryLineage[1]
+      .versionId !==
+      winningRegulatoryVersion
+        .versionId
+  ) {
+    throw Object.assign(
+      new Error(
+        "Concurrent regulatory versioning left divergent or incomplete lineage"
+      ),
+      {
+        code:
+          "ATLAS_REGULATORY_LINEAGE_INCONSISTENT"
+      }
+    );
+  }
+
   await cleanupOrganization(
     database,
     smokeOrganizationId
