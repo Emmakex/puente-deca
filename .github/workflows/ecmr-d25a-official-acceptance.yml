@@ -40,18 +40,46 @@ jobs:
 
       - name: Download official UNECE D25A package
         env:
+          ECMR_D25A_PAGE: https://unece.org/trade/documents/2026/06/ecmr-d25a
           ECMR_D25A_URL: https://unece.org/sites/default/files/2026-06/eCMR_D25A.zip
         run: |
           mkdir -p .artifacts/ecmr-d25a
-          curl             --fail             --location             --retry 3             --retry-all-errors             --connect-timeout 15             --max-time 90             --user-agent "Puente-DeCA-D25A-Acceptance/1.0"             --referer "https://unece.org/trade/documents/2026/06/ecmr-d25a"             "$ECMR_D25A_URL"             --output .artifacts/ecmr-d25a/eCMR_D25A.zip
+          USER_AGENT="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/154 Safari/537.36"
+
+          curl --fail --location \
+            --connect-timeout 15 \
+            --max-time 60 \
+            --user-agent "$USER_AGENT" \
+            --header "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" \
+            --cookie-jar .artifacts/ecmr-d25a/unece.cookies \
+            "$ECMR_D25A_PAGE" \
+            --output .artifacts/ecmr-d25a/source-page.html
+
+          grep -F "eCMR_D25A.zip" .artifacts/ecmr-d25a/source-page.html
+
+          curl --fail --location \
+            --retry 3 \
+            --retry-all-errors \
+            --connect-timeout 15 \
+            --max-time 90 \
+            --user-agent "$USER_AGENT" \
+            --header "Accept: application/zip,application/octet-stream;q=0.9,*/*;q=0.8" \
+            --header "Sec-Fetch-Site: same-origin" \
+            --header "Sec-Fetch-Mode: navigate" \
+            --referer "$ECMR_D25A_PAGE" \
+            --cookie .artifacts/ecmr-d25a/unece.cookies \
+            "$ECMR_D25A_URL" \
+            --output .artifacts/ecmr-d25a/eCMR_D25A.zip
 
           test -s .artifacts/ecmr-d25a/eCMR_D25A.zip
           unzip -t .artifacts/ecmr-d25a/eCMR_D25A.zip
-          unzip -Z1 .artifacts/ecmr-d25a/eCMR_D25A.zip             | grep -Fx "XSD/Schema.zip"
+          unzip -Z1 .artifacts/ecmr-d25a/eCMR_D25A.zip \
+            | grep -Fx "XSD/Schema.zip"
 
       - name: Record official archive SHA-256
         run: |
-          sha256sum .artifacts/ecmr-d25a/eCMR_D25A.zip             | tee .artifacts/ecmr-d25a/eCMR_D25A.zip.sha256
+          sha256sum .artifacts/ecmr-d25a/eCMR_D25A.zip \
+            | tee .artifacts/ecmr-d25a/eCMR_D25A.zip.sha256
 
       - name: Install hash-verified official schema bundle
         env:
@@ -75,7 +103,9 @@ jobs:
 
       - name: Preserve schema manifest
         run: |
-          cp             .artifacts/ecmr-d25a/schema/pdeca-manifest.json             .artifacts/ecmr-d25a/schema-manifest.json
+          cp \
+            .artifacts/ecmr-d25a/schema/pdeca-manifest.json \
+            .artifacts/ecmr-d25a/schema-manifest.json
 
       - name: Upload D25A acceptance evidence
         uses: actions/upload-artifact@v4
