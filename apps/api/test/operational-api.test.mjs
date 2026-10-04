@@ -5,6 +5,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  createHash,
   generateKeyPairSync
 } from "node:crypto";
 import { createServer } from "../src/server.mjs";
@@ -17,6 +18,15 @@ import {
 import {
   FileArtifactStore
 } from "../../../packages/persistence/src/file-artifact-store.mjs";
+import {
+  canonicalJson
+} from "../../../packages/core/src/canonical-json.mjs";
+import {
+  createEcmrDetachedSignature
+} from "../../../packages/ecmr-signature/src/detached-signature.mjs";
+import {
+  ECMR_D25A_PROFILE
+} from "../../../packages/ecmr-xml/src/d25a-profile.mjs";
 
 const payload = {
   externalReference: "SHIP-2026-0100",
@@ -111,6 +121,80 @@ const ecmrDraft = () => ({
       "This carriage is subject to the CMR Convention notwithstanding any clause to the contrary."
   }
 });
+
+const sha256Evidence = (
+  value
+) =>
+  `sha256:${createHash("sha256")
+    .update(value)
+    .digest("hex")}`;
+
+const officialD25aAcceptanceEvidence = (
+  xmlSha256
+) => {
+  const placeholderHash =
+    `sha256:${"a".repeat(64)}`;
+  const core = {
+    evidenceVersion: 1,
+    status: "pass",
+    check:
+      "ecmr-d25a-generated-xml-acceptance",
+    generatedAt:
+      "2026-10-04T19:00:00.000Z",
+    projectionSha256:
+      placeholderHash,
+    serializer: {
+      release:
+        ECMR_D25A_PROFILE.release,
+      rootSchema:
+        ECMR_D25A_PROFILE.rootSchema,
+      mappedProjectionPaths: [
+        "issue.date"
+      ],
+      pendingProjectionPaths: []
+    },
+    validation: {
+      schemaConformance:
+        "official-d25a-xsd-pass",
+      release:
+        ECMR_D25A_PROFILE.release,
+      sourceFile:
+        ECMR_D25A_PROFILE
+          .sourceFileName,
+      sourceFileId:
+        ECMR_D25A_PROFILE
+          .sourceFileId,
+      archiveSha256:
+        placeholderHash,
+      nestedSchemaArchive:
+        ECMR_D25A_PROFILE
+          .nestedSchemaArchive,
+      nestedSchemaArchiveSha256:
+        placeholderHash,
+      rootSchema:
+        ECMR_D25A_PROFILE
+          .rootSchema,
+      rootSchemaSha256:
+        placeholderHash,
+      schemaFileCount: 42,
+      schemaTreeSha256:
+        placeholderHash,
+      xmlSha256,
+      networkAccess: false
+    }
+  };
+
+  return {
+    ...core,
+    evidenceSha256:
+      sha256Evidence(
+        Buffer.from(
+          canonicalJson(core),
+          "utf8"
+        )
+      )
+  };
+};
 
 const PLATFORM_SERVICE_SECRET =
   "kairoseth-ci-service-secret-0123456789abcdef";
