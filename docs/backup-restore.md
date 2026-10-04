@@ -68,16 +68,16 @@ mongorestore \
   --nsInclude="kairoseth.deca_*"
 ```
 
-After restore:
+After restore, the automated `production:restore-drill` now performs the metadata/GridFS reconciliation and verifies every stored PDF byte-for-byte against both GridFS metadata and `deca_document_versions.artifact` evidence.
+
+For an inspection/preserved DR run, additionally:
 
 1. connect the Puente DeCA service to the restored database;
-2. run `npm run artifacts:reconcile`;
-3. select several document versions and download their PDFs through the artifact store;
-4. verify SHA-256 against `deca_document_versions.artifact.sha256`;
-5. verify at least one public QR path end-to-end;
-6. verify connector credentials are still hashed/revocation state is preserved;
-7. verify audit and purge records;
-8. only then approve the restore procedure.
+2. confirm reconciliation remains at zero anomalies;
+3. verify at least one public QR path end-to-end;
+4. verify connector credentials are still hashed and revocation state is preserved;
+5. verify audit and purge records;
+6. only then approve the restore procedure.
 
 ## Recovery test cases
 
