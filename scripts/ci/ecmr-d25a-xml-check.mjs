@@ -83,8 +83,10 @@ for (const token of [
   "TypeText",
   "ConsignorProvidedBorderClearanceTransportInstructions",
   "ContractualDocumentClause",
-  "projection.customsFormalities",
-  "projection.conventionApplicability"
+  "borderClearanceInstructions",
+  "cmrContractualClause",
+  ".customsFormalities",
+  ".conventionApplicability"
 ]) {
   if (!serializer.includes(token)) {
     throw new Error(
