@@ -26,10 +26,10 @@ The first internal contract is `SHIPMENT_CONTRACT_VERSION=2026-10` and models co
 
 The existing DeCA API remains stable. A tested adapter maps canonical DeCA requests into the generic Shipment aggregate and back again before persistence is migrated. DeCA-specific legal validation therefore remains separate from regulation-neutral Shipment structural validation.
 
-A shipment may later produce multiple regulatory representations:
+A shipment may produce multiple regulatory representations:
 
 - Spain DeCA;
-- eCMR;
+- eCMR (adapter baseline now uses explicit CMR roles, Article-6 validation and pinned UN/CEFACT D25A; electronic issuance remains gated on authentication/integrity);
 - eFTI-compatible representations;
 - other transport documents.
 
