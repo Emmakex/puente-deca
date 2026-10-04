@@ -55,10 +55,26 @@ try {
           result.valid,
         release:
           result.release,
+        sourceFile:
+          result.sourceFile,
+        sourceFileId:
+          result.sourceFileId,
+        archiveSha256:
+          result.archiveSha256,
+        nestedSchemaArchive:
+          result.nestedSchemaArchive,
+        nestedSchemaArchiveSha256:
+          result.nestedSchemaArchiveSha256,
         rootSchema:
           result.rootSchema,
         rootSchemaSha256:
           result.rootSchemaSha256,
+        schemaFileCount:
+          result.schemaFileCount,
+        schemaTreeSha256:
+          result.schemaTreeSha256,
+        xmlSha256:
+          result.xmlSha256,
         networkAccess:
           result.networkAccess
       },
