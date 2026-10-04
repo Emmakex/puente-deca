@@ -119,6 +119,55 @@ const optionalHash = (
         name
       );
 
+const normalizeReviewEvidence = (
+  record
+) => {
+  const snapshotMissing =
+    record.reviewSnapshot ===
+      undefined ||
+    record.reviewSnapshot ===
+      null;
+  const hashMissing =
+    record.reviewHash ===
+      undefined ||
+    record.reviewHash ===
+      null;
+
+  if (
+    snapshotMissing &&
+    hashMissing
+  ) {
+    return {
+      reviewSnapshot: null,
+      reviewHash: null
+    };
+  }
+
+  if (
+    snapshotMissing ||
+    hashMissing
+  ) {
+    throw new TypeError(
+      "record.reviewSnapshot and record.reviewHash must be provided together"
+    );
+  }
+
+  return {
+    reviewSnapshot:
+      structuredClone(
+        requireRecord(
+          record.reviewSnapshot,
+          "record.reviewSnapshot"
+        )
+      ),
+    reviewHash:
+      requireHash(
+        record.reviewHash,
+        "record.reviewHash"
+      )
+  };
+};
+
 export function normalizeRegulatoryVersionRecord(
   input
 ) {
@@ -144,6 +193,10 @@ export function normalizeRegulatoryVersionRecord(
     requireRecord(
       record.actor,
       "record.actor"
+    );
+  const reviewEvidence =
+    normalizeReviewEvidence(
+      record
     );
 
   const normalized = {
@@ -218,7 +271,13 @@ export function normalizeRegulatoryVersionRecord(
       requireHash(
         record.chainHash,
         "record.chainHash"
-      )
+      ),
+    reviewSnapshot:
+      reviewEvidence
+        .reviewSnapshot,
+    reviewHash:
+      reviewEvidence
+        .reviewHash
   };
 
   if (version === 1) {
