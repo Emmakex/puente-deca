@@ -27,7 +27,9 @@ for (const collection of [
 ]) {
   requirePattern(
     adapter,
-    new RegExp(`collection\\("${collection}"\\)`),
+    new RegExp(
+      `collection\\s*\\(\\s*["']${collection}["']\\s*\\)`
+    ),
     `Missing MongoDB collection ${collection}`
   );
 }
