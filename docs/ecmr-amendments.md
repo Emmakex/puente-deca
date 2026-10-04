@@ -81,13 +81,24 @@ This prevents a valid historical chain for one document from being attached to a
 
 ## Remaining production work
 
-The cryptographic chain core is complete, but the lifecycle is not production-complete until:
+The cryptographic chain core is complete and the persistence layer now stores each accepted version as an append-only regulatory-version record in `deca_regulatory_versions`, scoped by Kairoseth organization + Shipment + regulatory type.
 
-- amendment versions are persisted immutably in MongoDB Atlas;
+Persistence guarantees include:
+
+- unique global `versionId`;
+- unique `organizationId + shipmentId + regulatoryType + version`;
+- current-head verification before append;
+- exact predecessor version/content/chain hash matching;
+- transactional append + audit in MongoDB;
+- serialized append semantics in JsonStore;
+- DR restore treats the ledger as a required collection.
+
+The lifecycle is not production-complete until:
+
 - APIs/workspace operations append versions rather than replacing history;
 - authorization policy defines who may amend each eCMR;
 - signatures/identity evidence for versions are retained as required;
-- backup/restore acceptance includes the amendment collection;
+- production/live backup-restore evidence confirms the ledger survives DR;
 - production concurrency tests prove two simultaneous amendments cannot create divergent accepted heads.
 
 Until those gates are complete, the top-level roadmap item remains open.

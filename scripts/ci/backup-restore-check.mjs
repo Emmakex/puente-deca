@@ -118,6 +118,11 @@ requirePattern(
 );
 requirePattern(
   restore,
+  /deca_regulatory_versions/,
+  "Restore drill must require the immutable regulatory-version collection"
+);
+requirePattern(
+  restore,
   /deca_pdf\.files/,
   "Restore must verify GridFS files"
 );

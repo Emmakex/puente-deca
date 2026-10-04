@@ -78,7 +78,7 @@ test(
       });
 
     assert.deepEqual(result, {
-      metadataIndexes: 16,
+      metadataIndexes: 19,
       gridFsIndexes: 1
     });
   }

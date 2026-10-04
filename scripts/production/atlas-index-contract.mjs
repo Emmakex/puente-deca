@@ -63,6 +63,35 @@ const metadataIndexContracts = [
     unique: false
   },
   {
+    collection: "deca_regulatory_versions",
+    name: "regulatory_version_id_unique",
+    key: { versionId: 1 },
+    unique: true
+  },
+  {
+    collection: "deca_regulatory_versions",
+    name: "regulatory_lineage_unique",
+    key: {
+      organizationId: 1,
+      shipmentId: 1,
+      regulatoryType: 1,
+      version: 1
+    },
+    unique: true
+  },
+  {
+    collection: "deca_regulatory_versions",
+    name: "regulatory_shipment_created",
+    key: {
+      organizationId: 1,
+      shipmentId: 1,
+      regulatoryType: 1,
+      createdAt: 1,
+      versionId: 1
+    },
+    unique: false
+  },
+  {
     collection: "deca_idempotency",
     name: "idempotency_scope_unique",
     key: { scope: 1 },
