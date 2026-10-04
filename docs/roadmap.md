@@ -134,6 +134,11 @@ Characters outside the embedded font set continue to fail closed rather than bei
 ## Phase 7 — Transport Compliance Engine
 
 - [ ] Generic Shipment aggregate.
+  - [x] Versioned regulation-neutral Shipment contract.
+  - [x] Structural Shipment validator with unique role-based parties.
+  - [x] Canonical DeCA ↔ Shipment semantic round-trip adapter/tests.
+  - [ ] Internal persistence migration from DeCA-shaped data to Shipment aggregate.
+  - [ ] DeCA document engine consumes Shipment through the adapter boundary.
 - [ ] eCMR adapter.
 - [ ] eFTI compatibility track.
 - [ ] Additional transport-document modules.
