@@ -145,6 +145,38 @@ If any of those checks fail, history fails closed with `ecmr_review_integrity_fa
 
 Legacy/raw-XML versions remain readable with no review snapshot. A structured review is therefore available only where the engine can prove it corresponds to the preserved wire content.
 
+## Verified human-review PDF
+
+Kairoseth can render a structured eCMR version as a human-readable PDF without exposing the preserved XML:
+
+```text
+GET /v1/shipments/{shipmentId}/ecmr/versions/{versionId}/review.pdf
+scope: regulatory:read
+```
+
+Before rendering, the engine:
+
+1. verifies the immutable amendment chain;
+2. verifies the stored review snapshot and canonical review hash;
+3. reserializes the snapshot and requires its XML SHA-256 to match the immutable version `contentHash`;
+4. renders only the verified human-review projection.
+
+The PDF includes the version/content/review hashes and is deliberately marked:
+
+```text
+NOT ISSUED / NOT SIGNED
+```
+
+The response also carries:
+
+```text
+x-ecmr-issuance-status: not-issued
+```
+
+Legacy/raw-XML versions without a verified structured review snapshot are not renderable through this endpoint.
+
+This renderer is a review surface only. It must not be presented as production eCMR issuance evidence until the official D25A XSD gate and production signer identity/key-custody policy are accepted.
+
 ## Legacy Shipment compatibility
 
 If a legacy shipment does not yet contain the generic `aggregate`, the engine builds a temporary aggregate from its validated canonical DeCA data for preview/structured append.
@@ -165,11 +197,12 @@ Implemented:
 - server timestamp;
 - legacy Shipment fallback;
 - Kairoseth structured customer form/review workflow with no raw XML;
-- cryptographically cross-checked human-review snapshots for structured versions.
+- cryptographically cross-checked human-review snapshots for structured versions;
+- verified human-readable review PDF with explicit non-issuance status.
 
 Still pending before production eCMR issuance:
 
 - official D25A XSD PASS with preserved hash evidence;
 - accepted signer/key-custody policy;
 - live Atlas concurrency and DR evidence;
-- final human-readable eCMR rendering/sign/issue flow.
+- production signing and issuance UX after the XSD and signer-policy gates.

@@ -1957,6 +1957,63 @@ test("structured eCMR preview and append generate D25A internally without exposi
           .reviewHash
       );
 
+      const reviewPdfResponse =
+        await fetch(
+          `${baseUrl}/v1/shipments/${shipment.shipmentId}/ecmr/versions/${first.version.versionId}/review.pdf`,
+          {
+            headers:
+              authHeaders(apiKey)
+          }
+        );
+      const reviewPdf =
+        Buffer.from(
+          await reviewPdfResponse
+            .arrayBuffer()
+        );
+
+      assert.equal(
+        reviewPdfResponse.status,
+        200
+      );
+      assert.equal(
+        reviewPdfResponse.headers
+          .get(
+            "content-type"
+          ),
+        "application/pdf"
+      );
+      assert.equal(
+        reviewPdfResponse.headers
+          .get(
+            "x-ecmr-issuance-status"
+          ),
+        "not-issued"
+      );
+      assert.equal(
+        reviewPdfResponse.headers
+          .get(
+            "x-ecmr-content-hash"
+          ),
+        first.version
+          .contentHash
+      );
+      assert.equal(
+        reviewPdfResponse.headers
+          .get(
+            "x-ecmr-review-hash"
+          ),
+        first.version
+          .reviewHash
+      );
+      assert.equal(
+        reviewPdf
+          .subarray(0, 8)
+          .toString(
+            "latin1"
+          ),
+        "%PDF-1.7"
+      );
+
       const noOpResponse =
         await fetch(
           `${baseUrl}/v1/shipments/${shipment.shipmentId}/ecmr/versions/structured`,
@@ -2150,6 +2207,27 @@ test("eCMR amendment API preserves exact XML, derives actor identity and rejects
         first.version.actor
           .identityScheme,
         "kairoseth-api-credential"
+      );
+
+      const unavailableReview =
+        await fetch(
+          `${baseUrl}/v1/shipments/${shipment.shipmentId}/ecmr/versions/${first.version.versionId}/review.pdf`,
+          {
+            headers:
+              authHeaders(apiKey)
+          }
+        );
+      const unavailableBody =
+        await unavailableReview
+          .json();
+
+      assert.equal(
+        unavailableReview.status,
+        409
+      );
+      assert.equal(
+        unavailableBody.error,
+        "ecmr_review_unavailable"
       );
 
       const listOne =

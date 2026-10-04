@@ -49,7 +49,9 @@ The repository follows the same engineering principle as Puente VeriFactu: a sma
 
 ## Status
 
-Initial foundation in progress.
+The agreed DeCA production scope is internally engineered and covered by automated CI/runtime acceptance. Active development is now in **Phase 7 — Transport Compliance Engine**, including the generic Shipment model and eCMR support. Live infrastructure, store compatibility, Atlas/DR and external security evidence remain explicit deployment gates.
+
+See [`docs/roadmap.md`](docs/roadmap.md) for the current source of truth.
 
 
 ## Kairoseth Platform boundary

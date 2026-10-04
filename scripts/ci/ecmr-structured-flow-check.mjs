@@ -6,7 +6,8 @@ const [
   draft,
   server,
   openapi,
-  review
+  review,
+  renderer
 ] = await Promise.all([
   readFile(
     "packages/core/src/ecmr-draft.mjs",
@@ -22,6 +23,10 @@ const [
   ),
   readFile(
     "packages/ecmr-xml/src/review-snapshot.mjs",
+    "utf8"
+  ),
+  readFile(
+    "packages/document-engine/src/ecmr-review-pdf.mjs",
     "utf8"
   )
 ]);
@@ -114,6 +119,32 @@ for (const token of [
   }
 }
 
+for (const token of [
+  "renderVerifiedEcmrReviewPdf",
+  "NOT ISSUED / NOT SIGNED",
+  "ECMR_PDF_UNSUPPORTED_CHARACTER",
+  "ECMR_REVIEW_PDF_TOO_LARGE"
+]) {
+  if (!renderer.includes(token)) {
+    throw new Error(
+      `eCMR human-review PDF renderer is missing ${token}`
+    );
+  }
+}
+
+for (const token of [
+  "ecmrReviewPdfMatch",
+  "renderVerifiedEcmrReviewPdf",
+  "x-ecmr-issuance-status",
+  "ecmr_review_unavailable"
+]) {
+  if (!server.includes(token)) {
+    throw new Error(
+      `eCMR review PDF API is missing ${token}`
+    );
+  }
+}
+
 const document =
   JSON.parse(openapi);
 
@@ -126,6 +157,24 @@ for (const path of [
       `Structured eCMR OpenAPI path missing: ${path}`
     );
   }
+}
+
+const reviewPdf =
+  document.paths?.[
+    "/v1/shipments/{shipmentId}/ecmr/versions/{versionId}/review.pdf"
+  ]?.get;
+
+if (
+  !reviewPdf ||
+  !reviewPdf.description.includes(
+    "NOT ISSUED"
+  ) ||
+  !reviewPdf.responses?.["200"]
+    ?.content?.["application/pdf"]
+) {
+  throw new Error(
+    "Verified eCMR review PDF OpenAPI contract is missing its non-issuance boundary"
+  );
 }
 
 const preview =
@@ -170,5 +219,5 @@ if (
 }
 
 console.log(
-  "Structured eCMR flow contract OK (explicit legal facts, no DeCA role inference, server-side D25A generation, XML-free responses, verifiable human-review snapshots)"
+  "Structured eCMR flow contract OK (explicit legal facts, no DeCA role inference, server-side D25A generation, XML-free responses, verifiable human-review snapshots and non-issued review PDF)"
 );
