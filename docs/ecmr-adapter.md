@@ -93,11 +93,15 @@ Implemented:
 - Shipment → eCMR mapping;
 - Article-6 particulars validation;
 - separate electronic-readiness validation;
-- fail-closed/no-guessing tests.
+- fail-closed/no-guessing tests;
+- official D25A package identity/root XSD pinned;
+- guarded local installer for the official UNECE XSD bundle with SHA-256 manifest;
+- offline fail-closed `xmllint --nonet` schema-validation boundary;
+- deterministic namespace-pinned XML envelope serializer for confirmed UN/CEFACT nodes.
 
 Not yet implemented:
 
-- D25A XML serialization/schema validation;
+- complete D25A field mapping plus a passing official-XSD validation of a full eCMR document;
 - cryptographic signature implementation;
 - amendment/version event model;
 - eCMR PDF/human-readable rendering;
@@ -105,4 +109,6 @@ Not yet implemented:
 - cross-border jurisdiction/party applicability decisioning;
 - production issuance acceptance.
 
-Those remain explicit roadmap items before Kairoseth can claim eCMR issuance.
+The current serializer explicitly reports schema conformance as pending until it has passed the official UNECE XSD bundle. See [`docs/ecmr-d25a-xml.md`](ecmr-d25a-xml.md).
+
+Those remaining items stay explicit roadmap gates before Kairoseth can claim eCMR issuance.

@@ -151,6 +151,12 @@ Characters outside the embedded font set continue to fail closed rather than bei
   - [x] CMR Article 6 mandatory-particular validation with legal-basis identifiers.
   - [x] Separate electronic authentication/integrity readiness validation.
   - [ ] UN/CEFACT D25A XML serialization + schema validation.
+    - [x] Official UNECE D25A package identity, nested `XSD/Schema.zip` and root `uncefact/eCMR_100pD25A.xsd` pinned.
+    - [x] Guarded local schema-bundle installer with archive/root SHA-256 manifest and path-traversal rejection.
+    - [x] Offline fail-closed `xmllint --nonet` validation boundary.
+    - [x] Deterministic namespace-pinned XML envelope serializer for confirmed UN/CEFACT eCMR/MMT nodes.
+    - [ ] Complete mapping for all required projection fields.
+    - [ ] Full generated XML passes the installed official D25A XSD bundle with preserved hash evidence.
   - [ ] Cryptographic authentication/signature implementation.
   - [ ] Amendment/version lifecycle preserving original particulars.
   - [ ] eCMR API/rendering/production issuance acceptance.
