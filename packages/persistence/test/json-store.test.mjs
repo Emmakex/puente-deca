@@ -7,6 +7,10 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { JsonStore } from "../src/json-store.mjs";
+import {
+  createEcmrAmendmentChain,
+  appendEcmrAmendment
+} from "../../ecmr-amendment/src/amendment-chain.mjs";
 
 const withStore = async (fn) => {
   const directory = await mkdtemp(
@@ -309,6 +313,182 @@ test("replays identical idempotent shipment creates and rejects conflicts", asyn
         }),
       (error) =>
         error.code === "IDEMPOTENCY_CONFLICT"
+    );
+  });
+});
+
+test("persists immutable regulatory versions and rejects divergent heads", async () => {
+  await withStore(async ({ store }) => {
+    const organization =
+      await store.createOrganization({
+        name: "Organization 001"
+      });
+    const shipment =
+      await store.createShipment({
+        organizationId:
+          organization.organizationId,
+        externalReference:
+          "SHIP-ECMR-LEDGER-1",
+        data: shipmentData()
+      });
+
+    const initialChain =
+      createEcmrAmendmentChain({
+        xml:
+          "<rsm:eCMR>original</rsm:eCMR>",
+        actor: {
+          actorId:
+            "ES-B12345678",
+          partyRole:
+            "sender",
+          identityScheme:
+            "tax-id"
+        },
+        reason:
+          "initial issue",
+        createdAt:
+          "2026-10-03T05:10:00.000Z",
+        idFactory:
+          () => "ledger-one"
+      });
+
+    const first =
+      await store.appendRegulatoryVersion({
+        organizationId:
+          organization.organizationId,
+        shipmentId:
+          shipment.shipmentId,
+        regulatoryType:
+          "ecmr",
+        record:
+          initialChain[0]
+      });
+
+    const secondChain =
+      appendEcmrAmendment({
+        chain:
+          initialChain,
+        xml:
+          "<rsm:eCMR>corrected</rsm:eCMR>",
+        actor: {
+          actorId:
+            "ES-B87654321",
+          partyRole:
+            "carrier",
+          identityScheme:
+            "tax-id"
+        },
+        reason:
+          "correct consignee",
+        createdAt:
+          "2026-10-03T05:11:00.000Z",
+        idFactory:
+          () => "ledger-two"
+      });
+
+    const second =
+      await store.appendRegulatoryVersion({
+        organizationId:
+          organization.organizationId,
+        shipmentId:
+          shipment.shipmentId,
+        regulatoryType:
+          "ecmr",
+        record:
+          secondChain[1]
+      });
+
+    assert.equal(
+      first.version,
+      1
+    );
+    assert.equal(
+      second.version,
+      2
+    );
+
+    const listed =
+      await store.listRegulatoryVersions({
+        organizationId:
+          organization.organizationId,
+        shipmentId:
+          shipment.shipmentId,
+        regulatoryType:
+          "ecmr"
+      });
+
+    assert.deepEqual(
+      listed.map(
+        (entry) =>
+          entry.version
+      ),
+      [1, 2]
+    );
+    assert.equal(
+      listed[0].xml,
+      "<rsm:eCMR>original</rsm:eCMR>"
+    );
+    assert.equal(
+      listed[1]
+        .previousVersionId,
+      listed[0].versionId
+    );
+
+    const loaded =
+      await store.getRegulatoryVersion({
+        organizationId:
+          organization.organizationId,
+        versionId:
+          second.versionId
+      });
+
+    assert.equal(
+      loaded.chainHash,
+      second.chainHash
+    );
+
+    const divergent =
+      {
+        ...secondChain[1],
+        versionId:
+          "ecmrv_divergent",
+        chainHash:
+          secondChain[1]
+            .chainHash
+      };
+
+    await assert.rejects(
+      () =>
+        store.appendRegulatoryVersion({
+          organizationId:
+            organization.organizationId,
+          shipmentId:
+            shipment.shipmentId,
+          regulatoryType:
+            "ecmr",
+          record:
+            divergent
+        }),
+      (error) =>
+        error.code ===
+        "REGULATORY_VERSION_HEAD_CONFLICT"
+    );
+
+    const audit =
+      await store.listAuditEvents({
+        organizationId:
+          organization.organizationId,
+        shipmentId:
+          shipment.shipmentId
+      });
+
+    assert.equal(
+      audit.filter(
+        (entry) =>
+          entry.type ===
+          "regulatory.version.created"
+      ).length,
+      2
     );
   });
 });
