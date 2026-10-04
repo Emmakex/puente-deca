@@ -8,7 +8,7 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "check": "node scripts/ci/repo-check.mjs && node scripts/ci/openapi-check.mjs && node scripts/ci/woocommerce-check.mjs && node scripts/ci/prestashop-check.mjs && bash scripts/ci/connector-bootstrap-smoke.sh && node scripts/ci/live-store-smoke-check.mjs && node scripts/ci/mongodb-check.mjs && node scripts/ci/shipment-backfill-check.mjs && node scripts/ci/shipment-first-read-check.mjs && node scripts/ci/ecmr-check.mjs && node scripts/ci/ecmr-d25a-xml-check.mjs && node scripts/ci/ecmr-signature-check.mjs && node scripts/ci/ecmr-amendment-check.mjs && node scripts/ci/artifact-storage-check.mjs && node scripts/ci/shared-mongo-client-check.mjs && node scripts/ci/retention-check.mjs && node scripts/ci/operations-check.mjs && node scripts/ci/rate-limit-check.mjs && node scripts/ci/production-preflight-check.mjs && node scripts/ci/release-package-check.mjs && node scripts/ci/security-review-check.mjs && node scripts/ci/atlas-gridfs-smoke-check.mjs && node scripts/ci/atlas-concurrency-smoke-check.mjs && node scripts/ci/public-pdf-smoke-check.mjs && node scripts/ci/kairoseth-health-smoke-check.mjs && node scripts/ci/container-check.mjs && node scripts/ci/release-evidence-check.mjs && node scripts/ci/go-live-check.mjs && node scripts/ci/backup-restore-check.mjs",
+    "check": "node scripts/ci/repo-check.mjs && node scripts/ci/openapi-check.mjs && node scripts/ci/woocommerce-check.mjs && node scripts/ci/prestashop-check.mjs && bash scripts/ci/connector-bootstrap-smoke.sh && node scripts/ci/live-store-smoke-check.mjs && node scripts/ci/mongodb-check.mjs && node scripts/ci/shipment-backfill-check.mjs && node scripts/ci/shipment-first-read-check.mjs && node scripts/ci/ecmr-check.mjs && node scripts/ci/ecmr-d25a-xml-check.mjs && node scripts/ci/ecmr-signature-check.mjs && node scripts/ci/ecmr-amendment-check.mjs && node scripts/ci/ecmr-structured-flow-check.mjs && node scripts/ci/artifact-storage-check.mjs && node scripts/ci/shared-mongo-client-check.mjs && node scripts/ci/retention-check.mjs && node scripts/ci/operations-check.mjs && node scripts/ci/rate-limit-check.mjs && node scripts/ci/production-preflight-check.mjs && node scripts/ci/release-package-check.mjs && node scripts/ci/security-review-check.mjs && node scripts/ci/atlas-gridfs-smoke-check.mjs && node scripts/ci/atlas-concurrency-smoke-check.mjs && node scripts/ci/public-pdf-smoke-check.mjs && node scripts/ci/kairoseth-health-smoke-check.mjs && node scripts/ci/container-check.mjs && node scripts/ci/release-evidence-check.mjs && node scripts/ci/go-live-check.mjs && node scripts/ci/backup-restore-check.mjs",
     "test": "node --test",
     "server": "node apps/api/src/main.mjs",
     "file-import:demo": "node connectors/file-import/src/cli.mjs examples/file-import/shipments.csv",
@@ -64,7 +64,8 @@
     "ecmr:d25a:schema-install": "node scripts/production/install-ecmr-d25a-schema.mjs",
     "ecmr:d25a:schema-validate": "node scripts/production/validate-ecmr-d25a-xml.mjs",
     "check:ecmr-signatures": "node scripts/ci/ecmr-signature-check.mjs",
-    "check:ecmr-amendments": "node scripts/ci/ecmr-amendment-check.mjs"
+    "check:ecmr-amendments": "node scripts/ci/ecmr-amendment-check.mjs",
+    "check:ecmr-structured-flow": "node scripts/ci/ecmr-structured-flow-check.mjs"
   },
   "dependencies": {
     "read-excel-file": "9.3.10",
