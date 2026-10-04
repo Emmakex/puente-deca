@@ -288,6 +288,97 @@ export function validateEcmrProjection(
   }
 
   if (
+    Array.isArray(
+      input.charges?.items
+    )
+  ) {
+    input.charges.items.forEach(
+      (charge, index) => {
+        if (
+          charge === null ||
+          typeof charge !==
+            "object" ||
+          Array.isArray(charge)
+        ) {
+          errors.push(
+            error(
+              `charges.items.${index}`,
+              "invalid_type",
+              "Charge item must be an object",
+              "CMR_6_1_I"
+            )
+          );
+          return;
+        }
+
+        const hasIdentity =
+          hasText(charge.id) ||
+          hasText(
+            charge.description
+          ) ||
+          hasText(
+            charge
+              .chargeCategoryCode
+          );
+
+        if (!hasIdentity) {
+          errors.push(
+            error(
+              `charges.items.${index}`,
+              "identification_required",
+              "Charge item needs an ID, description or explicit category code",
+              "CMR_6_1_I"
+            )
+          );
+        }
+
+        if (
+          !Number.isFinite(
+            charge.amount?.value
+          ) ||
+          charge.amount.value < 0 ||
+          !/^[A-Z]{3}$/.test(
+            charge.amount
+              ?.currency ?? ""
+          )
+        ) {
+          errors.push(
+            error(
+              `charges.items.${index}.amount`,
+              "invalid_amount",
+              "Charge amount needs a non-negative value and a three-letter uppercase currency code",
+              "CMR_6_1_I"
+            )
+          );
+        }
+
+        for (
+          const key of [
+            "payingPartyRoleCode",
+            "transportPaymentMethodCode"
+          ]
+        ) {
+          if (
+            charge[key] !== null &&
+            charge[key] !==
+              undefined &&
+            !hasText(charge[key])
+          ) {
+            errors.push(
+              error(
+                `charges.items.${index}.${key}`,
+                "invalid_code",
+                "Optional charge codes must be non-empty when supplied",
+                "CMR_6_1_I"
+              )
+            );
+          }
+        }
+      }
+    );
+  }
+
+  if (
     input.customsFormalities
       ?.declared !== true ||
     !Array.isArray(

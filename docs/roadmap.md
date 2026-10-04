@@ -156,7 +156,9 @@ Characters outside the embedded font set continue to fail closed rather than bei
     - [x] Offline fail-closed `xmllint --nonet` validation boundary.
     - [x] Deterministic namespace-pinned XML envelope serializer for confirmed UN/CEFACT eCMR/MMT nodes.
     - [x] Core pickup/goods/package mappings: taking-over date, cargo nature, package count and shipping marks.
-    - [ ] Complete mapping for all required projection fields (packing method, structured dangerous goods, charges, customs/formalities and CMR applicability still pending).
+    - [x] Explicit package-type code mapping without deriving codes from free-text packing method.
+    - [x] Structured carriage-charge mapping to `ApplicableLogisticsServiceCharge` with amount/currency validation.
+    - [ ] Complete mapping for all required projection fields (free-text packing method representation, structured dangerous goods, customs/formalities and CMR applicability still pending).
     - [ ] Full generated XML passes the installed official D25A XSD bundle with preserved hash evidence.
   - [ ] Cryptographic authentication/signature implementation.
   - [ ] Amendment/version lifecycle preserving original particulars.

@@ -41,8 +41,15 @@ export const ECMR_D25A_CONFIRMED_WIRE_NODES =
     "Identification",
     "TransportLogisticsPackage",
     "ItemQuantity",
+    "TypeCode",
     "PhysicalLogisticsShippingMarks",
     "Marking",
     "GrossWeightMeasure",
-    "ConsignmentItemQuantity"
+    "ConsignmentItemQuantity",
+    "ApplicableLogisticsServiceCharge",
+    "Description",
+    "AppliedAmount",
+    "ChargeCategoryCode",
+    "PayingPartyRoleCode",
+    "TransportPaymentMethodCode"
   ]);

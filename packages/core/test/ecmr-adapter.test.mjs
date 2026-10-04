@@ -85,6 +85,8 @@ const shipment = () => ({
       goods: {
         packingMethod:
           "Pallets",
+        packingMethodCode:
+          "PX",
         packages: {
           count: 8,
           marksAndNumbers: [
@@ -95,7 +97,16 @@ const shipment = () => ({
       },
       charges: {
         declared: true,
-        items: []
+        items: [
+          {
+            description:
+              "Freight",
+            amount: {
+              value: 125.5,
+              currency: "EUR"
+            }
+          }
+        ]
       },
       customsFormalities: {
         declared: true,
@@ -147,6 +158,31 @@ test(
         value: 420,
         unit: "kg"
       }
+    );
+    assert.equal(
+      projection.goods
+        .packingMethodCode,
+      "PX"
+    );
+    assert.deepEqual(
+      projection.charges.items,
+      [
+        {
+          id: null,
+          description:
+            "Freight",
+          chargeCategoryCode:
+            null,
+          amount: {
+            value: 125.5,
+            currency: "EUR"
+          },
+          payingPartyRoleCode:
+            null,
+          transportPaymentMethodCode:
+            null
+        }
+      ]
     );
     assert.equal(
       result.valid,
@@ -251,6 +287,41 @@ test(
         )
       );
     }
+  }
+);
+
+test(
+  "rejects malformed structured charge amounts",
+  () => {
+    const current =
+      shipment();
+    current.extensions.ecmr
+      .charges.items[0]
+      .amount.currency =
+      "eur";
+
+    const projection =
+      ecmrProjectionFromShipment(
+        current
+      );
+    const result =
+      validateEcmrProjection(
+        projection
+      );
+
+    assert.equal(
+      result.valid,
+      false
+    );
+    assert.ok(
+      result.errors.some(
+        (entry) =>
+          entry.path ===
+          "charges.items.0.amount" &&
+          entry.code ===
+          "invalid_amount"
+      )
+    );
   }
 );
 

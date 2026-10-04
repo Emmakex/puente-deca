@@ -46,6 +46,8 @@ const projection = () => ({
     nature: "Furniture",
     packingMethod:
       "Pallets",
+    packingMethodCode:
+      "PX",
     dangerousGoodsDescription:
       null,
     packages: {
@@ -63,7 +65,23 @@ const projection = () => ({
   },
   charges: {
     declared: true,
-    items: []
+    items: [
+      {
+        id: "FREIGHT",
+        description:
+          "Freight & handling",
+        chargeCategoryCode:
+          null,
+        amount: {
+          value: 125.5,
+          currency: "EUR"
+        },
+        payingPartyRoleCode:
+          null,
+        transportPaymentMethodCode:
+          null
+      }
+    ]
   },
   customsFormalities: {
     declared: true,
@@ -198,11 +216,31 @@ test(
     );
     assert.match(
       first.xml,
+      /<ram:TypeCode>PX<\/ram:TypeCode>/
+    );
+    assert.match(
+      first.xml,
       /<ram:PhysicalLogisticsShippingMarks><ram:Marking>PAL-1<\/ram:Marking><\/ram:PhysicalLogisticsShippingMarks>/
     );
     assert.match(
       first.xml,
       /<ram:PhysicalLogisticsShippingMarks><ram:Marking>PAL-8<\/ram:Marking><\/ram:PhysicalLogisticsShippingMarks>/
+    );
+    assert.match(
+      first.xml,
+      /<ram:ApplicableLogisticsServiceCharge>/
+    );
+    assert.match(
+      first.xml,
+      /<ram:ID>FREIGHT<\/ram:ID>/
+    );
+    assert.match(
+      first.xml,
+      /<ram:Description>Freight &amp; handling<\/ram:Description>/
+    );
+    assert.match(
+      first.xml,
+      /<ram:AppliedAmount currencyID="EUR">125.5<\/ram:AppliedAmount>/
     );
   }
 );
@@ -275,16 +313,12 @@ test(
           "authentication"
         )
     );
-    assert.ok(
-      output.pendingProjectionPaths
-        .includes(
-          "charges"
-        )
-    );
     for (const mapped of [
       "takingOver.date",
       "goods.nature",
-      "goods.packages.marksAndNumbers"
+      "goods.packages.marksAndNumbers",
+      "goods.packingMethodCode",
+      "charges"
     ]) {
       assert.ok(
         output.mappedProjectionPaths

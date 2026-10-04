@@ -68,7 +68,12 @@ for (const token of [
   "NatureIdentificationTransportCargo",
   "TransportLogisticsPackage",
   "PhysicalLogisticsShippingMarks",
-  "Marking"
+  "Marking",
+  "ApplicableLogisticsServiceCharge",
+  "AppliedAmount",
+  "currencyID",
+  "goods.packingMethodCode",
+  "projection.charges"
 ]) {
   if (!serializer.includes(token)) {
     throw new Error(
@@ -153,7 +158,6 @@ for (const mappedPath of [
 
 for (const stillPending of [
   '"goods.packingMethod"',
-  '"charges"',
   '"customsFormalities"',
   '"conventionApplicability"'
 ]) {
