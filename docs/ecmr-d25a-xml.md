@@ -5,6 +5,7 @@ This repository pins the eCMR wire-standard boundary to the official UNECE publi
 - release: **D25A**;
 - publication date: **2026-06-11**;
 - official package: `eCMR_D25A.zip`;
+- pinned download: `https://unece.org/sites/default/files/2026-06/eCMR_D25A.zip`;
 - UNECE file ID: `473769`;
 - nested schema bundle: `XSD/Schema.zip`;
 - root schema: `uncefact/eCMR_100pD25A.xsd`.
@@ -127,7 +128,23 @@ npm run production:ecmr-d25a-evidence-verify
 
 Verification regenerates XML from the projection and requires the evidence to match both the regenerated XML hash and the currently installed hash-verified D25A schema tree.
 
-**The roadmap XSD acceptance gate is not complete merely because this tooling exists.** It becomes complete only after this command produces and verifies a PASS against the intended official UNECE D25A bundle.
+### Automated official-bundle acceptance
+
+The repository also contains:
+
+```text
+.github/workflows/ecmr-d25a-official-acceptance.yml
+```
+
+That workflow downloads the pinned UNECE `eCMR_D25A.zip`, verifies that it contains the expected nested `XSD/Schema.zip`, installs the complete schema bundle, generates XML from the committed structured projection, runs the offline XSD validation, independently verifies the evidence, and uploads:
+
+- `acceptance-evidence.json`;
+- `schema-manifest.json`;
+- the SHA-256 of the downloaded official archive.
+
+The workflow has no skip/bypass path. A download failure, schema mismatch, serializer/XSD failure, evidence mismatch or missing artifact fails the job.
+
+**The roadmap XSD acceptance gate is not complete merely because this tooling exists.** It becomes complete only after this workflow produces and verifies a PASS against the intended official UNECE D25A bundle.
 
 ## Serializer status
 
