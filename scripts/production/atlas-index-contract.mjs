@@ -63,6 +63,22 @@ const metadataIndexContracts = [
     unique: false
   },
   {
+    collection: "deca_ecmr_amendment_versions",
+    name: "ecmr_amendment_version_id_unique",
+    key: { versionId: 1 },
+    unique: true
+  },
+  {
+    collection: "deca_ecmr_amendment_versions",
+    name: "ecmr_amendment_lineage_unique",
+    key: {
+      organizationId: 1,
+      shipmentId: 1,
+      version: 1
+    },
+    unique: true
+  },
+  {
     collection: "deca_idempotency",
     name: "idempotency_scope_unique",
     key: { scope: 1 },
