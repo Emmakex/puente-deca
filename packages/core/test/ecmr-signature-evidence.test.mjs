@@ -11,50 +11,71 @@ import {
   validateEcmrElectronicReadiness
 } from "../src/validate-ecmr.mjs";
 import {
-  applyEcmrDetachedSignatureEvidence
+  applyEcmrVerifiedSignatureEvidence
 } from "../src/ecmr-signature-evidence.mjs";
 import {
   createEcmrDetachedSignature,
+  verifyEcmrDetachedSignature,
   ECMR_SIGNATURE_METHOD
 } from "../../ecmr-signature/src/detached-signature.mjs";
 
 const XML =
   "<rsm:eCMR>signed-final-form</rsm:eCMR>";
 
-const evidence = () => {
+const signedEvidence = (
+  xml = XML
+) => {
   const {
-    privateKey
+    privateKey,
+    publicKey
   } =
     generateKeyPairSync(
       "ed25519"
     );
 
-  return createEcmrDetachedSignature({
-    xml: XML,
-    privateKey,
-    signer: {
-      signerId:
-        "ES-B12345678",
-      partyRole: "sender",
-      identityScheme:
-        "tax-id",
-      identityAssurance:
-        "integration-asserted"
-    },
-    signedAt:
-      "2026-10-04T14:15:00.000Z"
-  });
+  const evidence =
+    createEcmrDetachedSignature({
+      xml,
+      privateKey,
+      signer: {
+        signerId:
+          "ES-B12345678",
+        partyRole: "sender",
+        identityScheme:
+          "tax-id",
+        identityAssurance:
+          "integration-asserted"
+      },
+      signedAt:
+        "2026-10-04T14:15:00.000Z"
+    });
+  const verification =
+    verifyEcmrDetachedSignature({
+      xml,
+      evidence,
+      publicKey
+    });
+
+  assert.equal(
+    verification.valid,
+    true
+  );
+
+  return {
+    evidence,
+    verification
+  };
 };
 
 test(
-  "binds verified signature evidence into authentication and final-form integrity state",
+  "binds only verified signature evidence into authentication and final-form integrity state",
   () => {
     const projection =
       emptyEcmrProjection();
     const signed =
-      applyEcmrDetachedSignatureEvidence(
+      applyEcmrVerifiedSignatureEvidence(
         projection,
-        evidence()
+        signedEvidence()
       );
 
     assert.equal(
@@ -97,19 +118,40 @@ test(
 );
 
 test(
+  "refuses unverified evidence even if its shape looks correct",
+  () => {
+    const current =
+      signedEvidence();
+
+    assert.throws(
+      () =>
+        applyEcmrVerifiedSignatureEvidence(
+          emptyEcmrProjection(),
+          {
+            evidence:
+              current.evidence,
+            verification: {
+              ...current.verification,
+              valid: false
+            }
+          }
+        ),
+      (error) =>
+        error.code ===
+        "ECMR_SIGNATURE_VERIFICATION_REQUIRED"
+    );
+  }
+);
+
+test(
   "signature evidence alone does not falsely satisfy Protocol Article 4 amendment-history readiness",
   () => {
     const projection =
       emptyEcmrProjection();
-    projection.contractVersion =
-      "2026-10";
-    projection.messageRelease =
-      "D25A";
-
     const signed =
-      applyEcmrDetachedSignatureEvidence(
+      applyEcmrVerifiedSignatureEvidence(
         projection,
-        evidence()
+        signedEvidence()
       );
     const result =
       validateEcmrElectronicReadiness(
@@ -131,24 +173,21 @@ test(
 );
 
 test(
-  "refuses to mix signatures that target different final-form content hashes",
+  "refuses to mix verified signatures that target different final-form content hashes",
   () => {
-    const first =
-      evidence();
     const projection =
-      applyEcmrDetachedSignatureEvidence(
+      applyEcmrVerifiedSignatureEvidence(
         emptyEcmrProjection(),
-        first
+        signedEvidence()
       );
-    const second = {
-      ...evidence(),
-      contentHash:
-        "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    };
+    const second =
+      signedEvidence(
+        "<rsm:eCMR>different-final-form</rsm:eCMR>"
+      );
 
     assert.throws(
       () =>
-        applyEcmrDetachedSignatureEvidence(
+        applyEcmrVerifiedSignatureEvidence(
           projection,
           second
         ),
