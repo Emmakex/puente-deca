@@ -84,7 +84,7 @@ CMR_6_1_K
 
 An Article-6-complete draft is therefore **not** automatically considered ready for electronic issuance.
 
-A detached Ed25519 evidence core is now available, but cryptographic verification remains distinct from legal identity/authentication acceptance and from amendment-history preservation. See [`docs/ecmr-signatures.md`](ecmr-signatures.md).
+A detached Ed25519 evidence core is now available, but cryptographic verification remains distinct from legal identity/authentication acceptance. Immutable amendment-chain verification is also implemented separately and only clears the integrity-history gate when its latest exact XML hash matches the current final form. See [`docs/ecmr-signatures.md`](ecmr-signatures.md) and [`docs/ecmr-amendments.md`](ecmr-amendments.md).
 
 For Article 6(1)(k), `declared=true` is not enough: `extensions.ecmr.conventionApplicability.statement` must contain the exact clause text that the integration intends to place in the consignment note. The engine does not manufacture or translate that legal statement.
 
