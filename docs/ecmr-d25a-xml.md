@@ -136,15 +136,17 @@ The repository also contains:
 .github/workflows/ecmr-d25a-official-acceptance.yml
 ```
 
-That workflow downloads the pinned UNECE `eCMR_D25A.zip`, verifies that it contains the expected nested `XSD/Schema.zip`, installs the complete schema bundle, generates XML from the committed structured projection, runs the offline XSD validation, independently verifies the evidence, and uploads:
+That workflow is a **controlled/manual acceptance gate**. It downloads the pinned UNECE `eCMR_D25A.zip`, verifies that it contains the expected nested `XSD/Schema.zip`, installs the complete schema bundle, generates XML from the committed structured projection, runs the offline XSD validation, independently verifies the evidence, and uploads:
 
 - `acceptance-evidence.json`;
 - `schema-manifest.json`;
 - the SHA-256 of the downloaded official archive.
 
-The workflow has no skip/bypass path. A download failure, schema mismatch, serializer/XSD failure, evidence mismatch or missing artifact fails the job.
+The runner is selected explicitly at dispatch time. `ubuntu-latest` is available for normal execution, while an approved `self-hosted` runner can be used when UNECE edge/WAF policy denies GitHub-hosted source IPs. The official UNECE URL remains fixed in the workflow in either case.
 
-**The roadmap XSD acceptance gate is not complete merely because this tooling exists.** It becomes complete only after this workflow produces and verifies a PASS against the intended official UNECE D25A bundle.
+The workflow has no skip/bypass path. A download failure, schema mismatch, serializer/XSD failure, evidence mismatch or missing artifact fails the job. An HTTP 403 from UNECE is therefore recorded as a **source-access failure**, not as an XSD PASS or XSD failure.
+
+**The roadmap XSD acceptance gate is not complete merely because this tooling exists.** It becomes complete only after this workflow or the equivalent documented local command produces and independently verifies a PASS against the intended official UNECE D25A bundle.
 
 ## Serializer status
 
