@@ -68,7 +68,8 @@ export const emptyEcmrProjection = () => ({
   },
   conventionApplicability: {
     convention: "CMR",
-    declared: false
+    declared: false,
+    statement: null
   },
   authentication: {
     state: "pending",
