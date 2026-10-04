@@ -15,6 +15,7 @@ const [
   validateCli,
   acceptanceCli,
   verifyEvidenceCli,
+  officialAcceptanceWorkflow,
   acceptanceProjection
 ] = await Promise.all([
   readFile(
@@ -54,6 +55,10 @@ const [
     "utf8"
   ),
   readFile(
+    ".github/workflows/ecmr-d25a-official-acceptance.yml",
+    "utf8"
+  ),
+  readFile(
     "examples/ecmr/d25a-acceptance-projection.json",
     "utf8"
   )
@@ -62,6 +67,8 @@ const [
 for (const token of [
   'release: "D25A"',
   'sourceFileName:',
+  'sourceDownload:',
+  '"https://unece.org/sites/default/files/2026-06/eCMR_D25A.zip"',
   '"eCMR_D25A.zip"',
   "sourceFileId: 473769",
   '"XSD/Schema.zip"',
@@ -235,6 +242,34 @@ for (const token of [
       `D25A acceptance evidence verifier is missing ${token}`
     );
   }
+}
+
+for (const token of [
+  "ecmr-d25a-official-acceptance",
+  "https://unece.org/sites/default/files/2026-06/eCMR_D25A.zip",
+  "XSD/Schema.zip",
+  "ecmr:d25a:schema-install",
+  "production:ecmr-d25a-acceptance",
+  "production:ecmr-d25a-evidence-verify",
+  "actions/upload-artifact@v4",
+  "acceptance-evidence.json",
+  "schema-manifest.json"
+]) {
+  if (!officialAcceptanceWorkflow.includes(token)) {
+    throw new Error(
+      `Official D25A acceptance workflow is missing ${token}`
+    );
+  }
+}
+
+if (
+  /SKIP_|BYPASS_|continue-on-error:\s*true/i.test(
+    officialAcceptanceWorkflow
+  )
+) {
+  throw new Error(
+    "Official D25A acceptance workflow must fail closed without skip/bypass controls"
+  );
 }
 
 const acceptanceFixture =
