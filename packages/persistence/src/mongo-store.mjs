@@ -8,6 +8,9 @@ import {
   ServerApiVersion
 } from "mongodb";
 import { canonicalJson } from "../../core/src/canonical-json.mjs";
+import {
+  verifyEcmrAmendmentChain
+} from "../../ecmr-amendment/src/amendment-chain.mjs";
 
 const clone = (value) => structuredClone(value);
 
@@ -120,6 +123,39 @@ const publicDocument = (document) => ({
   snapshot: clone(document.snapshot),
   artifact: clone(document.artifact),
   storedAt: iso(document.storedAt)
+});
+
+const amendmentRecord = (
+  document
+) => {
+  const {
+    _id: _mongoId,
+    organizationId:
+      _organizationId,
+    shipmentId:
+      _shipmentId,
+    storedAt:
+      _storedAt,
+    ...record
+  } = document;
+
+  return clone(record);
+};
+
+const publicEcmrAmendment = (
+  document
+) => ({
+  organizationId:
+    document.organizationId,
+  shipmentId:
+    document.shipmentId,
+  ...amendmentRecord(
+    document
+  ),
+  storedAt:
+    iso(
+      document.storedAt
+    )
 });
 
 const publicAudit = (document) => ({
@@ -237,6 +273,12 @@ export class MongoStore {
     return this.#database.collection("deca_document_versions");
   }
 
+  get #ecmrAmendments() {
+    return this.#database.collection(
+      "ecmr_amendment_versions"
+    );
+  }
+
   get #idempotency() {
     return this.#database.collection("deca_idempotency");
   }
@@ -293,6 +335,26 @@ export class MongoStore {
           documentId: 1
         },
         { name: "document_retention_floor" }
+      ),
+      this.#ecmrAmendments.createIndex(
+        { versionId: 1 },
+        {
+          unique: true,
+          name:
+            "ecmr_amendment_version_id_unique"
+        }
+      ),
+      this.#ecmrAmendments.createIndex(
+        {
+          organizationId: 1,
+          shipmentId: 1,
+          version: 1
+        },
+        {
+          unique: true,
+          name:
+            "ecmr_amendment_lineage_unique"
+        }
       ),
       this.#idempotency.createIndex(
         { scope: 1 },
@@ -1395,6 +1457,198 @@ export class MongoStore {
 
       return publicDocument(document);
     });
+  }
+
+  async appendEcmrAmendmentVersion({
+    organizationId,
+    shipmentId,
+    record
+  }) {
+    const normalizedOrganizationId =
+      requireText(
+        organizationId,
+        "organizationId"
+      );
+    const normalizedShipmentId =
+      requireText(
+        shipmentId,
+        "shipmentId"
+      );
+    const normalizedRecord =
+      requireRecord(
+        record,
+        "record"
+      );
+    const versionId =
+      requireText(
+        normalizedRecord.versionId,
+        "record.versionId"
+      );
+
+    if (
+      !Number.isInteger(
+        normalizedRecord.version
+      ) ||
+      normalizedRecord.version < 1
+    ) {
+      throw new TypeError(
+        "record.version must be a positive integer"
+      );
+    }
+
+    return this.#withTransaction(
+      async (session) => {
+        const shipment =
+          await this.#shipments.findOne(
+            {
+              organizationId:
+                normalizedOrganizationId,
+              shipmentId:
+                normalizedShipmentId
+            },
+            { session }
+          );
+
+        if (!shipment) {
+          throw conflict(
+            "Shipment does not exist in this organization",
+            "SHIPMENT_NOT_FOUND"
+          );
+        }
+
+        const duplicate =
+          await this.#ecmrAmendments.findOne(
+            {
+              versionId
+            },
+            { session }
+          );
+
+        if (duplicate) {
+          throw conflict(
+            "eCMR amendment version already exists",
+            "ECMR_AMENDMENT_VERSION_EXISTS"
+          );
+        }
+
+        const existing =
+          await this.#ecmrAmendments
+            .find(
+              {
+                organizationId:
+                  normalizedOrganizationId,
+                shipmentId:
+                  normalizedShipmentId
+              },
+              { session }
+            )
+            .sort({
+              version: 1
+            })
+            .toArray();
+
+        const chain = [
+          ...existing.map(
+            amendmentRecord
+          ),
+          clone(
+            normalizedRecord
+          )
+        ];
+
+        const verification =
+          verifyEcmrAmendmentChain(
+            chain
+          );
+
+        if (!verification.valid) {
+          const error =
+            conflict(
+              "eCMR amendment lineage is invalid",
+              "ECMR_AMENDMENT_LINEAGE_CONFLICT"
+            );
+          error.verification =
+            verification;
+          throw error;
+        }
+
+        const at =
+          this.#nowDate();
+        const document = {
+          organizationId:
+            normalizedOrganizationId,
+          shipmentId:
+            normalizedShipmentId,
+          ...clone(
+            normalizedRecord
+          ),
+          storedAt: at
+        };
+
+        try {
+          await this.#ecmrAmendments
+            .insertOne(
+              document,
+              { session }
+            );
+        } catch (error) {
+          if (error?.code === 11000) {
+            throw conflict(
+              "eCMR amendment lineage changed concurrently; retry the request",
+              "ECMR_AMENDMENT_CONFLICT"
+            );
+          }
+          throw error;
+        }
+
+        await this.#appendAudit(
+          {
+            organizationId:
+              normalizedOrganizationId,
+            shipmentId:
+              normalizedShipmentId,
+            subjectId:
+              versionId,
+            type:
+              "ecmr.amendment.version.created",
+            at
+          },
+          session
+        );
+
+        return publicEcmrAmendment(
+          document
+        );
+      }
+    );
+  }
+
+  async listEcmrAmendmentVersions({
+    organizationId,
+    shipmentId
+  }) {
+    const documents =
+      await this.#ecmrAmendments
+        .find({
+          organizationId:
+            requireText(
+              organizationId,
+              "organizationId"
+            ),
+          shipmentId:
+            requireText(
+              shipmentId,
+              "shipmentId"
+            )
+        })
+        .sort({
+          version: 1
+        })
+        .toArray();
+
+    return documents.map(
+      publicEcmrAmendment
+    );
   }
 
   async getDocumentVersion({
