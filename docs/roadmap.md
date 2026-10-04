@@ -172,9 +172,11 @@ Characters outside the embedded font set continue to fail closed rather than bei
     - [x] Deterministic chain verification detects content/metadata tampering, deletion/reordering and predecessor rewiring.
     - [x] No-op and non-monotonic-time amendments fail closed.
     - [x] Amendment-history readiness only binds when the latest preserved XML hash matches the current final-form content hash.
-    - [ ] Persist amendment versions immutably in MongoDB Atlas with organization/shipment scoping and unique lineage indexes.
-    - [ ] Authorized API/workspace append flow plus concurrent-head acceptance.
-    - [ ] Backup/restore and production smoke acceptance for amendment history.
+    - [x] Persist amendment versions immutably in JsonStore/MongoDB Atlas with organization/shipment scoping, transactions, audit and unique version/lineage indexes.
+    - [x] Automated Atlas concurrent-head smoke requires one accepted version-2 head and one explicit conflict.
+    - [x] Backup/restore automation includes the namespaced eCMR amendment collection.
+    - [ ] Authorized API/workspace append flow.
+    - [ ] Live Atlas concurrent-head and backup/restore acceptance for amendment history.
   - [ ] eCMR API/rendering/production issuance acceptance.
 - [ ] eFTI compatibility track.
 - [ ] Additional transport-document modules.
