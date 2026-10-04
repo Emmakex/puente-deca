@@ -18,6 +18,7 @@ const requirePattern = (source, pattern, message) => {
 for (const collection of [
   "deca_organizations",
   "deca_api_credentials",
+  "deca_ecmr_signer_keys",
   "deca_shipments",
   "deca_document_versions",
   "deca_regulatory_versions",
@@ -78,6 +79,26 @@ requirePattern(
 );
 requirePattern(
   adapter,
+  /ecmr_signer_key_id_unique/,
+  "eCMR signer-key IDs need a unique MongoDB index"
+);
+requirePattern(
+  adapter,
+  /ecmr_signer_org_fingerprint_unique/,
+  "eCMR signer public-key fingerprints must be unique per organization"
+);
+requirePattern(
+  adapter,
+  /registerEcmrSignerKey[sS]*rotateEcmrSignerKey/,
+  "MongoDB store must persist the eCMR signer-key lifecycle"
+);
+requirePattern(
+  adapter,
+  /publicEcmrSignerKey/,
+  "MongoDB signer-key API must strip stored public-key PEM from public records"
+);
+requirePattern(
+  adapter,
   /assertRegulatoryVersionAppend/,
   "MongoDB regulatory writes must verify the current accepted head"
 );
@@ -119,5 +140,5 @@ if (/postgres|DATABASE_URL|\bpg\b/i.test(adapter + factory)) {
 }
 
 console.log(
-  "MongoDB persistence contract OK (Kairoseth-aligned collections, indexes, transactions, generic Shipment dual-write, immutable regulatory ledger, production fail-closed)"
+  "MongoDB persistence contract OK (Kairoseth-aligned collections, signer-key registry, indexes, transactions, generic Shipment dual-write, immutable regulatory ledger, production fail-closed)"
 );
