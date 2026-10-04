@@ -20,6 +20,7 @@ deca_organizations
 deca_api_credentials
 deca_shipments
 deca_document_versions
+deca_ecmr_amendment_versions
 deca_idempotency
 deca_audit_events
 deca_artifact_purges
@@ -73,11 +74,13 @@ The adapter creates idempotent indexes for:
 - unique shipment + document version lineage;
 - unique public access path;
 - retention-floor lookup by artifact retention date;
+- unique eCMR amendment version ID;
+- unique organization + shipment + eCMR amendment version lineage;
 - unique idempotency scope;
 - audit lookup by organization/shipment and time;
 - unique artifact-purge evidence by document/storage key.
 
-The live `production:atlas-smoke` command does not merely call `createIndex`. It reads the indexes back from Atlas and verifies the expected key order/direction and uniqueness contract for all 16 DeCA metadata indexes plus the GridFS filename index. Any drift fails closed.
+The live `production:atlas-smoke` command does not merely call `createIndex`. It reads the indexes back from Atlas and verifies the expected key order/direction and uniqueness contract for all 18 DeCA metadata indexes plus the GridFS filename index. Any drift fails closed.
 
 ## Atomicity
 
@@ -87,7 +90,8 @@ Operations that change more than one collection use MongoDB sessions and transac
 - connector credential create/revoke + audit;
 - shipment create + idempotency + audit;
 - shipment updates + audit;
-- document version + shipment lineage + audit.
+- document version + shipment lineage + audit;
+- immutable eCMR amendment version + audit.
 
 The production Atlas deployment must therefore support transactions.
 
