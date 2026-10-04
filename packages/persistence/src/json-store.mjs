@@ -12,12 +12,17 @@ import {
   timingSafeEqual
 } from "node:crypto";
 import { canonicalJson } from "../../core/src/canonical-json.mjs";
+import {
+  normalizeRegulatoryVersionRecord,
+  assertRegulatoryVersionAppend
+} from "./regulatory-version-record.mjs";
 
 const initialState = () => ({
   schemaVersion: 1,
   organizations: {},
   shipments: {},
   documentVersions: {},
+  regulatoryVersions: {},
   apiCredentials: {},
   auditEvents: [],
   idempotency: {},
@@ -885,6 +890,204 @@ export class JsonStore {
         changed: true
       };
     });
+  }
+
+  async appendRegulatoryVersion({
+    organizationId,
+    shipmentId,
+    regulatoryType,
+    record
+  }) {
+    const normalizedOrganizationId =
+      requireText(
+        organizationId,
+        "organizationId"
+      );
+    const normalizedShipmentId =
+      requireText(
+        shipmentId,
+        "shipmentId"
+      );
+    const normalizedRegulatoryType =
+      requireText(
+        regulatoryType,
+        "regulatoryType"
+      );
+    const normalizedRecord =
+      normalizeRegulatoryVersionRecord(
+        record
+      );
+
+    return this.#mutate((state) => {
+      state.regulatoryVersions ??= {};
+
+      const shipment =
+        state.shipments[
+          normalizedShipmentId
+        ];
+
+      if (
+        !shipment ||
+        shipment.organizationId !==
+          normalizedOrganizationId
+      ) {
+        throw conflict(
+          "Shipment does not exist in this organization",
+          "SHIPMENT_NOT_FOUND"
+        );
+      }
+
+      if (
+        state.regulatoryVersions[
+          normalizedRecord.versionId
+        ]
+      ) {
+        throw conflict(
+          "Regulatory version already exists",
+          "REGULATORY_VERSION_EXISTS"
+        );
+      }
+
+      const lineage =
+        Object.values(
+          state.regulatoryVersions
+        )
+          .filter(
+            (entry) =>
+              entry.organizationId ===
+                normalizedOrganizationId &&
+              entry.shipmentId ===
+                normalizedShipmentId &&
+              entry.regulatoryType ===
+                normalizedRegulatoryType
+          )
+          .sort(
+            (left, right) =>
+              left.version -
+              right.version
+          );
+      const latest =
+        lineage.at(-1) ?? null;
+
+      assertRegulatoryVersionAppend({
+        latest,
+        next:
+          normalizedRecord
+      });
+
+      const at =
+        this.#nowIso();
+      const version = {
+        organizationId:
+          normalizedOrganizationId,
+        shipmentId:
+          normalizedShipmentId,
+        regulatoryType:
+          normalizedRegulatoryType,
+        ...clone(
+          normalizedRecord
+        ),
+        storedAt: at
+      };
+
+      state.regulatoryVersions[
+        version.versionId
+      ] = version;
+      shipment.updatedAt =
+        at;
+
+      this.#appendAudit(
+        state,
+        {
+          organizationId:
+            normalizedOrganizationId,
+          shipmentId:
+            normalizedShipmentId,
+          subjectId:
+            version.versionId,
+          type:
+            "regulatory.version.created",
+          at
+        }
+      );
+
+      return version;
+    });
+  }
+
+  async listRegulatoryVersions({
+    organizationId,
+    shipmentId,
+    regulatoryType
+  }) {
+    const normalizedOrganizationId =
+      requireText(
+        organizationId,
+        "organizationId"
+      );
+    const normalizedShipmentId =
+      requireText(
+        shipmentId,
+        "shipmentId"
+      );
+    const normalizedRegulatoryType =
+      requireText(
+        regulatoryType,
+        "regulatoryType"
+      );
+    const state =
+      await this.#readState();
+
+    return Object.values(
+      state.regulatoryVersions ?? {}
+    )
+      .filter(
+        (entry) =>
+          entry.organizationId ===
+            normalizedOrganizationId &&
+          entry.shipmentId ===
+            normalizedShipmentId &&
+          entry.regulatoryType ===
+            normalizedRegulatoryType
+      )
+      .sort(
+        (left, right) =>
+          left.version -
+          right.version
+      )
+      .map(clone);
+  }
+
+  async getRegulatoryVersion({
+    organizationId,
+    versionId
+  }) {
+    const normalizedOrganizationId =
+      requireText(
+        organizationId,
+        "organizationId"
+      );
+    const normalizedVersionId =
+      requireText(
+        versionId,
+        "versionId"
+      );
+    const state =
+      await this.#readState();
+    const version =
+      state.regulatoryVersions?.[
+        normalizedVersionId
+      ] ?? null;
+
+    if (
+      !version ||
+      version.organizationId !==
+        normalizedOrganizationId
+    ) {
+      return null;
+    }
+
+    return clone(version);
   }
 
   async appendDocumentVersion({
