@@ -67,9 +67,17 @@ const publicKeyObject = (
 
   try {
     object =
-      createPublicKey(
-        key
-      );
+      key &&
+      typeof key ===
+        "object" &&
+      key.type ===
+        "public" &&
+      typeof key.export ===
+        "function"
+        ? key
+        : createPublicKey(
+            key
+          );
   } catch {
     throw fail(
       "ECMR_SIGNATURE_PUBLIC_KEY_INVALID",
@@ -78,6 +86,7 @@ const publicKeyObject = (
   }
 
   if (
+    object.type !== "public" ||
     object.asymmetricKeyType !==
     "ed25519"
   ) {
