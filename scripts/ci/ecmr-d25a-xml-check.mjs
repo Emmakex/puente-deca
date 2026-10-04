@@ -77,8 +77,16 @@ for (const token of [
   "ProperShippingName",
   "RegulationCode",
   "HazardClassificationID",
+  "goods.packingMethod",
   "goods.packingMethodCode",
-  "projection.charges"
+  "projection.charges",
+  "TypeText",
+  "ConsignorProvidedBorderClearanceTransportInstructions",
+  "ContractualDocumentClause",
+  "borderClearanceInstructions",
+  "cmrContractualClause",
+  ".customsFormalities",
+  ".conventionApplicability"
 ]) {
   if (!serializer.includes(token)) {
     throw new Error(
@@ -152,7 +160,10 @@ if (
 for (const mappedPath of [
   '"takingOver.date"',
   '"goods.nature"',
-  '"goods.packages.marksAndNumbers"'
+  '"goods.packages.marksAndNumbers"',
+  '"goods.packingMethod"',
+  '"customsFormalities"',
+  '"conventionApplicability"'
 ]) {
   if (!serializer.includes(mappedPath)) {
     throw new Error(
@@ -162,10 +173,9 @@ for (const mappedPath of [
 }
 
 for (const stillPending of [
-  '"goods.packingMethod"',
   '"goods.dangerousGoodsDescription"',
-  '"customsFormalities"',
-  '"conventionApplicability"'
+  '"authentication"',
+  '"integrity"'
 ]) {
   if (!serializer.includes(stillPending)) {
     throw new Error(
@@ -175,5 +185,5 @@ for (const stillPending of [
 }
 
 console.log(
-  "eCMR D25A XML boundary OK (official package pinned, deterministic envelope serializer, confirmed pickup/goods/package mappings, local schema manifest/hash, xmllint --nonet fail-closed validation)"
+  "eCMR D25A XML boundary OK (official package pinned, Article 6 projection fields mapped without inference, local schema manifest/hash, xmllint --nonet fail-closed validation)"
 );

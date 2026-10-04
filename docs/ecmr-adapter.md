@@ -55,7 +55,7 @@ including:
 - package count/marks/numbers;
 - charges declaration/items;
 - customs/formality declaration/instructions;
-- explicit CMR applicability declaration.
+- explicit CMR applicability declaration **and clause text**.
 
 The adapter intentionally does not default route origin/destination into legally distinct taking-over/delivery particulars.
 
@@ -83,6 +83,8 @@ CMR_6_1_K
 - preserved amendment history.
 
 An Article-6-complete draft is therefore **not** automatically considered ready for electronic issuance.
+
+For Article 6(1)(k), `declared=true` is not enough: `extensions.ecmr.conventionApplicability.statement` must contain the exact clause text that the integration intends to place in the consignment note. The engine does not manufacture or translate that legal statement.
 
 ## Current boundary
 

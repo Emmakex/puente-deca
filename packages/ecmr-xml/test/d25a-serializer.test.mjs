@@ -100,11 +100,15 @@ const projection = () => ({
   },
   customsFormalities: {
     declared: true,
-    instructions: []
+    instructions: [
+      "Present MRN & invoice"
+    ]
   },
   conventionApplicability: {
     convention: "CMR",
-    declared: true
+    declared: true,
+    statement:
+      "This carriage is subject to the CMR Convention notwithstanding any clause to the contrary."
   },
   authentication: {
     state: "pending",
@@ -235,6 +239,10 @@ test(
     );
     assert.match(
       first.xml,
+      /<ram:TypeText>Pallets<\/ram:TypeText>/
+    );
+    assert.match(
+      first.xml,
       /<ram:ApplicableTransportDangerousGoods>/
     );
     assert.match(
@@ -285,6 +293,14 @@ test(
       first.xml,
       /<ram:AppliedAmount currencyID="EUR">125.5<\/ram:AppliedAmount>/
     );
+    assert.match(
+      first.xml,
+      /<ram:ConsignorProvidedBorderClearanceTransportInstructions><ram:Description>Present MRN &amp; invoice<\/ram:Description><\/ram:ConsignorProvidedBorderClearanceTransportInstructions>/
+    );
+    assert.match(
+      first.xml,
+      /<ram:ContractualDocumentClause><ram:Content>This carriage is subject to the CMR Convention notwithstanding any clause to the contrary\.<\/ram:Content><\/ram:ContractualDocumentClause>/
+    );
   }
 );
 
@@ -317,7 +333,7 @@ test(
 );
 
 test(
-  "does not coerce free-text packing method into a coded package type",
+  "keeps packing text and explicit package code semantically separate",
   () => {
     const output =
       serializeEcmrD25aEnvelope(
@@ -329,11 +345,13 @@ test(
         "<ram:TypeCode>Pallets</ram:TypeCode>"
       )
     );
-    assert.ok(
-      output.pendingProjectionPaths
-        .includes(
-          "goods.packingMethod"
-        )
+    assert.match(
+      output.xml,
+      /<ram:TypeCode>PX<\/ram:TypeCode>/
+    );
+    assert.match(
+      output.xml,
+      /<ram:TypeText>Pallets<\/ram:TypeText>/
     );
   }
 );
@@ -360,9 +378,12 @@ test(
       "takingOver.date",
       "goods.nature",
       "goods.packages.marksAndNumbers",
+      "goods.packingMethod",
       "goods.packingMethodCode",
       "goods.dangerousGoods",
-      "charges"
+      "charges",
+      "customsFormalities",
+      "conventionApplicability"
     ]) {
       assert.ok(
         output.mappedProjectionPaths
