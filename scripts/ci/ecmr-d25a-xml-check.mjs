@@ -246,6 +246,9 @@ for (const token of [
 
 for (const token of [
   "ecmr-d25a-official-acceptance",
+  "workflow_dispatch:",
+  "self-hosted",
+  "inputs.runner",
   "https://unece.org/sites/default/files/2026-06/eCMR_D25A.zip",
   "XSD/Schema.zip",
   "ecmr:d25a:schema-install",
