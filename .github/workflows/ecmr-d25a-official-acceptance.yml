@@ -2,17 +2,6 @@ name: ecmr-d25a-official-acceptance
 
 on:
   workflow_dispatch:
-  pull_request:
-    branches: [main]
-    paths:
-      - .github/workflows/ecmr-d25a-official-acceptance.yml
-      - packages/ecmr-xml/**
-      - scripts/production/ecmr-d25a-acceptance.mjs
-      - scripts/production/verify-ecmr-d25a-evidence.mjs
-      - scripts/production/install-ecmr-d25a-schema.mjs
-      - examples/ecmr/**
-      - package.json
-      - package-lock.json
 
 permissions:
   contents: read
