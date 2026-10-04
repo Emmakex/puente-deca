@@ -7,6 +7,9 @@ import {
 import {
   readEcmrD25aSchemaManifest
 } from "./schema-bundle.mjs";
+import {
+  sha256File
+} from "./schema-integrity.mjs";
 
 export async function validateEcmrD25aXmlFile({
   xmlPath,
@@ -75,12 +78,37 @@ export async function validateEcmrD25aXmlFile({
     valid: true,
     release:
       schema.manifest.release,
+    sourceFile:
+      schema.manifest
+        .sourceFile,
+    sourceFileId:
+      schema.manifest
+        .sourceFileId,
+    archiveSha256:
+      schema.manifest
+        .archiveSha256,
+    nestedSchemaArchive:
+      schema.manifest
+        .nestedSchemaArchive,
+    nestedSchemaArchiveSha256:
+      schema.manifest
+        .nestedSchemaArchiveSha256,
     rootSchema:
       schema.manifest
         .rootSchema,
     rootSchemaSha256:
       schema.manifest
         .rootSchemaSha256,
+    schemaFileCount:
+      schema.schemaTree
+        .schemaFileCount,
+    schemaTreeSha256:
+      schema.schemaTree
+        .schemaTreeSha256,
+    xmlSha256:
+      await sha256File(
+        xml
+      ),
     networkAccess:
       false
   };
