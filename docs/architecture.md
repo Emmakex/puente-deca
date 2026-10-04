@@ -20,16 +20,22 @@ Source systems remain responsible for commercial and operational data. Puente De
 
 ## Domain model direction
 
-The long-term root aggregate is `Shipment`, not `DecaDocument`.
+The root aggregate is now being migrated to a versioned regulation-neutral `Shipment`, not `DecaDocument`.
+
+The first internal contract is `SHIPMENT_CONTRACT_VERSION=2026-10` and models common transport facts as role-based parties, route, cargo/measures, movement/equipment/authorizations, notes and regulatory contexts.
+
+The existing DeCA API remains stable. A tested adapter maps canonical DeCA requests into the generic Shipment aggregate and back again before persistence is migrated. DeCA-specific legal validation therefore remains separate from regulation-neutral Shipment structural validation.
 
 A shipment may later produce multiple regulatory representations:
 
-- Spain DeCA
-- eCMR
-- eFTI-compatible representations
-- other transport documents
+- Spain DeCA;
+- eCMR;
+- eFTI-compatible representations;
+- other transport documents.
 
-This prevents the platform from becoming coupled to a single regulation.
+This prevents the platform from becoming coupled to a single regulation while avoiding a breaking connector/API migration.
+
+See [`docs/generic-shipment.md`](generic-shipment.md).
 
 ## Document engine
 
