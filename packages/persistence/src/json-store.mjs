@@ -14,7 +14,8 @@ import {
 import { canonicalJson } from "../../core/src/canonical-json.mjs";
 import {
   normalizeRegulatoryVersionRecord,
-  assertRegulatoryVersionAppend
+  assertRegulatoryVersionAppend,
+  normalizeRegulatoryType
 } from "./regulatory-version-record.mjs";
 
 const initialState = () => ({
@@ -909,9 +910,8 @@ export class JsonStore {
         "shipmentId"
       );
     const normalizedRegulatoryType =
-      requireText(
-        regulatoryType,
-        "regulatoryType"
+      normalizeRegulatoryType(
+        regulatoryType
       );
     const normalizedRecord =
       normalizeRegulatoryVersionRecord(
@@ -1031,9 +1031,8 @@ export class JsonStore {
         "shipmentId"
       );
     const normalizedRegulatoryType =
-      requireText(
-        regulatoryType,
-        "regulatoryType"
+      normalizeRegulatoryType(
+        regulatoryType
       );
     const state =
       await this.#readState();
