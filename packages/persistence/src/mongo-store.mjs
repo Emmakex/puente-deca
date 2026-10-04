@@ -275,7 +275,7 @@ export class MongoStore {
 
   get #ecmrAmendments() {
     return this.#database.collection(
-      "ecmr_amendment_versions"
+      "deca_ecmr_amendment_versions"
     );
   }
 
