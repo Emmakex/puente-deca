@@ -152,8 +152,9 @@ Characters outside the embedded font set continue to fail closed rather than bei
   - [x] Separate electronic authentication/integrity readiness validation.
   - [ ] UN/CEFACT D25A XML serialization + schema validation.
     - [x] Official UNECE D25A package identity, nested `XSD/Schema.zip` and root `uncefact/eCMR_100pD25A.xsd` pinned.
-    - [x] Guarded local schema-bundle installer with archive/root SHA-256 manifest and path-traversal rejection.
+    - [x] Guarded local schema-bundle installer with archive/nested/root/full-tree SHA-256 manifest, per-schema inventory and path-traversal rejection.
     - [x] Offline fail-closed `xmllint --nonet` validation boundary.
+    - [x] Reproducible generated-XML acceptance command with projection/XML/schema-tree/evidence hashes and independent evidence verification.
     - [x] Deterministic namespace-pinned XML envelope serializer for confirmed UN/CEFACT eCMR/MMT nodes.
     - [x] Core pickup/goods/package mappings: taking-over date, cargo nature, package count and shipping marks.
     - [x] Explicit package-type code mapping without deriving codes from free-text packing method.
