@@ -55,8 +55,10 @@ The migration is intentionally incremental:
 1. **Done:** generic versioned Shipment contract.
 2. **Done:** regulation-neutral structural validation.
 3. **Done:** DeCA → Shipment → DeCA semantic round-trip tests.
-4. **Next:** store Shipment as the internal persistence aggregate while keeping DeCA API request/response compatibility.
-5. **Then:** make DeCA document generation an adapter over Shipment.
-6. **Later:** add eCMR/eFTI regulatory contexts without changing the tenant/auth/persistence boundary.
+4. **Done (compatibility stage):** new/changed DeCA shipments dual-write the generic Shipment aggregate alongside the current normalized DeCA `data`.
+5. **Done:** public shipment responses explicitly strip the internal `aggregate`, so existing connector/API consumers keep the same contract.
+6. **Next:** backfill existing Atlas shipment records that predate the aggregate field and switch internal reads to Shipment-first with a legacy-data fallback.
+7. **Then:** make DeCA document generation consume Shipment through the adapter boundary.
+8. **Later:** remove the DeCA-shaped persistence copy only after migration evidence proves no legacy record depends on it, then add eCMR/eFTI regulatory contexts without changing the tenant/auth/persistence boundary.
 
-Until step 4 is complete, the current persisted shipment `data` remains the canonical normalized DeCA request. This avoids a schema migration before the generic model has deterministic coverage.
+During the compatibility stage, persisted `data` remains the public/legacy DeCA representation while `aggregate` is the new internal regulation-neutral representation. Idempotency remains fingerprinted from the existing DeCA request so the migration cannot turn an old retry into a new shipment merely because the internal aggregate field appeared.
