@@ -19,6 +19,9 @@ import {
   validateShipmentAggregate
 } from "../../../packages/core/src/validate-shipment.mjs";
 import {
+  resolveDecaRequestFromShipment
+} from "../../../packages/core/src/shipment-deca-view.mjs";
+import {
   createDocumentSnapshot,
   reviseDocumentSnapshot
 } from "../../../packages/document-engine/src/snapshot.mjs";
@@ -1767,9 +1770,16 @@ export function createServer({
               });
           }
 
+          const shipmentView =
+            resolveDecaRequestFromShipment(
+              shipment
+            );
+          const decaRequest =
+            shipmentView.request;
+
           const candidate =
             createDocumentSnapshot(
-              shipment.data,
+              decaRequest,
               {
                 baseUrl: publicBaseUrl
               }
@@ -1791,7 +1801,7 @@ export function createServer({
           const snapshot = previous
             ? reviseDocumentSnapshot(
                 previous.snapshot,
-                shipment.data,
+                decaRequest,
                 {
                   baseUrl: publicBaseUrl
                 }
@@ -1811,7 +1821,7 @@ export function createServer({
             ...storedArtifact,
             retentionNotBefore:
               retentionNotBefore(
-                shipment.data.transport.date
+                decaRequest.transport.date
               )
           };
 
