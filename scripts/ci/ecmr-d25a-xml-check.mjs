@@ -61,7 +61,14 @@ for (const token of [
   "CarrierTradeParty",
   "ConsigneeTradeParty",
   "CarrierAcceptanceLogisticsLocation",
-  "ConsigneeReceiptLogisticsLocation"
+  "ConsigneeReceiptLogisticsLocation",
+  "PickUpTransportEvent",
+  "ActualOccurrenceDateTime",
+  "IncludedSupplyChainConsignmentItem",
+  "NatureIdentificationTransportCargo",
+  "TransportLogisticsPackage",
+  "PhysicalLogisticsShippingMarks",
+  "Marking"
 ]) {
   if (!serializer.includes(token)) {
     throw new Error(
@@ -132,6 +139,31 @@ if (
   );
 }
 
+for (const mappedPath of [
+  '"takingOver.date"',
+  '"goods.nature"',
+  '"goods.packages.marksAndNumbers"'
+]) {
+  if (!serializer.includes(mappedPath)) {
+    throw new Error(
+      `D25A serializer mapping evidence is missing ${mappedPath}`
+    );
+  }
+}
+
+for (const stillPending of [
+  '"goods.packingMethod"',
+  '"charges"',
+  '"customsFormalities"',
+  '"conventionApplicability"'
+]) {
+  if (!serializer.includes(stillPending)) {
+    throw new Error(
+      `D25A serializer must keep ambiguous field pending: ${stillPending}`
+    );
+  }
+}
+
 console.log(
-  "eCMR D25A XML boundary OK (official package pinned, deterministic envelope serializer, local schema manifest/hash, xmllint --nonet fail-closed validation)"
+  "eCMR D25A XML boundary OK (official package pinned, deterministic envelope serializer, confirmed pickup/goods/package mappings, local schema manifest/hash, xmllint --nonet fail-closed validation)"
 );
