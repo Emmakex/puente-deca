@@ -3,6 +3,8 @@ export const ECMR_D25A_PROFILE = Object.freeze({
   publishedOn: "2026-06-11",
   sourcePage:
     "https://unece.org/trade/documents/2026/06/ecmr-d25a",
+  sourceDownload:
+    "https://unece.org/sites/default/files/2026-06/eCMR_D25A.zip",
   sourceFileName:
     "eCMR_D25A.zip",
   sourceFileId: 473769,
