@@ -118,6 +118,11 @@ requirePattern(
 );
 requirePattern(
   restore,
+  /deca_ecmr_amendment_versions/,
+  "Restore drill must require immutable eCMR amendment history"
+);
+requirePattern(
+  restore,
   /deca_pdf\.files/,
   "Restore must verify GridFS files"
 );
@@ -239,5 +244,5 @@ if (
 }
 
 console.log(
-  "Backup/restore automation contract OK (0600 config, scoped archive, SHA-256, isolated namespace remap, metadata/GridFS reconciliation, all-artifact integrity, failure cleanup, one-command acceptance, no production-restore bypass)"
+  "Backup/restore automation contract OK (0600 config, scoped DeCA+eCMR archive, SHA-256, isolated namespace remap, amendment history, metadata/GridFS reconciliation, all-artifact integrity, failure cleanup, one-command acceptance, no production-restore bypass)"
 );
