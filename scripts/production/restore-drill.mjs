@@ -398,7 +398,6 @@ const main = async () => {
     let artifactBytesVerified = 0;
     let metadataArtifactLinksVerified =
       0;
-    let artifactBytesVerified = 0;
 
     const artifactCursor =
       database
