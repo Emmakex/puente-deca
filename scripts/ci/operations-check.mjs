@@ -74,6 +74,27 @@ requirePattern(
   "eCMR API must preserve the exact XML string rather than a normalized replacement"
 );
 
+requirePattern(
+  server,
+  /x-kairoseth-user-id/,
+  "Kairoseth human actor context header is missing"
+);
+requirePattern(
+  server,
+  /kairoseth-user:\$\{humanUserId\}/,
+  "Trusted Kairoseth human actor must be bound into amendment evidence"
+);
+requirePattern(
+  server,
+  /identityScheme:[\s\S]*"kairoseth-user"/,
+  "Trusted Kairoseth human actor needs an explicit identity scheme"
+);
+requirePattern(
+  server,
+  /serviceUserId[\s\S]*secureSecretEqual|secureSecretEqual[\s\S]*actorUserId/,
+  "Human actor context must remain inside the authenticated Kairoseth service boundary"
+);
+
 if (
   /payload\?\.actorId|payload\.actorId/.test(
     server
