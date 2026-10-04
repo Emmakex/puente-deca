@@ -17,6 +17,12 @@ import {
   assertRegulatoryVersionAppend,
   normalizeRegulatoryType
 } from "./regulatory-version-record.mjs";
+import {
+  createAuthorizedEcmrSignerKey,
+  publicEcmrSignerKey,
+  revokeAuthorizedEcmrSignerKey,
+  rotateAuthorizedEcmrSignerKey
+} from "../../ecmr-signature/src/signer-registry.mjs";
 
 const initialState = () => ({
   schemaVersion: 1,
@@ -25,6 +31,7 @@ const initialState = () => ({
   documentVersions: {},
   regulatoryVersions: {},
   apiCredentials: {},
+  signerKeys: {},
   auditEvents: [],
   idempotency: {},
   artifactPurgeRecords: {}
@@ -644,6 +651,354 @@ export class JsonStore {
       });
 
       return publicCredential(credential);
+    });
+  }
+
+  async registerEcmrSignerKey({
+    organizationId,
+    label,
+    publicKey,
+    signer,
+    custody,
+    validUntil = null
+  }) {
+    const normalizedOrganizationId =
+      requireText(
+        organizationId,
+        "organizationId"
+      );
+
+    return this.#mutate((state) => {
+      if (
+        !state.organizations[
+          normalizedOrganizationId
+        ]
+      ) {
+        throw conflict(
+          "Organization does not exist",
+          "ORGANIZATION_NOT_FOUND"
+        );
+      }
+
+      state.signerKeys ??= {};
+
+      const at =
+        this.#nowIso();
+      const record =
+        createAuthorizedEcmrSignerKey({
+          signerKeyId:
+            `skey_${this.#idFactory()}`,
+          organizationId:
+            normalizedOrganizationId,
+          label,
+          publicKey,
+          signer,
+          custody,
+          validFrom:
+            at,
+          validUntil,
+          createdAt:
+            at
+        });
+
+      const duplicate =
+        Object.values(
+          state.signerKeys
+        ).find(
+          (entry) =>
+            entry.organizationId ===
+              normalizedOrganizationId &&
+            entry.publicKeyFingerprint ===
+              record.publicKeyFingerprint
+        );
+
+      if (duplicate) {
+        throw conflict(
+          "Signer public key is already registered in this organization",
+          "ECMR_SIGNER_KEY_DUPLICATE"
+        );
+      }
+
+      state.signerKeys[
+        record.signerKeyId
+      ] =
+        record;
+
+      this.#appendAudit(
+        state,
+        {
+          organizationId:
+            normalizedOrganizationId,
+          subjectId:
+            record.signerKeyId,
+          type:
+            "ecmr.signer_key.registered",
+          at
+        }
+      );
+
+      return publicEcmrSignerKey(
+        record
+      );
+    });
+  }
+
+  async listEcmrSignerKeys({
+    organizationId
+  }) {
+    const normalizedOrganizationId =
+      requireText(
+        organizationId,
+        "organizationId"
+      );
+    const state =
+      await this.#readState();
+
+    return Object.values(
+      state.signerKeys ?? {}
+    )
+      .filter(
+        (entry) =>
+          entry.organizationId ===
+          normalizedOrganizationId
+      )
+      .sort(
+        (left, right) =>
+          String(
+            right.createdAt
+          ).localeCompare(
+            String(
+              left.createdAt
+            )
+          )
+      )
+      .map(
+        publicEcmrSignerKey
+      );
+  }
+
+  async getEcmrSignerKey({
+    organizationId,
+    signerKeyId
+  }) {
+    const normalizedOrganizationId =
+      requireText(
+        organizationId,
+        "organizationId"
+      );
+    const normalizedSignerKeyId =
+      requireText(
+        signerKeyId,
+        "signerKeyId"
+      );
+    const state =
+      await this.#readState();
+    const record =
+      state.signerKeys?.[
+        normalizedSignerKeyId
+      ] ??
+      null;
+
+    if (
+      !record ||
+      record.organizationId !==
+        normalizedOrganizationId
+    ) {
+      return null;
+    }
+
+    return clone(
+      record
+    );
+  }
+
+  async revokeEcmrSignerKey({
+    organizationId,
+    signerKeyId,
+    reason
+  }) {
+    const normalizedOrganizationId =
+      requireText(
+        organizationId,
+        "organizationId"
+      );
+    const normalizedSignerKeyId =
+      requireText(
+        signerKeyId,
+        "signerKeyId"
+      );
+
+    return this.#mutate((state) => {
+      state.signerKeys ??= {};
+      const current =
+        state.signerKeys[
+          normalizedSignerKeyId
+        ];
+
+      if (
+        !current ||
+        current.organizationId !==
+          normalizedOrganizationId
+      ) {
+        throw conflict(
+          "eCMR signer key does not exist in this organization",
+          "ECMR_SIGNER_KEY_NOT_FOUND"
+        );
+      }
+
+      if (
+        current.revokedAt
+      ) {
+        return publicEcmrSignerKey(
+          current
+        );
+      }
+
+      const at =
+        this.#nowIso();
+      const revoked =
+        revokeAuthorizedEcmrSignerKey(
+          current,
+          {
+            revokedAt:
+              at,
+            reason
+          }
+        );
+
+      state.signerKeys[
+        normalizedSignerKeyId
+      ] =
+        revoked;
+
+      this.#appendAudit(
+        state,
+        {
+          organizationId:
+            normalizedOrganizationId,
+          subjectId:
+            normalizedSignerKeyId,
+          type:
+            "ecmr.signer_key.revoked",
+          at
+        }
+      );
+
+      return publicEcmrSignerKey(
+        revoked
+      );
+    });
+  }
+
+  async rotateEcmrSignerKey({
+    organizationId,
+    signerKeyId,
+    label,
+    publicKey,
+    custody,
+    validUntil = null,
+    reason =
+      "scheduled key rotation"
+  }) {
+    const normalizedOrganizationId =
+      requireText(
+        organizationId,
+        "organizationId"
+      );
+    const normalizedSignerKeyId =
+      requireText(
+        signerKeyId,
+        "signerKeyId"
+      );
+
+    return this.#mutate((state) => {
+      state.signerKeys ??= {};
+      const current =
+        state.signerKeys[
+          normalizedSignerKeyId
+        ];
+
+      if (
+        !current ||
+        current.organizationId !==
+          normalizedOrganizationId
+      ) {
+        throw conflict(
+          "eCMR signer key does not exist in this organization",
+          "ECMR_SIGNER_KEY_NOT_FOUND"
+        );
+      }
+
+      const at =
+        this.#nowIso();
+      const rotation =
+        rotateAuthorizedEcmrSignerKey(
+          current,
+          {
+            signerKeyId:
+              `skey_${this.#idFactory()}`,
+            label,
+            publicKey,
+            custody,
+            rotatedAt:
+              at,
+            validUntil,
+            reason
+          }
+        );
+
+      const duplicate =
+        Object.values(
+          state.signerKeys
+        ).find(
+          (entry) =>
+            entry.organizationId ===
+              normalizedOrganizationId &&
+            entry.publicKeyFingerprint ===
+              rotation.next
+                .publicKeyFingerprint
+        );
+
+      if (duplicate) {
+        throw conflict(
+          "Replacement signer public key is already registered in this organization",
+          "ECMR_SIGNER_KEY_DUPLICATE"
+        );
+      }
+
+      state.signerKeys[
+        current.signerKeyId
+      ] =
+        rotation.previous;
+      state.signerKeys[
+        rotation.next
+          .signerKeyId
+      ] =
+        rotation.next;
+
+      this.#appendAudit(
+        state,
+        {
+          organizationId:
+            normalizedOrganizationId,
+          subjectId:
+            current.signerKeyId,
+          type:
+            "ecmr.signer_key.rotated",
+          at
+        }
+      );
+
+      return {
+        previous:
+          publicEcmrSignerKey(
+            rotation.previous
+          ),
+        next:
+          publicEcmrSignerKey(
+            rotation.next
+          )
+      };
     });
   }
 
