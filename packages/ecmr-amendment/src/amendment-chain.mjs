@@ -41,11 +41,19 @@ const requireText = (
 
 const exactXml = (
   xml
-) =>
-  requireText(
-    xml,
-    "xml"
-  );
+) => {
+  if (
+    typeof xml !== "string" ||
+    xml.trim().length === 0
+  ) {
+    throw fail(
+      "ECMR_AMENDMENT_INPUT_INVALID",
+      "xml is required"
+    );
+  }
+
+  return xml;
+};
 
 const sha256 = (
   value
