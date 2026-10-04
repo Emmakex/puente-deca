@@ -70,6 +70,7 @@ for (const runtimePackage of [
   "packages/core",
   "packages/document-engine",
   "packages/ecmr-amendment",
+  "packages/ecmr-signature",
   "packages/ecmr-xml",
   "packages/persistence"
 ]) {
