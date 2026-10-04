@@ -58,6 +58,31 @@ requirePattern(
   "Runtime node_modules must be copied with non-root ownership"
 );
 
+const dockerLines =
+  new Set(
+    dockerfile
+      .split("\n")
+      .map((line) => line.trim())
+  );
+
+for (const runtimePackage of [
+  "packages/contracts",
+  "packages/core",
+  "packages/document-engine",
+  "packages/ecmr-amendment",
+  "packages/ecmr-xml",
+  "packages/persistence"
+]) {
+  const copyLine =
+    `COPY --chown=node:node ${runtimePackage} ./${runtimePackage}`;
+
+  if (!dockerLines.has(copyLine)) {
+    throw new Error(
+      `Container runtime must include ${runtimePackage}`
+    );
+  }
+}
+
 requirePattern(
   dockerfile,
   /^USER node$/m,
@@ -115,5 +140,5 @@ for (const requiredIgnore of [
 }
 
 console.log(
-  "Production container contract OK (exact Node, locked deps, minimal copy, non-root runtime, /ready healthcheck, no baked secrets)"
+  "Production container contract OK (exact Node, locked deps, minimal copy, required runtime packages, non-root runtime, /ready healthcheck, no baked secrets)"
 );
