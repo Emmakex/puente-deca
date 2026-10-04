@@ -198,11 +198,12 @@ Implemented:
 - legacy Shipment fallback;
 - Kairoseth structured customer form/review workflow with no raw XML;
 - cryptographically cross-checked human-review snapshots for structured versions;
-- verified human-readable review PDF with explicit non-issuance status.
+- verified human-readable review PDF with explicit non-issuance status;
+- Kairoseth-only fail-closed issuance-readiness evaluation across current head, review, amendment history, official D25A PASS evidence, authorized signature, jurisdiction policy and Article 5 procedure agreement.
 
 Still pending before production eCMR issuance:
 
 - official D25A XSD PASS with preserved hash evidence;
-- accepted signer/key-custody policy;
+- accepted production jurisdiction/signature/custody policy and signing-provider integration;
 - live Atlas concurrency and DR evidence;
-- production signing and issuance UX after the XSD and signer-policy gates.
+- actual signing/issuance action, persistence and issued-artifact UX after all readiness gates pass.
