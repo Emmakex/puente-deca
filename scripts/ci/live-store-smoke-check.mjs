@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
 
 const [woo, presta] = await Promise.all([
   readFile(
@@ -102,6 +103,29 @@ for (
   }
 }
 
+for (const path of [
+  "scripts/production/woocommerce-live-store-smoke.php",
+  "scripts/production/prestashop-live-store-smoke.php"
+]) {
+  const lint = spawnSync(
+    "php",
+    ["-l", path],
+    { encoding: "utf8" }
+  );
+
+  if (lint.error?.code === "ENOENT") {
+    throw new Error(
+      "PHP is required to syntax-check connector live-store smokes"
+    );
+  }
+
+  if (lint.status !== 0) {
+    throw new Error(
+      `PHP lint failed for ${path}: ${lint.stderr || lint.stdout}`
+    );
+  }
+}
+
 console.log(
-  "Connector live-store smoke contract OK (explicit roots, read-only Cargo check, optional local mapping, no shipment/order mutation)"
+  "Connector live-store smoke contract OK (explicit roots, PHP syntax, read-only Cargo check, optional local mapping, no shipment/order mutation)"
 );
