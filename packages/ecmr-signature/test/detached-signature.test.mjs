@@ -31,7 +31,7 @@ const signer = () => ({
 });
 
 test(
-  "creates deterministic-profile detached evidence over the exact XML bytes",
+  "creates detached evidence binding exact XML hash, key and signer identity",
   () => {
     const {
       privateKey
@@ -132,6 +132,52 @@ test(
 );
 
 test(
+  "rejects signer metadata tampering because identity is inside the signed statement",
+  () => {
+    const {
+      privateKey,
+      publicKey
+    } = keys();
+
+    const evidence =
+      createEcmrDetachedSignature({
+        xml: XML,
+        privateKey,
+        signer:
+          signer(),
+        signedAt:
+          "2026-10-04T14:15:00.000Z"
+      });
+
+    const tampered = {
+      ...evidence,
+      signer: {
+        ...evidence.signer,
+        signerId:
+          "ES-B99999999"
+      }
+    };
+
+    const result =
+      verifyEcmrDetachedSignature({
+        xml: XML,
+        evidence:
+          tampered,
+        publicKey
+      });
+
+    assert.equal(
+      result.valid,
+      false
+    );
+    assert.equal(
+      result.code,
+      "ECMR_SIGNATURE_CRYPTOGRAPHIC_VERIFICATION_FAILED"
+    );
+  }
+);
+
+test(
   "rejects a different public key even when the signed content is unchanged",
   () => {
     const first =
@@ -170,7 +216,47 @@ test(
 );
 
 test(
-  "rejects unsigned identity metadata and non-canonical timestamps at creation time",
+  "rejects malformed signature values before cryptographic verification",
+  () => {
+    const {
+      privateKey,
+      publicKey
+    } = keys();
+
+    const evidence =
+      createEcmrDetachedSignature({
+        xml: XML,
+        privateKey,
+        signer:
+          signer(),
+        signedAt:
+          "2026-10-04T14:15:00.000Z"
+      });
+
+    const result =
+      verifyEcmrDetachedSignature({
+        xml: XML,
+        evidence: {
+          ...evidence,
+          signatureValue:
+            "not+base64"
+        },
+        publicKey
+      });
+
+    assert.equal(
+      result.valid,
+      false
+    );
+    assert.equal(
+      result.code,
+      "ECMR_SIGNATURE_VALUE_INVALID"
+    );
+  }
+);
+
+test(
+  "requires explicit signer identity and canonical UTC timestamps",
   () => {
     const {
       privateKey
@@ -190,13 +276,11 @@ test(
               "tax-id"
           },
           signedAt:
-            "2026-10-04T14:15:00Z"
+            "2026-10-04T14:15:00.000Z"
         }),
       (error) =>
         error.code ===
-        "ECMR_SIGNATURE_SIGNER_INVALID" ||
-        error.code ===
-        "ECMR_SIGNATURE_INPUT_INVALID"
+          "ECMR_SIGNATURE_INPUT_INVALID"
     );
 
     assert.throws(
