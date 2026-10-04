@@ -103,7 +103,7 @@ Characters outside the embedded font set continue to fail closed rather than bei
 - [x] PrestaShop deterministic release ZIP packaging with SHA-256 manifest.
 - [ ] PrestaShop real 1.7.8/8.x compatibility matrix.
 - [x] MongoDB Atlas metadata store aligned with Kairoseth Platform.
-- [ ] Production Atlas transaction/index smoke acceptance.
+- [ ] Production Atlas transaction/index/concurrency smoke acceptance.
 - [ ] GridFS backup/restore acceptance.
 - [x] MongoDB Atlas GridFS PDF artifact storage aligned with Kairoseth Platform.
 - [x] Artifact reconciliation tooling for premature loss, post-retention loss, orphans and incomplete purges.
