@@ -175,13 +175,15 @@ Characters outside the embedded font set continue to fail closed rather than bei
     - [x] Persist amendment versions immutably in MongoDB Atlas with organization/shipment scoping, current-head verification, unique lineage indexes and transactional audit.
     - [x] Authorized engine API read/append flow with `regulatory:read/write`, server-derived actor/time, exact-XML preservation and explicit expected-head conflict control.
     - [x] Atlas regulatory-head race automation prevents divergent accepted amendment heads.
-    - [ ] Kairoseth workspace human-authorization/identity UX and live concurrent-head execution.
+    - [x] Kairoseth workspace human-authorization/identity UX.
+    - [ ] Live concurrent-head execution against the intended Atlas environment.
     - [ ] Backup/restore and production smoke acceptance for amendment history (DR collection requirement implemented; live evidence still pending).
   - [ ] eCMR API/rendering/production issuance acceptance.
     - [x] Structured eCMR draft builder reuses Shipment facts while requiring explicit CMR parties/legal particulars.
     - [x] Regulatory-scoped structured preview returns projection/validation/D25A hash metadata without raw XML.
     - [x] Structured append regenerates D25A XML server-side and writes the immutable ledger without returning XML.
-    - [ ] Kairoseth structured customer review/preparation UX (no raw XML editor).
-    - [ ] Human-readable eCMR rendering/sign/issue UX.
+    - [x] Kairoseth structured customer review/preparation UX (no raw XML editor).
+    - [x] Persisted human-review snapshot for structured versions, with canonical review hash and reserialization check against the immutable XML content hash.
+    - [ ] Human-readable final eCMR rendering/sign/issue UX.
 - [ ] eFTI compatibility track.
 - [ ] Additional transport-document modules.
