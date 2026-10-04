@@ -7,6 +7,10 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { JsonStore } from "../src/json-store.mjs";
+import {
+  createEcmrAmendmentChain,
+  appendEcmrAmendment
+} from "../../ecmr-amendment/src/amendment-chain.mjs";
 
 const withStore = async (fn) => {
   const directory = await mkdtemp(
@@ -213,6 +217,265 @@ test("scopes shipments to their organization", async () => {
         shipmentId: shipment.shipmentId
       }),
       null
+    );
+  });
+});
+
+test("persists immutable eCMR amendment versions with tenant and lineage isolation", async () => {
+  await withStore(async ({ store }) => {
+    const firstOrganization =
+      await store.createOrganization({
+        name: "First"
+      });
+    const secondOrganization =
+      await store.createOrganization({
+        name: "Second"
+      });
+
+    const shipment =
+      await store.createShipment({
+        organizationId:
+          firstOrganization.organizationId,
+        externalReference:
+          "ECMR-SHIP-1",
+        data:
+          shipmentData()
+      });
+
+    const original =
+      createEcmrAmendmentChain({
+        xml:
+          "<rsm:eCMR>original</rsm:eCMR>",
+        actor: {
+          actorId:
+            "ES-B12345678",
+          partyRole:
+            "sender",
+          identityScheme:
+            "tax-id"
+        },
+        reason:
+          "initial issue",
+        createdAt:
+          "2026-10-03T05:20:00.000Z",
+        idFactory:
+          () => "ecmr-one"
+      });
+
+    const first =
+      await store
+        .appendEcmrAmendmentVersion({
+          organizationId:
+            firstOrganization.organizationId,
+          shipmentId:
+            shipment.shipmentId,
+          record:
+            original[0]
+        });
+
+    assert.equal(
+      first.version,
+      1
+    );
+    assert.equal(
+      first.xml,
+      original[0].xml
+    );
+
+    const revised =
+      appendEcmrAmendment({
+        chain:
+          original,
+        xml:
+          "<rsm:eCMR>corrected</rsm:eCMR>",
+        actor: {
+          actorId:
+            "ES-B12345678",
+          partyRole:
+            "sender",
+          identityScheme:
+            "tax-id"
+        },
+        reason:
+          "correct consignee",
+        createdAt:
+          "2026-10-03T05:25:00.000Z",
+        idFactory:
+          () => "ecmr-two"
+      });
+
+    const second =
+      await store
+        .appendEcmrAmendmentVersion({
+          organizationId:
+            firstOrganization.organizationId,
+          shipmentId:
+            shipment.shipmentId,
+          record:
+            revised[1]
+        });
+
+    assert.equal(
+      second.version,
+      2
+    );
+    assert.equal(
+      second.previousVersionId,
+      first.versionId
+    );
+    assert.equal(
+      second.originalContentHash,
+      first.contentHash
+    );
+
+    const versions =
+      await store
+        .listEcmrAmendmentVersions({
+          organizationId:
+            firstOrganization.organizationId,
+          shipmentId:
+            shipment.shipmentId
+        });
+
+    assert.deepEqual(
+      versions.map(
+        (entry) =>
+          entry.version
+      ),
+      [1, 2]
+    );
+    assert.deepEqual(
+      versions.map(
+        (entry) =>
+          entry.xml
+      ),
+      [
+        "<rsm:eCMR>original</rsm:eCMR>",
+        "<rsm:eCMR>corrected</rsm:eCMR>"
+      ]
+    );
+
+    assert.deepEqual(
+      await store
+        .listEcmrAmendmentVersions({
+          organizationId:
+            secondOrganization.organizationId,
+          shipmentId:
+            shipment.shipmentId
+        }),
+      []
+    );
+
+    await assert.rejects(
+      () =>
+        store
+          .appendEcmrAmendmentVersion({
+            organizationId:
+              firstOrganization.organizationId,
+            shipmentId:
+              shipment.shipmentId,
+            record:
+              revised[1]
+          }),
+      (error) =>
+        error.code ===
+        "ECMR_AMENDMENT_VERSION_EXISTS"
+    );
+
+    const events =
+      await store.listAuditEvents({
+        organizationId:
+          firstOrganization.organizationId,
+        shipmentId:
+          shipment.shipmentId
+      });
+
+    assert.deepEqual(
+      events.map(
+        (entry) =>
+          entry.type
+      ),
+      [
+        "shipment.created",
+        "ecmr.amendment.version.created",
+        "ecmr.amendment.version.created"
+      ]
+    );
+  });
+});
+
+test("rejects eCMR amendment versions that do not extend the persisted lineage", async () => {
+  await withStore(async ({ store }) => {
+    const organization =
+      await store.createOrganization({
+        name:
+          "Organization 001"
+      });
+    const shipment =
+      await store.createShipment({
+        organizationId:
+          organization.organizationId,
+        externalReference:
+          "ECMR-SHIP-2",
+        data:
+          shipmentData()
+      });
+
+    const original =
+      createEcmrAmendmentChain({
+        xml:
+          "<rsm:eCMR>original</rsm:eCMR>",
+        actor: {
+          actorId:
+            "ES-B12345678",
+          partyRole:
+            "sender",
+          identityScheme:
+            "tax-id"
+        },
+        reason:
+          "initial issue",
+        createdAt:
+          "2026-10-03T05:20:00.000Z",
+        idFactory:
+          () => "one"
+      });
+    const revised =
+      appendEcmrAmendment({
+        chain:
+          original,
+        xml:
+          "<rsm:eCMR>revision</rsm:eCMR>",
+        actor: {
+          actorId:
+            "ES-B12345678",
+          partyRole:
+            "sender",
+          identityScheme:
+            "tax-id"
+        },
+        reason:
+          "revision",
+        createdAt:
+          "2026-10-03T05:25:00.000Z",
+        idFactory:
+          () => "two"
+      });
+
+    await assert.rejects(
+      () =>
+        store
+          .appendEcmrAmendmentVersion({
+            organizationId:
+              organization.organizationId,
+            shipmentId:
+              shipment.shipmentId,
+            record:
+              revised[1]
+          }),
+      (error) =>
+        error.code ===
+        "ECMR_AMENDMENT_LINEAGE_CONFLICT"
     );
   });
 });
