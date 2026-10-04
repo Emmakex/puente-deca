@@ -20,6 +20,7 @@ for (const collection of [
   "deca_api_credentials",
   "deca_shipments",
   "deca_document_versions",
+  "deca_ecmr_amendment_versions",
   "deca_idempotency",
   "deca_audit_events"
 ]) {
@@ -62,6 +63,26 @@ requirePattern(
 );
 requirePattern(
   adapter,
+  /ecmr_amendment_version_id_unique/,
+  "eCMR amendment version IDs need a unique MongoDB index"
+);
+requirePattern(
+  adapter,
+  /ecmr_amendment_lineage_unique/,
+  "eCMR amendment lineage needs an organization/shipment/version unique index"
+);
+requirePattern(
+  adapter,
+  /verifyEcmrAmendmentChain/,
+  "MongoDB amendment persistence must verify the immutable chain before insert"
+);
+requirePattern(
+  adapter,
+  /ECMR_AMENDMENT_CONFLICT/,
+  "Concurrent eCMR amendment heads must fail closed"
+);
+requirePattern(
+  adapter,
   /idempotency_scope_unique/,
   "Idempotency scope needs a unique MongoDB index"
 );
@@ -98,5 +119,5 @@ if (/postgres|DATABASE_URL|\bpg\b/i.test(adapter + factory)) {
 }
 
 console.log(
-  "MongoDB persistence contract OK (Kairoseth-aligned collections, indexes, transactions, generic Shipment dual-write, production fail-closed)"
+  "MongoDB persistence contract OK (Kairoseth-aligned collections, indexes, transactions, generic Shipment dual-write, immutable eCMR amendment lineage, production fail-closed)"
 );
