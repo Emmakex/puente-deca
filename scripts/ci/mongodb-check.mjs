@@ -89,11 +89,19 @@ requirePattern(
   /ecmr_signer_org_fingerprint_unique/,
   "eCMR signer public-key fingerprints must be unique per organization"
 );
-requirePattern(
-  adapter,
-  /registerEcmrSignerKey[sS]*rotateEcmrSignerKey/,
-  "MongoDB store must persist the eCMR signer-key lifecycle"
-);
+for (const method of [
+  "registerEcmrSignerKey",
+  "listEcmrSignerKeys",
+  "getEcmrSignerKey",
+  "revokeEcmrSignerKey",
+  "rotateEcmrSignerKey"
+]) {
+  requirePattern(
+    adapter,
+    new RegExp(method),
+    `MongoDB store must persist the eCMR signer-key lifecycle method ${method}`
+  );
+}
 requirePattern(
   adapter,
   /publicEcmrSignerKey/,
