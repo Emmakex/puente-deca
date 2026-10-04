@@ -1582,6 +1582,189 @@
           }
         }
       }
+    },
+    "/v1/shipments/{shipmentId}/ecmr/versions/{versionId}/issuance-readiness": {
+      "post": {
+        "operationId": "evaluateEcmrIssuanceReadiness",
+        "summary": "Evaluate whether an immutable eCMR head is ready for production issuance",
+        "description": "Kairoseth Platform administration only. This is a fail-closed evaluation endpoint and never issues or signs a document. It verifies the stored immutable amendment chain and human-review snapshot, verifies detached Ed25519 evidence against the tenant-registered public key, and requires hash-bound official D25A XSD PASS evidence, jurisdiction-specific signature-policy acceptance, and agreed/verifiable eCMR operating procedures. Raw XML and private-key material are never returned.",
+        "security": [
+          {
+            "platformServiceSecret": [],
+            "platformOrganizationId": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "shipmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "versionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "signerKeyId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Tenant-registered signer key ID. The server loads its public key internally."
+                  },
+                  "signatureEvidence": {
+                    "type": "object",
+                    "description": "Detached Ed25519 evidence for the exact immutable XML. It is cryptographically verified server-side.",
+                    "additionalProperties": true
+                  },
+                  "schemaAcceptance": {
+                    "type": "object",
+                    "description": "Hash-bound evidence produced by the official D25A generated-XML acceptance workflow or equivalent controlled command.",
+                    "additionalProperties": true
+                  },
+                  "jurisdictionPolicy": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "status",
+                      "jurisdiction",
+                      "policyId",
+                      "policyVersion",
+                      "acceptedAt",
+                      "identityAssurance",
+                      "custodyModel",
+                      "signatureMethod",
+                      "signerKeyId",
+                      "publicKeyFingerprint"
+                    ],
+                    "properties": {
+                      "status": {
+                        "const": "accepted"
+                      },
+                      "jurisdiction": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "policyId": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "policyVersion": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "acceptedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "identityAssurance": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "custodyModel": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "signatureMethod": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "signerKeyId": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "publicKeyFingerprint": {
+                        "type": "string",
+                        "pattern": "^sha256:[0-9a-f]{64}$"
+                      }
+                    }
+                  },
+                  "procedureAgreement": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "agreed",
+                      "agreementId",
+                      "procedureVersion",
+                      "proceduresHash",
+                      "acceptedAt",
+                      "verificationMethod",
+                      "partyRoles"
+                    ],
+                    "properties": {
+                      "agreed": {
+                        "const": true
+                      },
+                      "agreementId": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "procedureVersion": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "proceduresHash": {
+                        "type": "string",
+                        "pattern": "^sha256:[0-9a-f]{64}$"
+                      },
+                      "acceptedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "verificationMethod": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "partyRoles": {
+                        "type": "array",
+                        "minItems": 2,
+                        "uniqueItems": true,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "description": "Must explicitly include sender and contractualCarrier."
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Readiness result. `ready=true` only when every gate passes; otherwise blockingCodes identify the fail-closed gates."
+          },
+          "401": {
+            "description": "Kairoseth Platform authentication required; connector credentials cannot evaluate final issuance readiness."
+          },
+          "404": {
+            "description": "Shipment or eCMR version not found in the organization."
+          },
+          "429": {
+            "description": "Authenticated Kairoseth Platform subject exceeded the request limit."
+          },
+          "500": {
+            "description": "Stored immutable amendment or review evidence failed integrity verification."
+          }
+        }
+      }
     }
   },
   "components": {
