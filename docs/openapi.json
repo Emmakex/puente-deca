@@ -1202,6 +1202,70 @@
           }
         }
       }
+    },
+    "/v1/shipments/{shipmentId}/ecmr/versions/{versionId}/review.pdf": {
+      "get": {
+        "operationId": "renderShipmentEcmrReviewPdf",
+        "summary": "Render a verified human-readable eCMR review PDF",
+        "description": "Requires regulatory:read. The immutable eCMR chain and persisted review snapshot are verified before rendering. The PDF is explicitly marked NOT ISSUED / NOT SIGNED and is unavailable for legacy/raw XML versions without verified review evidence.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "platformServiceSecret": [],
+            "platformOrganizationId": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ShipmentId"
+          },
+          {
+            "name": "versionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Verified human-review PDF. Response header x-ecmr-issuance-status is not-issued.",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "regulatory:read scope missing"
+          },
+          "404": {
+            "description": "Shipment or eCMR version not found"
+          },
+          "409": {
+            "description": "Version has no verified structured human-review snapshot"
+          },
+          "422": {
+            "description": "Verified version cannot be rendered by the current PDF profile"
+          },
+          "429": {
+            "description": "Authenticated subject exceeded the per-process request limit"
+          },
+          "500": {
+            "description": "Stored eCMR history or review evidence failed integrity verification"
+          }
+        }
+      }
     }
   },
   "components": {
