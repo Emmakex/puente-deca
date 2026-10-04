@@ -155,6 +155,15 @@ const publicRegulatoryVersion = (
     null,
   chainHash:
     document.chainHash,
+  reviewSnapshot:
+    document.reviewSnapshot
+      ? clone(
+          document.reviewSnapshot
+        )
+      : null,
+  reviewHash:
+    document.reviewHash ??
+    null,
   storedAt:
     iso(document.storedAt)
 });
