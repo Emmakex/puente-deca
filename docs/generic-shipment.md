@@ -58,9 +58,10 @@ The migration is intentionally incremental:
 4. **Done (compatibility stage):** new/changed DeCA shipments dual-write the generic Shipment aggregate alongside the current normalized DeCA `data`.
 5. **Done:** public shipment responses explicitly strip the internal `aggregate`, so existing connector/API consumers keep the same contract.
 6. **In progress:** guarded Atlas backfill tooling is implemented for shipment records that predate the aggregate field; production execution/evidence remains pending.
-7. **Next:** switch internal reads to Shipment-first with a legacy-data fallback.
-8. **Then:** make DeCA document generation consume Shipment through the adapter boundary.
-9. **Later:** remove the DeCA-shaped persistence copy only after migration evidence proves no legacy record depends on it, then add eCMR/eFTI regulatory contexts without changing the tenant/auth/persistence boundary.
+7. **Done:** internal DeCA document reads are Shipment-first; legacy `data` is used only when `aggregate` is absent.
+8. **Done:** DeCA snapshot generation, revision and retention-date calculation consume the DeCA projection resolved through the Shipment adapter boundary.
+9. **Next:** execute/preserve the controlled Atlas backfill evidence and remove the legacy fallback only after `missingAfter=0` is accepted.
+10. **Later:** remove the DeCA-shaped persistence copy only after migration evidence proves no legacy record depends on it, then add eCMR/eFTI regulatory contexts without changing the tenant/auth/persistence boundary.
 
 Backfill operation and evidence are documented in [`docs/shipment-backfill.md`](shipment-backfill.md).
 
