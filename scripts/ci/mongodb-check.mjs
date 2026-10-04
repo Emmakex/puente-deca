@@ -20,6 +20,7 @@ for (const collection of [
   "deca_api_credentials",
   "deca_shipments",
   "deca_document_versions",
+  "deca_regulatory_versions",
   "deca_idempotency",
   "deca_audit_events"
 ]) {
@@ -67,6 +68,26 @@ requirePattern(
 );
 requirePattern(
   adapter,
+  /regulatory_version_id_unique/,
+  "Regulatory version IDs need a unique MongoDB index"
+);
+requirePattern(
+  adapter,
+  /regulatory_lineage_unique/,
+  "Regulatory version lineage needs a unique MongoDB index"
+);
+requirePattern(
+  adapter,
+  /assertRegulatoryVersionAppend/,
+  "MongoDB regulatory writes must verify the current accepted head"
+);
+requirePattern(
+  adapter,
+  /REGULATORY_VERSION_CONFLICT/,
+  "MongoDB regulatory writes must fail closed on concurrent lineage changes"
+);
+requirePattern(
+  adapter,
   /aggregate:\s*document\.aggregate[\s\S]*clone\(document\.aggregate\)/,
   "MongoDB store must expose the internal Shipment aggregate to the engine"
 );
@@ -98,5 +119,5 @@ if (/postgres|DATABASE_URL|\bpg\b/i.test(adapter + factory)) {
 }
 
 console.log(
-  "MongoDB persistence contract OK (Kairoseth-aligned collections, indexes, transactions, generic Shipment dual-write, production fail-closed)"
+  "MongoDB persistence contract OK (Kairoseth-aligned collections, indexes, transactions, generic Shipment dual-write, immutable regulatory ledger, production fail-closed)"
 );
