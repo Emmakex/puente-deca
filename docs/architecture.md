@@ -29,7 +29,7 @@ The existing DeCA API remains stable. A tested adapter maps canonical DeCA reque
 A shipment may produce multiple regulatory representations:
 
 - Spain DeCA;
-- eCMR (adapter baseline uses explicit CMR roles, Article-6 validation and pinned UN/CEFACT D25A; the normative XSD is installed from the official UNECE package and validated offline by hash, while serializer conformance remains fail-closed until a full document passes that XSD; identity-bound detached Ed25519 evidence is supported, but cryptographic verification is kept separate from signer-policy acceptance and immutable amendment-history evidence);
+- eCMR (adapter baseline uses explicit CMR roles, Article-6 validation and pinned UN/CEFACT D25A; the normative XSD is installed from the official UNECE package and validated offline by hash, while serializer conformance remains fail-closed until a full document passes that XSD; identity-bound detached Ed25519 evidence is supported; exact XML amendment versions are linked by original/predecessor/chain hashes; cryptographic verification, amendment preservation and signer-policy acceptance remain separate gates);
 - eFTI-compatible representations;
 - other transport documents.
 

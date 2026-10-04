@@ -168,6 +168,13 @@ Characters outside the embedded font set continue to fail closed rather than bei
     - [x] Cryptographic verification kept distinct from legal authentication and amendment-history readiness.
     - [ ] Production signer identity policy, authorized-key registry/custody, revocation/rotation and jurisdiction-specific authentication acceptance.
   - [ ] Amendment/version lifecycle preserving original particulars.
+    - [x] Immutable exact-XML version records with original-content, predecessor-content and predecessor-chain hash links.
+    - [x] Deterministic chain verification detects content/metadata tampering, deletion/reordering and predecessor rewiring.
+    - [x] No-op and non-monotonic-time amendments fail closed.
+    - [x] Amendment-history readiness only binds when the latest preserved XML hash matches the current final-form content hash.
+    - [ ] Persist amendment versions immutably in MongoDB Atlas with organization/shipment scoping and unique lineage indexes.
+    - [ ] Authorized API/workspace append flow plus concurrent-head acceptance.
+    - [ ] Backup/restore and production smoke acceptance for amendment history.
   - [ ] eCMR API/rendering/production issuance acceptance.
 - [ ] eFTI compatibility track.
 - [ ] Additional transport-document modules.
