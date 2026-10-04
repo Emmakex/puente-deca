@@ -58,6 +58,13 @@ requirePattern(
   "Runtime node_modules must be copied with non-root ownership"
 );
 
+const dockerLines =
+  new Set(
+    dockerfile
+      .split("\n")
+      .map((line) => line.trim())
+  );
+
 for (const runtimePackage of [
   "packages/contracts",
   "packages/core",
@@ -66,68 +73,14 @@ for (const runtimePackage of [
   "packages/ecmr-xml",
   "packages/persistence"
 ]) {
-  requirePattern(
-    dockerfile,
-    new RegExp(
-      `^COPY --chown=node:node ${runtimePackage.replaceAll("/", "\\/")} \\.\/${runtimePackage.replaceAll("/", "\\/")}import { readFile } from "node:fs/promises";
+  const copyLine =
+    `COPY --chown=node:node ${runtimePackage} ./${runtimePackage}`;
 
-const [
-  dockerfile,
-  dockerignore,
-  nvmrc
-] = await Promise.all([
-  readFile("Dockerfile", "utf8"),
-  readFile(".dockerignore", "utf8"),
-  readFile(".nvmrc", "utf8")
-]);
-
-const requirePattern = (
-  source,
-  pattern,
-  message
-) => {
-  if (!pattern.test(source)) {
-    throw new Error(message);
+  if (!dockerLines.has(copyLine)) {
+    throw new Error(
+      `Container runtime must include ${runtimePackage}`
+    );
   }
-};
-
-const nodeVersion = "22.23.3";
-
-if (nvmrc.trim() !== nodeVersion) {
-  throw new Error(
-    "CI Node version must be pinned to 22.23.3"
-  );
-}
-
-requirePattern(
-  dockerfile,
-  new RegExp(
-    `^FROM node:${nodeVersion.replaceAll(".", "\\.")}-bookworm-slim AS dependencies$`,
-    "m"
-  ),
-  "Container dependency stage must use the exact CI Node version"
-);
-
-requirePattern(
-  dockerfile,
-  new RegExp(
-    `^FROM node:${nodeVersion.replaceAll(".", "\\.")}-bookworm-slim AS runtime$`,
-    "m"
-  ),
-  "Container runtime stage must use the exact CI Node version"
-);
-
-requirePattern(
-  dockerfile,
-  /npm ci[\s\S]*--omit=dev[\s\S]*--ignore-scripts/,
-  "Container dependencies must come from the committed lockfile without lifecycle scripts"
-);
-
-,
-      "m"
-    ),
-    `Container runtime must include ${runtimePackage}`
-  );
 }
 
 requirePattern(
@@ -187,5 +140,5 @@ for (const requiredIgnore of [
 }
 
 console.log(
-  "Production container contract OK (exact Node, locked deps, minimal copy, non-root runtime, /ready healthcheck, no baked secrets)"
+  "Production container contract OK (exact Node, locked deps, minimal copy, required runtime packages, non-root runtime, /ready healthcheck, no baked secrets)"
 );
