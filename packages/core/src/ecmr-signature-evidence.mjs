@@ -2,43 +2,80 @@ import {
   ECMR_SIGNATURE_METHOD
 } from "../../ecmr-signature/src/detached-signature.mjs";
 
-const requireEvidence = (
-  evidence
+const fail = (
+  code,
+  message
+) =>
+  Object.assign(
+    new Error(message),
+    { code }
+  );
+
+const requireVerifiedEvidence = (
+  evidence,
+  verification
 ) => {
   if (
     evidence === null ||
     typeof evidence !==
       "object" ||
     Array.isArray(evidence) ||
+    verification === null ||
+    typeof verification !==
+      "object" ||
+    verification.valid !==
+      true ||
     evidence.method !==
       ECMR_SIGNATURE_METHOD ||
-    typeof evidence
-      .signatureId !==
-      "string" ||
-    evidence.signatureId
-      .trim()
-      .length === 0 ||
-    typeof evidence
-      .contentHash !==
-      "string" ||
-    !/^sha256:[0-9a-f]{64}$/.test(
-      evidence.contentHash
+    verification.method !==
+      ECMR_SIGNATURE_METHOD
+  ) {
+    throw fail(
+      "ECMR_SIGNATURE_VERIFICATION_REQUIRED",
+      "Cryptographically verified detached-signature evidence is required"
+    );
+  }
+
+  for (const key of [
+    "signatureId",
+    "contentHash",
+    "publicKeyFingerprint",
+    "signedAt"
+  ]) {
+    if (
+      evidence[key] !==
+      verification[key]
+    ) {
+      throw fail(
+        "ECMR_SIGNATURE_VERIFICATION_MISMATCH",
+        `Verified signature field does not match evidence: ${key}`
+      );
+    }
+  }
+
+  if (
+    JSON.stringify(
+      evidence.signer
+    ) !==
+    JSON.stringify(
+      verification.signer
     )
   ) {
-    const error = new Error(
-      "Verified detached-signature evidence is required"
+    throw fail(
+      "ECMR_SIGNATURE_VERIFICATION_MISMATCH",
+      "Verified signer identity does not match signature evidence"
     );
-    error.code =
-      "ECMR_SIGNATURE_EVIDENCE_INVALID";
-    throw error;
   }
 
   return evidence;
 };
 
-export function applyEcmrDetachedSignatureEvidence(
+export function applyEcmrVerifiedSignatureEvidence(
   projection,
-  evidence
+  {
+    evidence,
+    verification
+  }
 ) {
   if (
     projection === null ||
@@ -46,17 +83,16 @@ export function applyEcmrDetachedSignatureEvidence(
       "object" ||
     Array.isArray(projection)
   ) {
-    const error = new Error(
+    throw fail(
+      "ECMR_SIGNATURE_PROJECTION_INVALID",
       "eCMR projection must be an object"
     );
-    error.code =
-      "ECMR_SIGNATURE_PROJECTION_INVALID";
-    throw error;
   }
 
   const current =
-    requireEvidence(
-      evidence
+    requireVerifiedEvidence(
+      evidence,
+      verification
     );
   const next =
     structuredClone(
@@ -78,12 +114,10 @@ export function applyEcmrDetachedSignatureEvidence(
       .contentHash !==
       current.contentHash
   ) {
-    const error = new Error(
+    throw fail(
+      "ECMR_SIGNATURE_CONTENT_CONFLICT",
       "Signature evidence targets a different final-form content hash"
     );
-    error.code =
-      "ECMR_SIGNATURE_CONTENT_CONFLICT";
-    throw error;
   }
 
   const signature = {
@@ -91,20 +125,16 @@ export function applyEcmrDetachedSignatureEvidence(
       current.signatureId,
     signerId:
       current.signer
-        ?.signerId ??
-      null,
+        .signerId,
     partyRole:
       current.signer
-        ?.partyRole ??
-      null,
+        .partyRole,
     identityScheme:
       current.signer
-        ?.identityScheme ??
-      null,
+        .identityScheme,
     identityAssurance:
       current.signer
-        ?.identityAssurance ??
-      null,
+        .identityAssurance,
     algorithm:
       current.algorithm,
     publicKeyFingerprint:
