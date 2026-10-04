@@ -276,3 +276,26 @@ export function assertRegulatoryVersionAppend({
     throw error;
   }
 }
+
+export function normalizeRegulatoryType(
+  value
+) {
+  const normalized =
+    requireText(
+      value,
+      "regulatoryType"
+    )
+      .toLowerCase();
+
+  if (
+    !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(
+      normalized
+    )
+  ) {
+    throw new TypeError(
+      "regulatoryType must be a lowercase-compatible slug"
+    );
+  }
+
+  return normalized;
+}
