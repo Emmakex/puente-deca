@@ -27,7 +27,11 @@ The request cannot choose its own `actorId` or identity scheme.
 The engine derives the actor from the authenticated subject:
 
 ```text
-Kairoseth platform service:
+Kairoseth workspace request with trusted user context:
+  actorId        = kairoseth-user:<userId>
+  identityScheme = kairoseth-user
+
+Kairoseth automated service request without human context:
   actorId        = kairoseth-platform:<organizationId>
   identityScheme = kairoseth-platform-service
 
@@ -38,7 +42,9 @@ API credential:
 
 The caller supplies only the CMR `partyRole` and amendment `reason`.
 
-A future Kairoseth workspace identity policy may add an authenticated human subject to this evidence. Until then, a platform-service append identifies the authorized organization service context, not an individual natural person.
+Kairoseth may send `x-kairoseth-user-id` only through the authenticated server-to-server channel. Puente DeCA accepts that header only after the shared Kairoseth service secret and organization context have been validated; malformed human context fails authentication. External Bearer credentials cannot promote themselves to a Kairoseth human actor.
+
+The `kairoseth-user` assertion proves which authenticated Kairoseth account initiated the request. It still does not, by itself, satisfy the later legal signer identity/key-custody policy required for eCMR electronic authentication.
 
 ## Exact XML
 
