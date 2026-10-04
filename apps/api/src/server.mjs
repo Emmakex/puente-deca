@@ -612,21 +612,14 @@ const normalizeEcmrXml = (
   value
 ) => {
   if (
-    typeof value !== "string"
+    typeof value !== "string" ||
+    value.length > 950_000 ||
+    value.trim().length === 0
   ) {
     return null;
   }
 
-  const normalized =
-    value.trim();
-
-  return (
-    normalized.length >= 1 &&
-    normalized.length <=
-      950_000
-  )
-    ? normalized
-    : null;
+  return value;
 };
 
 const amendmentActorFromCredential = (
