@@ -3415,10 +3415,14 @@ test("Kairoseth issuance-readiness verifies the immutable head, registered signe
         structuredClone(
           readinessPayload
         );
+      const originalSignature =
+        tamperedPayload
+          .signatureEvidence
+          .signatureValue;
       tamperedPayload
         .signatureEvidence
         .signatureValue =
-          `${tamperedPayload.signatureEvidence.signatureValue.slice(0, -1)}A`;
+          `${originalSignature[0] === "A" ? "B" : "A"}${originalSignature.slice(1)}`;
 
       const tamperedResponse =
         await fetch(
