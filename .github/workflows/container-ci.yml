@@ -44,7 +44,7 @@ on:
       - packages/persistence/**
 
 concurrency:
-  group: container-ci-${{ github.ref }}
+  group: container-ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
