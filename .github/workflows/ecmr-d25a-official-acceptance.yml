@@ -1,0 +1,89 @@
+name: ecmr-d25a-official-acceptance
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/ecmr-d25a-official-acceptance.yml
+      - packages/ecmr-xml/**
+      - scripts/production/ecmr-d25a-acceptance.mjs
+      - scripts/production/verify-ecmr-d25a-evidence.mjs
+      - scripts/production/install-ecmr-d25a-schema.mjs
+      - examples/ecmr/**
+      - package.json
+      - package-lock.json
+
+permissions:
+  contents: read
+
+jobs:
+  official-xsd:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends libxml2-utils unzip curl
+
+      - name: Install locked Node dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Download official UNECE D25A package
+        env:
+          ECMR_D25A_URL: https://unece.org/sites/default/files/2026-06/eCMR_D25A.zip
+        run: |
+          mkdir -p .artifacts/ecmr-d25a
+          curl             --fail             --location             --retry 3             --retry-all-errors             --connect-timeout 15             --max-time 90             --user-agent "Puente-DeCA-D25A-Acceptance/1.0"             --referer "https://unece.org/trade/documents/2026/06/ecmr-d25a"             "$ECMR_D25A_URL"             --output .artifacts/ecmr-d25a/eCMR_D25A.zip
+
+          test -s .artifacts/ecmr-d25a/eCMR_D25A.zip
+          unzip -t .artifacts/ecmr-d25a/eCMR_D25A.zip
+          unzip -Z1 .artifacts/ecmr-d25a/eCMR_D25A.zip             | grep -Fx "XSD/Schema.zip"
+
+      - name: Record official archive SHA-256
+        run: |
+          sha256sum .artifacts/ecmr-d25a/eCMR_D25A.zip             | tee .artifacts/ecmr-d25a/eCMR_D25A.zip.sha256
+
+      - name: Install hash-verified official schema bundle
+        env:
+          ECMR_D25A_ARCHIVE: .artifacts/ecmr-d25a/eCMR_D25A.zip
+          ECMR_D25A_SCHEMA_DIR: .artifacts/ecmr-d25a/schema
+        run: npm run ecmr:d25a:schema-install
+
+      - name: Validate generated XML and persist acceptance evidence
+        env:
+          ECMR_D25A_PROJECTION: examples/ecmr/d25a-acceptance-projection.json
+          ECMR_D25A_SCHEMA_DIR: .artifacts/ecmr-d25a/schema
+          ECMR_D25A_EVIDENCE: .artifacts/ecmr-d25a/acceptance-evidence.json
+        run: npm run production:ecmr-d25a-acceptance
+
+      - name: Independently verify acceptance evidence
+        env:
+          ECMR_D25A_PROJECTION: examples/ecmr/d25a-acceptance-projection.json
+          ECMR_D25A_SCHEMA_DIR: .artifacts/ecmr-d25a/schema
+          ECMR_D25A_EVIDENCE: .artifacts/ecmr-d25a/acceptance-evidence.json
+        run: npm run production:ecmr-d25a-evidence-verify
+
+      - name: Preserve schema manifest
+        run: |
+          cp             .artifacts/ecmr-d25a/schema/pdeca-manifest.json             .artifacts/ecmr-d25a/schema-manifest.json
+
+      - name: Upload D25A acceptance evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: ecmr-d25a-official-acceptance
+          path: |
+            .artifacts/ecmr-d25a/acceptance-evidence.json
+            .artifacts/ecmr-d25a/schema-manifest.json
+            .artifacts/ecmr-d25a/eCMR_D25A.zip.sha256
+          if-no-files-found: error
+          retention-days: 30
