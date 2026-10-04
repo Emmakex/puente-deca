@@ -12,6 +12,14 @@ on:
       - package-lock.json
       - .npmrc
       - .github/workflows/container-ci.yml
+      - apps/api/**
+      - connectors/file-import/**
+      - packages/contracts/**
+      - packages/core/**
+      - packages/document-engine/**
+      - packages/ecmr-amendment/**
+      - packages/ecmr-xml/**
+      - packages/persistence/**
     tags:
       - "engine-v*"
 
