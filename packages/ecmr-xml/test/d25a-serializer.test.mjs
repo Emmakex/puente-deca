@@ -172,6 +172,38 @@ test(
       first.xml,
       /<ram:ConsignmentItemQuantity>8<\/ram:ConsignmentItemQuantity>/
     );
+    assert.match(
+      first.xml,
+      /<ram:PickUpTransportEvent><ram:ActualOccurrenceDateTime><udt:DateTimeString format="102">20261005<\/udt:DateTimeString><\/ram:ActualOccurrenceDateTime><\/ram:PickUpTransportEvent>/
+    );
+    assert.match(
+      first.xml,
+      /<ram:IncludedSupplyChainConsignmentItem>/
+    );
+    assert.match(
+      first.xml,
+      /<ram:SequenceNumeric>1<\/ram:SequenceNumeric>/
+    );
+    assert.match(
+      first.xml,
+      /<ram:NatureIdentificationTransportCargo><ram:Identification>Furniture<\/ram:Identification><\/ram:NatureIdentificationTransportCargo>/
+    );
+    assert.match(
+      first.xml,
+      /<ram:TransportLogisticsPackage>/
+    );
+    assert.match(
+      first.xml,
+      /<ram:ItemQuantity>8<\/ram:ItemQuantity>/
+    );
+    assert.match(
+      first.xml,
+      /<ram:PhysicalLogisticsShippingMarks><ram:Marking>PAL-1<\/ram:Marking><\/ram:PhysicalLogisticsShippingMarks>/
+    );
+    assert.match(
+      first.xml,
+      /<ram:PhysicalLogisticsShippingMarks><ram:Marking>PAL-8<\/ram:Marking><\/ram:PhysicalLogisticsShippingMarks>/
+    );
   }
 );
 
@@ -204,6 +236,28 @@ test(
 );
 
 test(
+  "does not coerce free-text packing method into a coded package type",
+  () => {
+    const output =
+      serializeEcmrD25aEnvelope(
+        projection()
+      );
+
+    assert.ok(
+      !output.xml.includes(
+        "<ram:TypeCode>Pallets</ram:TypeCode>"
+      )
+    );
+    assert.ok(
+      output.pendingProjectionPaths
+        .includes(
+          "goods.packingMethod"
+        )
+    );
+  }
+);
+
+test(
   "keeps schema conformance explicitly pending until official XSD validation runs",
   () => {
     const output =
@@ -227,5 +281,19 @@ test(
           "charges"
         )
     );
+    for (const mapped of [
+      "takingOver.date",
+      "goods.nature",
+      "goods.packages.marksAndNumbers"
+    ]) {
+      assert.ok(
+        output.mappedProjectionPaths
+          .includes(mapped)
+      );
+      assert.ok(
+        !output.pendingProjectionPaths
+          .includes(mapped)
+      );
+    }
   }
 );

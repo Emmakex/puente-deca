@@ -99,6 +99,32 @@ schemaConformance=pending-official-xsd-validation
 
 The remaining projection fields are also returned as `pendingProjectionPaths`.
 
+## Confirmed incremental field mappings
+
+The serializer now maps these additional fields through UN/CEFACT structures that are independently visible in the eCMR/UN transport message family:
+
+| Projection field | XML path below `SpecifiedSupplyChainConsignment` | Mapping rule |
+| --- | --- | --- |
+| `takingOver.date` | `PickUpTransportEvent/ActualOccurrenceDateTime/udt:DateTimeString` | ISO `YYYY-MM-DD` becomes format `102` (`YYYYMMDD`); no time is fabricated. |
+| `goods.nature` | `IncludedSupplyChainConsignmentItem/NatureIdentificationTransportCargo/Identification` | Free text is XML-escaped, never code-mapped. |
+| `goods.packages.count` | `IncludedSupplyChainConsignmentItem/TransportLogisticsPackage/ItemQuantity` | Integer package count. |
+| `goods.packages.marksAndNumbers[]` | `IncludedSupplyChainConsignmentItem/TransportLogisticsPackage/PhysicalLogisticsShippingMarks/Marking` | One shipping-marks aggregate per non-empty mark. |
+
+The consignment item also receives deterministic `SequenceNumeric=1` because the current internal eCMR projection represents one aggregate goods line.
+
+Evidence used for these paths includes the European Maritime Safety Agency UN/CEFACT message implementation guides and existing eCMR message examples. These sources confirm the reusable UN/CEFACT aggregate paths, but they do **not** replace validation against the pinned official D25A eCMR XSD.
+
+### Intentionally still pending
+
+These projection fields remain unmapped:
+
+- `goods.packingMethod`: the internal value is free text, while the reusable package model exposes a coded package type; Puente DeCA will not invent a code.
+- `goods.dangerousGoodsDescription`: D25A dangerous-goods structures require more structured facts than a single free-text description.
+- `charges`: the wire model requires structured service-charge/payment semantics, not the current generic item array.
+- `customsFormalities`: no single confirmed D25A mapping has yet been fixed for the current free-text instructions.
+- `conventionApplicability`: the exact D25A representation must be confirmed from the normative bundle.
+- `authentication` / `integrity`: these belong to the later electronic-signature/versioning layer.
+
 ## Completion gate
 
 The roadmap item **UN/CEFACT D25A XML serialization + schema validation** remains open until all of the following are true:
