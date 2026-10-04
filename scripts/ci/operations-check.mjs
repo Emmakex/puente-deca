@@ -70,7 +70,7 @@ requirePattern(
 );
 requirePattern(
   server,
-  /return value;[\s\S]*normalizeEcmrXml/,
+  /const normalizeEcmrXml[\s\S]{0,400}return value;/,
   "eCMR API must preserve the exact XML string rather than a normalized replacement"
 );
 
