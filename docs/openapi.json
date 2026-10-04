@@ -472,7 +472,9 @@
                         "shipments:read",
                         "shipments:write",
                         "documents:read",
-                        "documents:write"
+                        "documents:write",
+                        "regulatory:read",
+                        "regulatory:write"
                       ]
                     }
                   },
@@ -926,6 +928,131 @@
           },
           "422": {
             "description": "Invalid connector access expiry"
+          },
+          "429": {
+            "description": "Authenticated subject exceeded the per-process request limit"
+          }
+        }
+      }
+    },
+    "/v1/shipments/{shipmentId}/ecmr/versions": {
+      "get": {
+        "operationId": "listShipmentEcmrVersions",
+        "summary": "List the immutable eCMR version history for a shipment",
+        "description": "Requires regulatory:read. The stored chain is integrity-verified before it is returned.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "platformServiceSecret": [],
+            "platformOrganizationId": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ShipmentId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Verified eCMR version history and current head"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "regulatory:read scope missing"
+          },
+          "404": {
+            "description": "Shipment not found"
+          },
+          "429": {
+            "description": "Authenticated subject exceeded the per-process request limit"
+          },
+          "500": {
+            "description": "Stored eCMR history failed integrity verification"
+          }
+        }
+      },
+      "post": {
+        "operationId": "appendShipmentEcmrVersion",
+        "summary": "Append an immutable eCMR version",
+        "description": "Requires regulatory:write. Actor identity and timestamp are derived by the server. expectedPreviousVersionId must match the accepted head; use null for the original version.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "platformServiceSecret": [],
+            "platformOrganizationId": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ShipmentId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "xml",
+                  "reason",
+                  "partyRole",
+                  "expectedPreviousVersionId"
+                ],
+                "properties": {
+                  "xml": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 950000,
+                    "description": "Exact eCMR XML string. Whitespace is preserved and contributes to integrity hashes."
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  "partyRole": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                  },
+                  "expectedPreviousVersionId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "minLength": 1,
+                    "description": "Current accepted eCMR head versionId, or null when creating version 1."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Immutable eCMR version appended"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "regulatory:write scope missing"
+          },
+          "404": {
+            "description": "Shipment not found"
+          },
+          "409": {
+            "description": "Stale head, no-op amendment or concurrent lineage conflict"
+          },
+          "422": {
+            "description": "Invalid amendment request"
           },
           "429": {
             "description": "Authenticated subject exceeded the per-process request limit"

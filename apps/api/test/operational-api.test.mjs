@@ -115,6 +115,8 @@ const withOperationalServer = async (
       baseUrl:
         `http://127.0.0.1:${address.port}`,
       apiKey: createdCredential.apiKey,
+      apiCredential:
+        createdCredential.credential,
       organization,
       store,
       platformServiceSecret:
@@ -1595,6 +1597,373 @@ test("credential API rejects unsupported scopes", async () => {
       );
 
       assert.equal(response.status, 422);
+    }
+  );
+});
+
+
+test("eCMR amendment API preserves exact XML, derives actor identity and rejects stale heads", async () => {
+  let tick = 0;
+
+  await withOperationalServer(
+    async ({
+      baseUrl,
+      apiKey,
+      apiCredential
+    }) => {
+      const createShipment =
+        await fetch(
+          `${baseUrl}/v1/shipments`,
+          {
+            method: "POST",
+            headers:
+              authHeaders(apiKey),
+            body:
+              JSON.stringify(
+                payload
+              )
+          }
+        );
+      const shipment =
+        await createShipment
+          .json();
+
+      assert.equal(
+        createShipment.status,
+        201
+      );
+
+      const xmlOne =
+        "  \n<rsm:eCMR>original</rsm:eCMR>\n  ";
+
+      const firstResponse =
+        await fetch(
+          `${baseUrl}/v1/shipments/${shipment.shipmentId}/ecmr/versions`,
+          {
+            method: "POST",
+            headers:
+              authHeaders(apiKey),
+            body:
+              JSON.stringify({
+                xml:
+                  xmlOne,
+                reason:
+                  "initial issue",
+                partyRole:
+                  "sender",
+                expectedPreviousVersionId:
+                  null,
+                actorId:
+                  "spoofed-client-actor"
+              })
+          }
+        );
+      const first =
+        await firstResponse
+          .json();
+
+      assert.equal(
+        firstResponse.status,
+        201
+      );
+      assert.equal(
+        first.version.version,
+        1
+      );
+      assert.equal(
+        first.version.xml,
+        xmlOne
+      );
+      assert.equal(
+        first.version.actor.actorId,
+        `credential:${apiCredential.credentialId}`
+      );
+      assert.notEqual(
+        first.version.actor.actorId,
+        "spoofed-client-actor"
+      );
+      assert.equal(
+        first.version.actor
+          .identityScheme,
+        "kairoseth-api-credential"
+      );
+
+      const listOne =
+        await fetch(
+          `${baseUrl}/v1/shipments/${shipment.shipmentId}/ecmr/versions`,
+          {
+            headers:
+              authHeaders(apiKey)
+          }
+        );
+      const historyOne =
+        await listOne.json();
+
+      assert.equal(
+        listOne.status,
+        200
+      );
+      assert.equal(
+        historyOne.total,
+        1
+      );
+      assert.equal(
+        historyOne.head
+          .versionId,
+        first.version
+          .versionId
+      );
+      assert.equal(
+        historyOne.versions[0]
+          .xml,
+        xmlOne
+      );
+
+      const xmlTwo =
+        "\n<rsm:eCMR>corrected</rsm:eCMR>\n";
+
+      const secondResponse =
+        await fetch(
+          `${baseUrl}/v1/shipments/${shipment.shipmentId}/ecmr/versions`,
+          {
+            method: "POST",
+            headers:
+              authHeaders(apiKey),
+            body:
+              JSON.stringify({
+                xml:
+                  xmlTwo,
+                reason:
+                  "correct consignee",
+                partyRole:
+                  "carrier",
+                expectedPreviousVersionId:
+                  first.version
+                    .versionId
+              })
+          }
+        );
+      const second =
+        await secondResponse
+          .json();
+
+      assert.equal(
+        secondResponse.status,
+        201
+      );
+      assert.equal(
+        second.version.version,
+        2
+      );
+      assert.equal(
+        second.version
+          .previousVersionId,
+        first.version.versionId
+      );
+      assert.equal(
+        second.version.xml,
+        xmlTwo
+      );
+
+      const staleResponse =
+        await fetch(
+          `${baseUrl}/v1/shipments/${shipment.shipmentId}/ecmr/versions`,
+          {
+            method: "POST",
+            headers:
+              authHeaders(apiKey),
+            body:
+              JSON.stringify({
+                xml:
+                  "<rsm:eCMR>stale</rsm:eCMR>",
+                reason:
+                  "stale editor",
+                partyRole:
+                  "sender",
+                expectedPreviousVersionId:
+                  first.version
+                    .versionId
+              })
+          }
+        );
+      const stale =
+        await staleResponse
+          .json();
+
+      assert.equal(
+        staleResponse.status,
+        409
+      );
+      assert.equal(
+        stale.error,
+        "ecmr_stale_head"
+      );
+      assert.equal(
+        stale.currentVersionId,
+        second.version
+          .versionId
+      );
+
+      const noOpResponse =
+        await fetch(
+          `${baseUrl}/v1/shipments/${shipment.shipmentId}/ecmr/versions`,
+          {
+            method: "POST",
+            headers:
+              authHeaders(apiKey),
+            body:
+              JSON.stringify({
+                xml:
+                  xmlTwo,
+                reason:
+                  "no content change",
+                partyRole:
+                  "carrier",
+                expectedPreviousVersionId:
+                  second.version
+                    .versionId
+              })
+          }
+        );
+      const noOp =
+        await noOpResponse
+          .json();
+
+      assert.equal(
+        noOpResponse.status,
+        409
+      );
+      assert.equal(
+        noOp.error,
+        "ecmr_version_conflict"
+      );
+
+      const finalList =
+        await fetch(
+          `${baseUrl}/v1/shipments/${shipment.shipmentId}/ecmr/versions`,
+          {
+            headers:
+              authHeaders(apiKey)
+          }
+        );
+      const finalHistory =
+        await finalList.json();
+
+      assert.equal(
+        finalHistory.total,
+        2
+      );
+      assert.deepEqual(
+        finalHistory.versions.map(
+          (entry) =>
+            entry.version
+        ),
+        [1, 2]
+      );
+    },
+    {
+      now: () => {
+        const value =
+          new Date(
+            1760000000000 +
+            tick * 1000
+          );
+        tick += 1;
+        return value;
+      }
+    }
+  );
+});
+
+test("eCMR amendment API requires regulatory scopes", async () => {
+  await withOperationalServer(
+    async ({
+      baseUrl,
+      store,
+      organization
+    }) => {
+      const limited =
+        await store
+          .createApiCredential({
+            organizationId:
+              organization
+                .organizationId,
+            name:
+              "legacy connector",
+            scopes: [
+              "shipments:read",
+              "shipments:write",
+              "documents:read",
+              "documents:write"
+            ]
+          });
+
+      const shipmentResponse =
+        await fetch(
+          `${baseUrl}/v1/shipments`,
+          {
+            method: "POST",
+            headers:
+              authHeaders(
+                limited.apiKey
+              ),
+            body:
+              JSON.stringify(
+                payload
+              )
+          }
+        );
+      const shipment =
+        await shipmentResponse
+          .json();
+
+      assert.equal(
+        shipmentResponse.status,
+        201
+      );
+
+      const deniedRead =
+        await fetch(
+          `${baseUrl}/v1/shipments/${shipment.shipmentId}/ecmr/versions`,
+          {
+            headers:
+              authHeaders(
+                limited.apiKey
+              )
+          }
+        );
+      assert.equal(
+        deniedRead.status,
+        403
+      );
+
+      const deniedWrite =
+        await fetch(
+          `${baseUrl}/v1/shipments/${shipment.shipmentId}/ecmr/versions`,
+          {
+            method: "POST",
+            headers:
+              authHeaders(
+                limited.apiKey
+              ),
+            body:
+              JSON.stringify({
+                xml:
+                  "<rsm:eCMR/>",
+                reason:
+                  "initial issue",
+                partyRole:
+                  "sender",
+                expectedPreviousVersionId:
+                  null
+              })
+          }
+        );
+
+      assert.equal(
+        deniedWrite.status,
+        403
+      );
     }
   );
 });

@@ -22,6 +22,11 @@ import {
   resolveDecaRequestFromShipment
 } from "../../../packages/core/src/shipment-deca-view.mjs";
 import {
+  createEcmrAmendmentChain,
+  appendEcmrAmendment,
+  verifyEcmrAmendmentChain
+} from "../../../packages/ecmr-amendment/src/amendment-chain.mjs";
+import {
   createDocumentSnapshot,
   reviseDocumentSnapshot
 } from "../../../packages/document-engine/src/snapshot.mjs";
@@ -351,7 +356,9 @@ const authenticatePlatformService = async (
       "shipments:read",
       "shipments:write",
       "documents:read",
-      "documents:write"
+      "documents:write",
+      "regulatory:read",
+      "regulatory:write"
     ],
     source: "kairoseth-platform"
   };
@@ -520,16 +527,22 @@ const normalizeConnectorKind = (value) => {
   return value.trim().toLowerCase();
 };
 
-const CONNECTOR_SCOPES = [
+const DEFAULT_CONNECTOR_SCOPES = [
   "shipments:read",
   "shipments:write",
   "documents:read",
   "documents:write"
 ];
 
+const CONNECTOR_SCOPES = [
+  ...DEFAULT_CONNECTOR_SCOPES,
+  "regulatory:read",
+  "regulatory:write"
+];
+
 const normalizeConnectorScopes = (value) => {
   if (value === undefined) {
-    return [...CONNECTOR_SCOPES];
+    return [...DEFAULT_CONNECTOR_SCOPES];
   }
 
   if (!Array.isArray(value) || value.length === 0) {
@@ -554,6 +567,129 @@ const normalizeConnectorScopes = (value) => {
   }
 
   return scopes.sort();
+};
+
+const normalizeRegulatoryPartyRole = (
+  value
+) => {
+  if (
+    typeof value !== "string"
+  ) {
+    return null;
+  }
+
+  const normalized =
+    value.trim().toLowerCase();
+
+  return /^[a-z][a-z0-9_-]{0,63}$/.test(
+    normalized
+  )
+    ? normalized
+    : null;
+};
+
+const normalizeAmendmentReason = (
+  value
+) => {
+  if (
+    typeof value !== "string"
+  ) {
+    return null;
+  }
+
+  const normalized =
+    value.trim();
+
+  return (
+    normalized.length >= 1 &&
+    normalized.length <= 500
+  )
+    ? normalized
+    : null;
+};
+
+const normalizeEcmrXml = (
+  value
+) => {
+  if (
+    typeof value !== "string" ||
+    value.length > 950_000 ||
+    value.trim().length === 0
+  ) {
+    return null;
+  }
+
+  return value;
+};
+
+const amendmentActorFromCredential = (
+  credential,
+  partyRole
+) => ({
+  actorId:
+    credential.source ===
+      "kairoseth-platform"
+      ? `kairoseth-platform:${credential.organizationId}`
+      : `credential:${credential.credentialId}`,
+  partyRole,
+  identityScheme:
+    credential.source ===
+      "kairoseth-platform"
+      ? "kairoseth-platform-service"
+      : "kairoseth-api-credential"
+});
+
+const amendmentInstant = (
+  now,
+  latest
+) => {
+  const raw =
+    typeof now === "function"
+      ? now()
+      : new Date();
+  const date =
+    raw instanceof Date
+      ? new Date(
+          raw.getTime()
+        )
+      : new Date(raw);
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    const error =
+      new Error(
+        "Server clock returned an invalid amendment timestamp"
+      );
+    error.code =
+      "ECMR_SERVER_CLOCK_INVALID";
+    throw error;
+  }
+
+  if (
+    latest?.createdAt
+  ) {
+    const previous =
+      new Date(
+        latest.createdAt
+      );
+
+    if (
+      !Number.isNaN(
+        previous.getTime()
+      ) &&
+      date.getTime() <=
+        previous.getTime()
+    ) {
+      return new Date(
+        previous.getTime() + 1
+      ).toISOString();
+    }
+  }
+
+  return date.toISOString();
 };
 
 const sha256 = (bytes) =>
@@ -615,7 +751,8 @@ export function createServer({
         process.env.RATE_LIMIT_MAX_ENTRIES
     }),
   standaloneToolsEnabled =
-    process.env.NODE_ENV !== "production"
+    process.env.NODE_ENV !== "production",
+  now = () => new Date()
 } = {}) {
   return http.createServer(async (request, response) => {
     const finishMetrics =
@@ -1228,10 +1365,357 @@ export function createServer({
           url.pathname
         );
 
+      const ecmrVersionsMatch =
+        /^\/v1\/shipments\/([^/]+)\/ecmr\/versions$/.exec(
+          url.pathname
+        );
+
       const credentialMatch =
         /^\/v1\/credentials\/([^/]+)$/.exec(
           url.pathname
         );
+
+      if (
+        request.method === "GET" &&
+        ecmrVersionsMatch
+      ) {
+        if (!requireStore(response, store)) return;
+
+        const credential =
+          await authenticate(
+            request,
+            response,
+            store,
+            "regulatory:read",
+            platformServiceSecret,
+            rateLimiter
+          );
+        if (!credential) return;
+
+        const shipmentId =
+          decodeURIComponent(
+            ecmrVersionsMatch[1]
+          );
+        const shipment =
+          await store.getShipment({
+            organizationId:
+              credential.organizationId,
+            shipmentId
+          });
+
+        if (!shipment) {
+          return sendJson(
+            response,
+            404,
+            {
+              error:
+                "shipment_not_found",
+              message:
+                "Shipment was not found"
+            }
+          );
+        }
+
+        const versions =
+          await store
+            .listRegulatoryVersions({
+              organizationId:
+                credential.organizationId,
+              shipmentId,
+              regulatoryType:
+                "ecmr"
+            });
+
+        if (
+          versions.length > 0
+        ) {
+          const verification =
+            verifyEcmrAmendmentChain(
+              versions
+            );
+
+          if (!verification.valid) {
+            return sendJson(
+              response,
+              500,
+              {
+                error:
+                  "ecmr_history_integrity_failure",
+                message:
+                  "Stored eCMR amendment history failed integrity verification"
+              }
+            );
+          }
+        }
+
+        return sendJson(
+          response,
+          200,
+          {
+            shipmentId,
+            regulatoryType:
+              "ecmr",
+            total:
+              versions.length,
+            head:
+              versions.at(-1)
+                ? {
+                    version:
+                      versions.at(-1)
+                        .version,
+                    versionId:
+                      versions.at(-1)
+                        .versionId,
+                    contentHash:
+                      versions.at(-1)
+                        .contentHash,
+                    chainHash:
+                      versions.at(-1)
+                        .chainHash
+                  }
+                : null,
+            versions
+          }
+        );
+      }
+
+      if (
+        request.method === "POST" &&
+        ecmrVersionsMatch
+      ) {
+        if (!requireStore(response, store)) return;
+
+        const credential =
+          await authenticate(
+            request,
+            response,
+            store,
+            "regulatory:write",
+            platformServiceSecret,
+            rateLimiter
+          );
+        if (!credential) return;
+
+        const shipmentId =
+          decodeURIComponent(
+            ecmrVersionsMatch[1]
+          );
+        const shipment =
+          await store.getShipment({
+            organizationId:
+              credential.organizationId,
+            shipmentId
+          });
+
+        if (!shipment) {
+          return sendJson(
+            response,
+            404,
+            {
+              error:
+                "shipment_not_found",
+              message:
+                "Shipment was not found"
+            }
+          );
+        }
+
+        const payload =
+          await readJson(request);
+        const xml =
+          normalizeEcmrXml(
+            payload?.xml
+          );
+        const reason =
+          normalizeAmendmentReason(
+            payload?.reason
+          );
+        const partyRole =
+          normalizeRegulatoryPartyRole(
+            payload?.partyRole
+          );
+        const rawExpectedHead =
+          payload
+            ?.expectedPreviousVersionId;
+        const expectedPreviousVersionId =
+          rawExpectedHead === null
+            ? null
+            : typeof rawExpectedHead ===
+                  "string" &&
+                rawExpectedHead
+                  .trim()
+                  .length > 0
+              ? rawExpectedHead.trim()
+              : undefined;
+
+        if (
+          !xml ||
+          !reason ||
+          !partyRole ||
+          expectedPreviousVersionId ===
+            undefined
+        ) {
+          return sendJson(
+            response,
+            422,
+            {
+              error:
+                "invalid_ecmr_amendment_request",
+              message:
+                "xml, reason, partyRole and a valid expectedPreviousVersionId are required"
+            }
+          );
+        }
+
+        const versions =
+          await store
+            .listRegulatoryVersions({
+              organizationId:
+                credential.organizationId,
+              shipmentId,
+              regulatoryType:
+                "ecmr"
+            });
+        const latest =
+          versions.at(-1) ??
+          null;
+        const currentHead =
+          latest?.versionId ??
+          null;
+
+        if (
+          expectedPreviousVersionId !==
+          currentHead
+        ) {
+          return sendJson(
+            response,
+            409,
+            {
+              error:
+                "ecmr_stale_head",
+              message:
+                "expectedPreviousVersionId does not match the current accepted eCMR head",
+              currentVersionId:
+                currentHead,
+              currentVersion:
+                latest?.version ??
+                0
+            }
+          );
+        }
+
+        const actor =
+          amendmentActorFromCredential(
+            credential,
+            partyRole
+          );
+        const createdAt =
+          amendmentInstant(
+            now,
+            latest
+          );
+
+        let record;
+
+        try {
+          if (!latest) {
+            record =
+              createEcmrAmendmentChain({
+                xml,
+                actor,
+                reason,
+                createdAt
+              })[0];
+          } else {
+            record =
+              appendEcmrAmendment({
+                chain:
+                  versions,
+                xml,
+                actor,
+                reason,
+                createdAt
+              }).at(-1);
+          }
+
+          const stored =
+            await store
+              .appendRegulatoryVersion({
+                organizationId:
+                  credential.organizationId,
+                shipmentId,
+                regulatoryType:
+                  "ecmr",
+                record
+              });
+
+          return sendJson(
+            response,
+            201,
+            {
+              shipmentId,
+              regulatoryType:
+                "ecmr",
+              version:
+                stored,
+              head: {
+                version:
+                  stored.version,
+                versionId:
+                  stored.versionId,
+                contentHash:
+                  stored.contentHash,
+                chainHash:
+                  stored.chainHash
+              }
+            }
+          );
+        } catch (error) {
+          if (
+            [
+              "REGULATORY_VERSION_CONFLICT",
+              "REGULATORY_VERSION_HEAD_CONFLICT",
+              "ECMR_AMENDMENT_NO_CHANGE",
+              "ECMR_AMENDMENT_CHAIN_INVALID",
+              "ECMR_AMENDMENT_TIME_ORDER_INVALID"
+            ].includes(
+              error?.code
+            )
+          ) {
+            return sendJson(
+              response,
+              409,
+              {
+                error:
+                  "ecmr_version_conflict",
+                message:
+                  "eCMR amendment could not extend the current accepted head"
+              }
+            );
+          }
+
+          if (
+            typeof error?.code ===
+              "string" &&
+            error.code.startsWith(
+              "ECMR_AMENDMENT_"
+            )
+          ) {
+            return sendJson(
+              response,
+              422,
+              {
+                error:
+                  "invalid_ecmr_amendment",
+                message:
+                  "eCMR amendment input was rejected"
+              }
+            );
+          }
+
+          throw error;
+        }
+      }
 
       if (
         request.method === "GET" &&

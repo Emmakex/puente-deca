@@ -132,6 +132,54 @@ test(
 );
 
 test(
+  "treats leading and trailing XML whitespace as signed content",
+  () => {
+    const {
+      privateKey,
+      publicKey
+    } = keys();
+    const exact =
+      ` \n${XML}\n `;
+
+    const evidence =
+      createEcmrDetachedSignature({
+        xml: exact,
+        privateKey,
+        signer:
+          signer(),
+        signedAt:
+          "2026-10-04T14:15:00.000Z"
+      });
+
+    assert.equal(
+      verifyEcmrDetachedSignature({
+        xml: exact,
+        evidence,
+        publicKey
+      }).valid,
+      true
+    );
+
+    const changed =
+      verifyEcmrDetachedSignature({
+        xml:
+          exact.trim(),
+        evidence,
+        publicKey
+      });
+
+    assert.equal(
+      changed.valid,
+      false
+    );
+    assert.equal(
+      changed.code,
+      "ECMR_SIGNATURE_CONTENT_HASH_MISMATCH"
+    );
+  }
+);
+
+test(
   "rejects signer metadata tampering because identity is inside the signed statement",
   () => {
     const {

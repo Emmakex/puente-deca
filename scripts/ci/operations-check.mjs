@@ -40,6 +40,52 @@ requirePattern(
 );
 requirePattern(
   server,
+  /ecmrVersionsMatch/,
+  "eCMR immutable version endpoint is missing"
+);
+requirePattern(
+  server,
+  /"regulatory:read"/,
+  "eCMR history reads must require regulatory:read"
+);
+requirePattern(
+  server,
+  /"regulatory:write"/,
+  "eCMR history appends must require regulatory:write"
+);
+requirePattern(
+  server,
+  /expectedPreviousVersionId[\s\S]*ecmr_stale_head/,
+  "eCMR append API must enforce optimistic accepted-head control"
+);
+requirePattern(
+  server,
+  /amendmentActorFromCredential/,
+  "eCMR amendment actor must derive from authenticated credential context"
+);
+requirePattern(
+  server,
+  /verifyEcmrAmendmentChain/,
+  "eCMR history reads must verify stored chain integrity"
+);
+requirePattern(
+  server,
+  /const normalizeEcmrXml[\s\S]{0,400}return value;/,
+  "eCMR API must preserve the exact XML string rather than a normalized replacement"
+);
+
+if (
+  /payload\?\.actorId|payload\.actorId/.test(
+    server
+  )
+) {
+  throw new Error(
+    "eCMR amendment API must not trust a client-supplied actorId"
+  );
+}
+
+requirePattern(
+  server,
   /secureSecretEqual[\s\S]*platformServiceSecret/,
   "Metrics must be protected by server-to-server authentication"
 );

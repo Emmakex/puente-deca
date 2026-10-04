@@ -692,7 +692,9 @@ export class MongoStore {
       "shipments:read",
       "shipments:write",
       "documents:read",
-      "documents:write"
+      "documents:write",
+      "regulatory:read",
+      "regulatory:write"
     ],
     expiresAt = null
   }) {

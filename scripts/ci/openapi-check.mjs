@@ -15,6 +15,7 @@ const requiredPaths = [
   "/v1/shipments",
   "/v1/shipments/{shipmentId}",
   "/v1/shipments/{shipmentId}/deca",
+  "/v1/shipments/{shipmentId}/ecmr/versions",
   "/v1/deca/{documentId}",
   "/v1/credentials",
   "/v1/connectors/{connector}/package",
@@ -94,6 +95,65 @@ if (
   throw new Error(
     "Credential create contract must expose expiresAt"
   );
+}
+
+const ecmrVersions =
+  document.paths[
+    "/v1/shipments/{shipmentId}/ecmr/versions"
+  ];
+
+if (
+  !ecmrVersions?.get ||
+  !ecmrVersions?.post
+) {
+  throw new Error(
+    "eCMR immutable version read/append contract is missing"
+  );
+}
+
+const ecmrAppendSchema =
+  ecmrVersions.post
+    ?.requestBody?.content?.[
+      "application/json"
+    ]?.schema;
+
+if (
+  !ecmrAppendSchema ||
+  !ecmrAppendSchema.required
+    ?.includes(
+      "expectedPreviousVersionId"
+    ) ||
+  ecmrAppendSchema
+    ?.properties?.xml?.maxLength !==
+      950000 ||
+  ecmrAppendSchema
+    ?.properties
+    ?.expectedPreviousVersionId
+    ?.type?.includes?.("null") !==
+      true
+) {
+  throw new Error(
+    "eCMR append contract must preserve exact bounded XML and require optimistic head control"
+  );
+}
+
+const scopeEnum =
+  credentialSchema?.properties
+    ?.scopes?.items?.enum ?? [];
+
+for (const requiredScope of [
+  "regulatory:read",
+  "regulatory:write"
+]) {
+  if (
+    !scopeEnum.includes(
+      requiredScope
+    )
+  ) {
+    throw new Error(
+      `Credential scope contract is missing ${requiredScope}`
+    );
+  }
 }
 
 if (

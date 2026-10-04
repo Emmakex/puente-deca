@@ -115,6 +115,53 @@ test(
 );
 
 test(
+  "preserves exact XML whitespace as immutable content",
+  () => {
+    const exact =
+      " \n<rsm:eCMR>original</rsm:eCMR>\n ";
+
+    const chain =
+      createEcmrAmendmentChain({
+        xml: exact,
+        actor:
+          actor(),
+        reason:
+          "initial issue",
+        createdAt:
+          "2026-10-04T14:20:00.000Z",
+        idFactory:
+          () => "exact"
+      });
+
+    assert.equal(
+      chain[0].xml,
+      exact
+    );
+
+    const trimmed =
+      structuredClone(
+        chain
+      );
+    trimmed[0].xml =
+      exact.trim();
+
+    const result =
+      verifyEcmrAmendmentChain(
+        trimmed
+      );
+
+    assert.equal(
+      result.valid,
+      false
+    );
+    assert.equal(
+      result.code,
+      "ECMR_AMENDMENT_CONTENT_HASH_MISMATCH"
+    );
+  }
+);
+
+test(
   "detects one-byte changes to preserved original XML",
   () => {
     const chain =
