@@ -405,6 +405,83 @@ test("operational flow stores a DeCA and exposes its prefixed QR URL directly", 
   );
 });
 
+test("document generation is Shipment-first when legacy data diverges internally", async () => {
+  await withOperationalServer(
+    async ({ baseUrl, apiKey, store, organization }) => {
+      const createResponse =
+        await fetch(
+          `${baseUrl}/v1/shipments`,
+          {
+            method: "POST",
+            headers: authHeaders(apiKey),
+            body:
+              JSON.stringify(payload)
+          }
+        );
+      const shipment =
+        await createResponse.json();
+
+      assert.equal(
+        createResponse.status,
+        201
+      );
+
+      const internal =
+        await store.getShipment({
+          organizationId:
+            organization.organizationId,
+          shipmentId:
+            shipment.shipmentId
+        });
+
+      const staleLegacy =
+        structuredClone(
+          internal.data
+        );
+      staleLegacy.route.destination =
+        "Valencia";
+
+      await store.updateShipment({
+        organizationId:
+          organization.organizationId,
+        shipmentId:
+          shipment.shipmentId,
+        data:
+          staleLegacy,
+        aggregate:
+          internal.aggregate
+      });
+
+      const generateResponse =
+        await fetch(
+          `${baseUrl}/v1/shipments/${shipment.shipmentId}/deca`,
+          {
+            method: "POST",
+            headers:
+              authHeaders(apiKey)
+          }
+        );
+      const generated =
+        await generateResponse.json();
+
+      assert.equal(
+        generateResponse.status,
+        201
+      );
+      assert.equal(
+        generated.document.data
+          .route.destination,
+        "Barcelona"
+      );
+      assert.equal(
+        generated.artifact
+          .retentionNotBefore,
+        "2027-10-05T00:00:00.000Z"
+      );
+    }
+  );
+});
+
 test("Kairoseth usage endpoint counts canonical DeCA versions across connector traffic", async () => {
   await withOperationalServer(
     async ({
