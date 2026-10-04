@@ -16,6 +16,8 @@ const requiredPaths = [
   "/v1/shipments/{shipmentId}",
   "/v1/shipments/{shipmentId}/deca",
   "/v1/shipments/{shipmentId}/ecmr/versions",
+  "/v1/shipments/{shipmentId}/ecmr/preview",
+  "/v1/shipments/{shipmentId}/ecmr/versions/structured",
   "/v1/deca/{documentId}",
   "/v1/credentials",
   "/v1/connectors/{connector}/package",
@@ -134,6 +136,56 @@ if (
 ) {
   throw new Error(
     "eCMR append contract must preserve exact bounded XML and require optimistic head control"
+  );
+}
+
+const ecmrPreview =
+  document.paths[
+    "/v1/shipments/{shipmentId}/ecmr/preview"
+  ]?.post;
+const ecmrStructuredAppend =
+  document.paths[
+    "/v1/shipments/{shipmentId}/ecmr/versions/structured"
+  ]?.post;
+
+if (
+  !ecmrPreview ||
+  !ecmrStructuredAppend
+) {
+  throw new Error(
+    "Structured eCMR preview/append contracts are missing"
+  );
+}
+
+const structuredSchema =
+  ecmrStructuredAppend
+    ?.requestBody?.content?.[
+      "application/json"
+    ]?.schema;
+
+if (
+  !structuredSchema?.required
+    ?.includes("draft") ||
+  !structuredSchema?.required
+    ?.includes(
+      "expectedPreviousVersionId"
+    )
+) {
+  throw new Error(
+    "Structured eCMR append must require draft and optimistic head control"
+  );
+}
+
+if (
+  !ecmrPreview.description
+    ?.includes("not returned") ||
+  !ecmrStructuredAppend
+    .description?.includes(
+      "not returned"
+    )
+) {
+  throw new Error(
+    "Structured eCMR routes must keep raw XML out of responses"
   );
 }
 

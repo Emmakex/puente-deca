@@ -48,6 +48,67 @@ const payload = {
   observations: null
 };
 
+const ecmrDraft = () => ({
+  sender: {
+    legalName:
+      "Example Sender SL",
+    address:
+      "Calle Ejemplo 1, Madrid"
+  },
+  contractualCarrier: {
+    legalName:
+      "Example Contractual Carrier SL",
+    address:
+      "Avenida Transport 2, Barcelona"
+  },
+  consignee: {
+    legalName:
+      "Example Consignee SAS",
+    address:
+      "10 Rue Example, Lyon"
+  },
+  issue: {
+    date: "2026-10-04",
+    place: "Madrid"
+  },
+  takingOver: {
+    date: "2026-10-05",
+    place: "Madrid"
+  },
+  delivery: {
+    place: "Lyon"
+  },
+  goods: {
+    packingMethod:
+      "Pallets",
+    packingMethodCode:
+      "PX",
+    packages: {
+      count: 8,
+      marksAndNumbers: [
+        "PAL-1",
+        "PAL-8"
+      ]
+    },
+    dangerousGoods: {
+      declared: false
+    }
+  },
+  charges: {
+    declared: true,
+    items: []
+  },
+  customsFormalities: {
+    declared: true,
+    instructions: []
+  },
+  conventionApplicability: {
+    declared: true,
+    statement:
+      "This carriage is subject to the CMR Convention notwithstanding any clause to the contrary."
+  }
+});
+
 const PLATFORM_SERVICE_SECRET =
   "kairoseth-ci-service-secret-0123456789abcdef";
 
@@ -1601,6 +1662,348 @@ test("credential API rejects unsupported scopes", async () => {
   );
 });
 
+
+test("structured eCMR preview and append generate D25A internally without exposing XML", async () => {
+  let tick = 0;
+
+  await withOperationalServer(
+    async ({
+      baseUrl,
+      apiKey,
+      store,
+      organization,
+      apiCredential
+    }) => {
+      const createResponse =
+        await fetch(
+          `${baseUrl}/v1/shipments`,
+          {
+            method: "POST",
+            headers:
+              authHeaders(apiKey),
+            body:
+              JSON.stringify(
+                payload
+              )
+          }
+        );
+      const shipment =
+        await createResponse
+          .json();
+
+      assert.equal(
+        createResponse.status,
+        201
+      );
+
+      const previewResponse =
+        await fetch(
+          `${baseUrl}/v1/shipments/${shipment.shipmentId}/ecmr/preview`,
+          {
+            method: "POST",
+            headers:
+              authHeaders(apiKey),
+            body:
+              JSON.stringify({
+                draft:
+                  ecmrDraft()
+              })
+          }
+        );
+      const preview =
+        await previewResponse
+          .json();
+
+      assert.equal(
+        previewResponse.status,
+        200
+      );
+      assert.equal(
+        preview.valid,
+        true
+      );
+      assert.equal(
+        preview.projection
+          .sender.legalName,
+        "Example Sender SL"
+      );
+      assert.equal(
+        preview.projection
+          .goods.quantity.value,
+        420
+      );
+      assert.equal(
+        preview.wire.release,
+        "D25A"
+      );
+      assert.equal(
+        preview.wire
+          .schemaConformance,
+        "pending-official-xsd-validation"
+      );
+      assert.match(
+        preview.wire.contentHash,
+        /^sha256:[0-9a-f]{64}$/
+      );
+      assert.equal(
+        Object.hasOwn(
+          preview,
+          "xml"
+        ),
+        false
+      );
+      assert.equal(
+        JSON.stringify(
+          preview
+        ).includes(
+          "<rsm:eCMR"
+        ),
+        false
+      );
+
+      const invalidDraft =
+        ecmrDraft();
+      invalidDraft.sender = {
+        legalName: "",
+        address: ""
+      };
+
+      const invalidResponse =
+        await fetch(
+          `${baseUrl}/v1/shipments/${shipment.shipmentId}/ecmr/preview`,
+          {
+            method: "POST",
+            headers:
+              authHeaders(apiKey),
+            body:
+              JSON.stringify({
+                draft:
+                  invalidDraft
+              })
+          }
+        );
+      const invalid =
+        await invalidResponse
+          .json();
+
+      assert.equal(
+        invalidResponse.status,
+        422
+      );
+      assert.equal(
+        invalid.valid,
+        false
+      );
+      assert.ok(
+        invalid.validation
+          .errors.some(
+            (entry) =>
+              entry.path ===
+                "sender.legalName" &&
+              entry.legalBasis ===
+                "CMR_6_1_B"
+          )
+      );
+      assert.equal(
+        JSON.stringify(
+          invalid
+        ).includes(
+          "<rsm:eCMR"
+        ),
+        false
+      );
+
+      const firstResponse =
+        await fetch(
+          `${baseUrl}/v1/shipments/${shipment.shipmentId}/ecmr/versions/structured`,
+          {
+            method: "POST",
+            headers:
+              authHeaders(apiKey),
+            body:
+              JSON.stringify({
+                draft:
+                  ecmrDraft(),
+                reason:
+                  "initial structured issue",
+                partyRole:
+                  "sender",
+                expectedPreviousVersionId:
+                  null,
+                actorId:
+                  "spoofed"
+              })
+          }
+        );
+      const first =
+        await firstResponse
+          .json();
+
+      assert.equal(
+        firstResponse.status,
+        201
+      );
+      assert.equal(
+        first.version.version,
+        1
+      );
+      assert.equal(
+        first.version.actor
+          .actorId,
+        `credential:${apiCredential.credentialId}`
+      );
+      assert.equal(
+        Object.hasOwn(
+          first.version,
+          "xml"
+        ),
+        false
+      );
+      assert.equal(
+        JSON.stringify(
+          first
+        ).includes(
+          "<rsm:eCMR"
+        ),
+        false
+      );
+      assert.equal(
+        first.version.contentHash,
+        preview.wire.contentHash
+      );
+
+      const internalVersions =
+        await store
+          .listRegulatoryVersions({
+            organizationId:
+              organization.organizationId,
+            shipmentId:
+              shipment.shipmentId,
+            regulatoryType:
+              "ecmr"
+          });
+
+      assert.equal(
+        internalVersions.length,
+        1
+      );
+      assert.match(
+        internalVersions[0].xml,
+        /<rsm:eCMR /
+      );
+      assert.match(
+        internalVersions[0].xml,
+        /<ram:ConsignorTradeParty>/
+      );
+      assert.match(
+        internalVersions[0].xml,
+        /Example Sender SL/
+      );
+      assert.equal(
+        internalVersions[0]
+          .contentHash,
+        preview.wire
+          .contentHash
+      );
+
+      const noOpResponse =
+        await fetch(
+          `${baseUrl}/v1/shipments/${shipment.shipmentId}/ecmr/versions/structured`,
+          {
+            method: "POST",
+            headers:
+              authHeaders(apiKey),
+            body:
+              JSON.stringify({
+                draft:
+                  ecmrDraft(),
+                reason:
+                  "same structured content",
+                partyRole:
+                  "sender",
+                expectedPreviousVersionId:
+                  first.version
+                    .versionId
+              })
+          }
+        );
+
+      assert.equal(
+        noOpResponse.status,
+        409
+      );
+
+      const changedDraft =
+        ecmrDraft();
+      changedDraft.consignee.address =
+        "20 Rue Updated, Lyon";
+
+      const secondResponse =
+        await fetch(
+          `${baseUrl}/v1/shipments/${shipment.shipmentId}/ecmr/versions/structured`,
+          {
+            method: "POST",
+            headers:
+              authHeaders(apiKey),
+            body:
+              JSON.stringify({
+                draft:
+                  changedDraft,
+                reason:
+                  "correct consignee address",
+                partyRole:
+                  "sender",
+                expectedPreviousVersionId:
+                  first.version
+                    .versionId
+              })
+          }
+        );
+      const second =
+        await secondResponse
+          .json();
+
+      assert.equal(
+        secondResponse.status,
+        201
+      );
+      assert.equal(
+        second.version.version,
+        2
+      );
+      assert.equal(
+        second.version
+          .previousVersionId,
+        first.version
+          .versionId
+      );
+      assert.equal(
+        second.preview
+          .projection
+          .consignee.address,
+        "20 Rue Updated, Lyon"
+      );
+      assert.equal(
+        Object.hasOwn(
+          second.version,
+          "xml"
+        ),
+        false
+      );
+    },
+    {
+      now: () => {
+        const date =
+          new Date(
+            1760001000000 +
+            tick * 1000
+          );
+        tick += 1;
+        return date;
+      }
+    }
+  );
+});
 
 test("eCMR amendment API preserves exact XML, derives actor identity and rejects stale heads", async () => {
   let tick = 0;
