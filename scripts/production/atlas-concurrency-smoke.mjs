@@ -212,6 +212,45 @@ const assertConcurrentDocumentResult =
     return fulfilled[0];
   };
 
+const assertConcurrentRegulatoryResult =
+  (results) => {
+    const fulfilled =
+      results.filter(
+        (result) =>
+          result.status === "fulfilled"
+      );
+    const rejected =
+      results.filter(
+        (result) =>
+          result.status === "rejected"
+      );
+
+    if (
+      fulfilled.length !== 1 ||
+      rejected.length !== 1 ||
+      ![
+        "REGULATORY_VERSION_CONFLICT",
+        "REGULATORY_VERSION_HEAD_CONFLICT"
+      ].includes(
+        rejected[0]
+          .reason?.code
+      )
+    ) {
+      throw Object.assign(
+        new Error(
+          "Concurrent regulatory version append did not converge to one accepted head"
+        ),
+        {
+          code:
+            "ATLAS_REGULATORY_CONCURRENCY_FAILED"
+        }
+      );
+    }
+
+    return fulfilled[0]
+      .value;
+  };
+
 let client = null;
 let store = null;
 let database = null;
