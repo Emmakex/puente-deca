@@ -23,6 +23,19 @@ import {
   GridFSBucket,
   MongoClient
 } from "mongodb";
+import {
+  MongoStore
+} from "../../packages/persistence/src/mongo-store.mjs";
+import {
+  GridFsArtifactStore
+} from "../../packages/persistence/src/gridfs-artifact-store.mjs";
+import {
+  reconcileArtifacts
+} from "../../packages/persistence/src/retention.mjs";
+import {
+  assertRestoreReconciliation,
+  assertRestoredArtifactLink
+} from "./restore-integrity.mjs";
 
 const requireText = (
   value,
@@ -270,10 +283,14 @@ const main = async () => {
       }
     );
 
+  let database = null;
+  let restoreDatabaseCleanedUp =
+    false;
+
   try {
     await client.connect();
 
-    const database =
+    database =
       client.db(
         restoreDatabase
       );
@@ -330,6 +347,44 @@ const main = async () => {
       throw error;
     }
 
+    const metadataStore =
+      new MongoStore({
+        client,
+        database
+      });
+    const restoredArtifactStore =
+      new GridFsArtifactStore({
+        client,
+        database,
+        bucketName:
+          "deca_pdf"
+      });
+
+    const reconciliation =
+      await reconcileArtifacts({
+        store:
+          metadataStore,
+        artifactStore:
+          restoredArtifactStore
+      });
+    const reconciliationCounts =
+      assertRestoreReconciliation(
+        reconciliation
+      );
+
+    const artifactReferences =
+      await metadataStore
+        .listArtifactReferences();
+    const referencesByStorageKey =
+      new Map(
+        artifactReferences.map(
+          (reference) => [
+            reference.storageKey,
+            reference
+          ]
+        )
+      );
+
     const bucket =
       new GridFSBucket(
         database,
@@ -341,6 +396,8 @@ const main = async () => {
 
     let artifactsVerified = 0;
     let artifactBytesVerified = 0;
+    let metadataArtifactLinksVerified =
+      0;
 
     const artifactCursor =
       database
@@ -425,9 +482,38 @@ const main = async () => {
         throw error;
       }
 
+      assertRestoredArtifactLink({
+        file,
+        reference:
+          referencesByStorageKey.get(
+            file.filename
+          ),
+        actualSha256:
+          actualArtifactSha,
+        actualBytes:
+          artifactBytes.length
+      });
+      metadataArtifactLinksVerified +=
+        1;
+
       artifactsVerified += 1;
       artifactBytesVerified +=
         artifactBytes.length;
+    }
+
+    if (
+      artifactsVerified !==
+        reconciliationCounts
+          .storedArtifacts ||
+      metadataArtifactLinksVerified !==
+        artifactsVerified
+    ) {
+      const error = new Error(
+        "Restore verification did not cover every reconciled GridFS artifact"
+      );
+      error.code =
+        "RESTORE_ARTIFACT_COVERAGE_MISMATCH";
+      throw error;
     }
 
     if (
@@ -467,7 +553,19 @@ const main = async () => {
         .countDocuments();
 
     if (!preserveDatabase) {
-      await database.dropDatabase();
+      try {
+        await database
+          .dropDatabase();
+        restoreDatabaseCleanedUp =
+          true;
+      } catch {
+        const error = new Error(
+          "Isolated restore database cleanup failed"
+        );
+        error.code =
+          "RESTORE_CLEANUP_FAILED";
+        throw error;
+      }
     }
 
     process.stdout.write(
@@ -497,16 +595,41 @@ const main = async () => {
             true,
           artifactsVerified,
           artifactBytesVerified,
+          metadataArtifactLinksVerified,
+          reconciliation:
+            reconciliationCounts,
           restoreDatabasePreserved:
             preserveDatabase,
-          restoreDatabaseCleanedUp:
-            !preserveDatabase
+          restoreDatabaseCleanedUp
         },
         null,
         2
       )}\n`
     );
   } finally {
+    if (
+      !preserveDatabase &&
+      database &&
+      !restoreDatabaseCleanedUp
+    ) {
+      try {
+        await database
+          .dropDatabase();
+        restoreDatabaseCleanedUp =
+          true;
+      } catch {
+        process.stderr.write(
+          `${JSON.stringify({
+            status: "warning",
+            check:
+              "puente-deca-restore-drill-cleanup",
+            code:
+              "RESTORE_CLEANUP_FAILED"
+          })}\n`
+        );
+      }
+    }
+
     await client.close();
   }
 };
@@ -527,6 +650,12 @@ main().catch((error) => {
           error?.missingCollections
         )
           ? error.missingCollections
+          : undefined,
+      anomalies:
+        error?.anomalies &&
+        typeof error.anomalies ===
+          "object"
+          ? error.anomalies
           : undefined
     })}\n`
   );

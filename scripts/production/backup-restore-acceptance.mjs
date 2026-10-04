@@ -129,6 +129,10 @@ const main = () => {
             restore.artifactsVerified,
           artifactBytesVerified:
             restore.artifactBytesVerified,
+          metadataArtifactLinksVerified:
+            restore.metadataArtifactLinksVerified,
+          reconciliation:
+            restore.reconciliation,
           cleanedUp:
             restore.restoreDatabaseCleanedUp,
           preserved:

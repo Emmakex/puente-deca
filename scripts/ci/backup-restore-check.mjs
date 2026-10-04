@@ -148,6 +148,36 @@ requirePattern(
 );
 requirePattern(
   restore,
+  /reconcileArtifacts/,
+  "Restore drill must reconcile restored document metadata and GridFS"
+);
+requirePattern(
+  restore,
+  /assertRestoreReconciliation/,
+  "Restore drill must fail closed on reconciliation anomalies"
+);
+requirePattern(
+  restore,
+  /assertRestoredArtifactLink/,
+  "Restore drill must cross-check document metadata against GridFS evidence"
+);
+requirePattern(
+  restore,
+  /metadataArtifactLinksVerified/,
+  "Restore drill must report metadata-to-GridFS links verified"
+);
+requirePattern(
+  restore,
+  /finally[\s\S]*dropDatabase\(\)/,
+  "Restore drill must attempt isolated DR cleanup after validation failures"
+);
+requirePattern(
+  restore,
+  /puente-deca-restore-drill-cleanup/,
+  "Restore drill must emit sanitized cleanup-failure evidence"
+);
+requirePattern(
+  restore,
   /RESTORE_DR_PRESERVE/,
   "Restore drill must expose explicit isolated-database preservation for inspection"
 );
@@ -187,6 +217,16 @@ requirePattern(
   /allArtifactsVerified/,
   "DR acceptance evidence must report full GridFS verification"
 );
+requirePattern(
+  acceptance,
+  /metadataArtifactLinksVerified/,
+  "DR acceptance evidence must report metadata-to-GridFS link verification"
+);
+requirePattern(
+  acceptance,
+  /reconciliation:/,
+  "DR acceptance evidence must include restored reconciliation counts"
+);
 
 if (
   /SKIP_|BYPASS_|ALLOW_PRODUCTION_RESTORE|FORCE_RESTORE/i.test(
@@ -199,5 +239,5 @@ if (
 }
 
 console.log(
-  "Backup/restore automation contract OK (0600 config, scoped archive, SHA-256, isolated namespace remap, all-GridFS integrity, default DR cleanup, one-command acceptance, no production-restore bypass)"
+  "Backup/restore automation contract OK (0600 config, scoped archive, SHA-256, isolated namespace remap, metadata/GridFS reconciliation, all-artifact integrity, failure cleanup, one-command acceptance, no production-restore bypass)"
 );
