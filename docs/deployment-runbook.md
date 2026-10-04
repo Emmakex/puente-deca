@@ -152,7 +152,26 @@ npm run production:kairoseth-health-smoke
 
 Expected: `status=ok` and `engine=ready`.
 
-### 5. Organization isolation
+### 5. Kairoseth Cargo engine production acceptance
+
+Run the private `kairoseth-platform` manual workflow:
+
+```text
+Kairoseth Cargo Engine Production Acceptance
+```
+
+That gate uses controlled existing production evidence and performs GET-only checks through `kairoseth.com`:
+
+- protected Kairoseth → Puente DeCA health;
+- organization-scoped Cargo connector/API read path;
+- controlled shipment read;
+- controlled direct public DeCA PDF;
+- Kairoseth privacy/security headers;
+- immutable PDF SHA-256.
+
+It must not create or modify shipments/documents merely to prove deployment routing.
+
+### 6. Organization isolation
 
 From two Kairoseth test organizations:
 
@@ -161,7 +180,7 @@ From two Kairoseth test organizations:
 - issue distinct connector credentials;
 - verify credential revocation in one organization does not affect the other.
 
-### 6. End-to-end DeCA
+### 7. End-to-end DeCA
 
 For a controlled shipment:
 
@@ -173,7 +192,7 @@ For a controlled shipment:
 6. confirm direct PDF download without login/intermediate HTML;
 7. compare downloaded PDF SHA-256 with document metadata.
 
-### 7. Public Kairoseth PDF smoke
+### 8. Public Kairoseth PDF smoke
 
 Kairoseth also enforces a per-process in-flight public-PDF guard:
 
@@ -197,11 +216,11 @@ npm run production:public-pdf-smoke
 
 Expected: `status=ok`, direct PDF, checksum match and all privacy headers green.
 
-### 8. Connector smoke
+### 9. Connector smoke
 
 Run one WooCommerce and one PrestaShop controlled flow with organization-scoped connector keys.
 
-### 9. Reconciliation
+### 10. Reconciliation
 
 ```bash
 npm run artifacts:reconcile
@@ -215,7 +234,7 @@ orphanedArtifacts = 0
 purgedArtifactsStillPresent = 0
 ```
 
-### 10. Backup/restore
+### 11. Backup/restore
 
 Portable logical backup:
 

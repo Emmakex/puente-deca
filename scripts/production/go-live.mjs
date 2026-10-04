@@ -36,6 +36,7 @@ const automatedSteps = [
 ];
 
 const manualGatesRemaining = [
+  "kairoseth-engine-production-acceptance",
   "woocommerce-live-store-smoke",
   "prestashop-1.7.8-and-8.x-smoke",
   "backup-restore-drill",

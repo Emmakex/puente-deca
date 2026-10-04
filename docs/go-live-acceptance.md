@@ -59,6 +59,7 @@ The result also lists `manualGatesRemaining`.
 
 The following remain explicit release gates because the engine alone cannot prove them:
 
+- Kairoseth Cargo engine production acceptance through the private `kairoseth-platform` read-only workflow;
 - WooCommerce live-store smoke;
 - PrestaShop 1.7.8 + 8.x compatibility smoke;
 - backup → isolated restore drill;
