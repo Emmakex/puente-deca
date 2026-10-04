@@ -111,7 +111,9 @@ Rendering the order card performs no remote call. The post-status hook is a docu
 
 ## Acceptance status
 
-v0.1.0 includes a deterministic connector-contract fixture, static architecture/security gates and PHP syntax lint when PHP is available on CI. A reproducible ZIP and real PrestaShop runtime compatibility matrix remain production-hardening gates before public release.
+v0.1.0 includes deterministic connector-contract fixtures, static architecture/security gates and an executable PHP host-contract bootstrap matrix for PrestaShop 1.7.8.0 and 8.1.2. The matrix loads the real module/classes, exercises install/uninstall, hooks, encrypted credentials and representative order payload mapping.
+
+This simulated host-contract matrix does not replace a real PrestaShop installation. Real 1.7.8.x and 8.x store acceptance remains a production-hardening gate before public release.
 
 ## Connection check
 

@@ -99,9 +99,11 @@ Characters outside the embedded font set continue to fail closed rather than bei
 - [x] WooCommerce deterministic release ZIP packaging with SHA-256 manifest.
 - [x] Dedicated reproducible connector release workflow with uploaded ZIP/checksum bundle.
 - [x] Release-candidate evidence bundle with deterministic CycloneDX SBOM and SHA-256 release manifest.
+- [x] WooCommerce executable PHP host-contract bootstrap smoke (HPOS/hooks/encryption/connection/payload).
 - [ ] WooCommerce live-store smoke test.
 - [x] PrestaShop deterministic release ZIP packaging with SHA-256 manifest.
-- [ ] PrestaShop real 1.7.8/8.x compatibility matrix.
+- [x] PrestaShop executable PHP host-contract bootstrap matrix for 1.7.8.0 and 8.1.2.
+- [ ] PrestaShop real 1.7.8.x/8.x compatibility matrix.
 - [x] MongoDB Atlas metadata store aligned with Kairoseth Platform.
 - [ ] Production Atlas transaction/index/concurrency smoke acceptance.
 - [ ] GridFS backup/restore acceptance.

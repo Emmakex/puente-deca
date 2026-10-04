@@ -74,6 +74,12 @@ add_filter(
 
 Any modified payload is still validated by Puente DeCA.
 
+## Acceptance status
+
+The connector now has an executable PHP host-contract smoke in CI. It loads the real plugin entrypoint/classes and verifies HPOS declaration, hook registration, encrypted secret roundtrip, the non-destructive Cargo connection request, representative `WC_Order` payload mapping and the manual order action.
+
+This is a deterministic pre-release gate, not a claim that every WordPress/WooCommerce/plugin combination has been exercised. A live WooCommerce store smoke remains required before public connector release.
+
 ## Connection check
 
 After saving the Kairoseth Cargo endpoint and API key, use **Test Kairoseth Cargo connection** in the connector settings.
