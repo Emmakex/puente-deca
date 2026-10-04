@@ -1919,7 +1919,7 @@ test("structured eCMR preview and append generate D25A internally without exposi
         internalVersions[0]
           .reviewSnapshot
           .consignee.address,
-        "10 Rue Exemple, Lyon"
+        "10 Rue Example, Lyon"
       );
       assert.equal(
         internalVersions[0]
