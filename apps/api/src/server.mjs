@@ -42,6 +42,9 @@ import {
 } from "../../../packages/document-engine/src/snapshot.mjs";
 import { renderNativeDecaPdf } from "../../../packages/document-engine/src/pdf.mjs";
 import {
+  renderVerifiedEcmrReviewPdf
+} from "../../../packages/document-engine/src/ecmr-review-pdf.mjs";
+import {
   createRuntimeMetrics
 } from "./metrics.mjs";
 import {
@@ -274,6 +277,46 @@ const sendPdf = (
     "x-deca-document-id": snapshot.documentId,
     "x-deca-version": String(snapshot.version)
   });
+  response.end(pdf);
+};
+
+const sendEcmrReviewPdf = (
+  response,
+  {
+    shipmentId,
+    version,
+    pdf
+  }
+) => {
+  const filename =
+    `ecmr-${shipmentId}-v${version.version}-review.pdf`
+      .replace(
+        /[^A-Za-z0-9._-]/g,
+        "_"
+      );
+
+  response.writeHead(
+    200,
+    {
+      ...commonSecurityHeaders(),
+      "content-type":
+        "application/pdf",
+      "content-length":
+        pdf.length,
+      "content-disposition":
+        `inline; filename="${filename}"`,
+      "cache-control":
+        "private, no-store",
+      "x-ecmr-version-id":
+        version.versionId,
+      "x-ecmr-content-hash":
+        version.contentHash,
+      "x-ecmr-review-hash":
+        version.reviewHash,
+      "x-ecmr-issuance-status":
+        "not-issued"
+    }
+  );
   response.end(pdf);
 };
 
@@ -1564,6 +1607,11 @@ export function createServer({
           url.pathname
         );
 
+      const ecmrReviewPdfMatch =
+        /^\/v1\/shipments\/([^/]+)\/ecmr\/versions\/([^/]+)\/review\.pdf$/.exec(
+          url.pathname
+        );
+
       const credentialMatch =
         /^\/v1\/credentials\/([^/]+)$/.exec(
           url.pathname
@@ -1964,6 +2012,197 @@ export function createServer({
                   "ecmr_version_conflict",
                 message:
                   "eCMR amendment could not extend the current accepted head"
+              }
+            );
+          }
+
+          throw error;
+        }
+      }
+
+      if (
+        request.method === "GET" &&
+        ecmrReviewPdfMatch
+      ) {
+        if (!requireStore(response, store)) return;
+
+        const credential =
+          await authenticate(
+            request,
+            response,
+            store,
+            "regulatory:read",
+            platformServiceSecret,
+            rateLimiter
+          );
+        if (!credential) return;
+
+        const shipmentId =
+          decodeURIComponent(
+            ecmrReviewPdfMatch[1]
+          );
+        const versionId =
+          decodeURIComponent(
+            ecmrReviewPdfMatch[2]
+          );
+        const shipment =
+          await store.getShipment({
+            organizationId:
+              credential.organizationId,
+            shipmentId
+          });
+
+        if (!shipment) {
+          return sendJson(
+            response,
+            404,
+            {
+              error:
+                "shipment_not_found",
+              message:
+                "Shipment was not found"
+            }
+          );
+        }
+
+        const versions =
+          await store
+            .listRegulatoryVersions({
+              organizationId:
+                credential.organizationId,
+              shipmentId,
+              regulatoryType:
+                "ecmr"
+            });
+
+        if (
+          versions.length >
+            0
+        ) {
+          const chainVerification =
+            verifyEcmrAmendmentChain(
+              versions
+            );
+
+          if (
+            !chainVerification
+              .valid
+          ) {
+            return sendJson(
+              response,
+              500,
+              {
+                error:
+                  "ecmr_history_integrity_failure",
+                message:
+                  "Stored eCMR amendment history failed integrity verification"
+              }
+            );
+          }
+        }
+
+        const version =
+          versions.find(
+            (entry) =>
+              entry.versionId ===
+                versionId
+          );
+
+        if (!version) {
+          return sendJson(
+            response,
+            404,
+            {
+              error:
+                "ecmr_version_not_found",
+              message:
+                "eCMR version was not found"
+            }
+          );
+        }
+
+        const reviewVerification =
+          verifyEcmrReviewSnapshot({
+            reviewSnapshot:
+              version.reviewSnapshot,
+            reviewHash:
+              version.reviewHash,
+            contentHash:
+              version.contentHash
+          });
+
+        if (
+          !reviewVerification
+            .valid
+        ) {
+          return sendJson(
+            response,
+            500,
+            {
+              error:
+                "ecmr_review_integrity_failure",
+              message:
+                "Stored eCMR human-review evidence failed integrity verification",
+              versionId:
+                version.versionId,
+              code:
+                reviewVerification.code
+            }
+          );
+        }
+
+        if (
+          reviewVerification
+            .present !==
+          true
+        ) {
+          return sendJson(
+            response,
+            409,
+            {
+              error:
+                "ecmr_review_unavailable",
+              message:
+                "This eCMR version has no verified structured human-review snapshot"
+            }
+          );
+        }
+
+        try {
+          const pdf =
+            await renderVerifiedEcmrReviewPdf({
+              shipmentId,
+              version,
+              schemaConformance:
+                reviewVerification
+                  .schemaConformance
+            });
+
+          return sendEcmrReviewPdf(
+            response,
+            {
+              shipmentId,
+              version,
+              pdf
+            }
+          );
+        } catch (error) {
+          if (
+            error?.code ===
+              "ECMR_PDF_UNSUPPORTED_CHARACTER" ||
+            error?.code ===
+              "ECMR_REVIEW_PDF_TOO_LARGE"
+          ) {
+            return sendJson(
+              response,
+              422,
+              {
+                error:
+                  "ecmr_review_render_unavailable",
+                message:
+                  "The verified eCMR version cannot be rendered with the current PDF profile",
+                code:
+                  error.code
               }
             );
           }
