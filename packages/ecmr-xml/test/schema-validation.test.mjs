@@ -45,23 +45,46 @@ const fixture = async () => {
         .rootSchema
     );
 
-  await mkdir(
-    join(
-      schemaDirectory,
-      "uncefact"
+  await Promise.all([
+    mkdir(
+      join(
+        schemaDirectory,
+        "uncefact"
+      ),
+      {
+        recursive: true
+      }
     ),
-    {
-      recursive: true
-    }
-  );
+    mkdir(
+      join(
+        schemaDirectory,
+        "common"
+      ),
+      {
+        recursive: true
+      }
+    )
+  ]);
 
   const schema =
     '<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"/>';
+  const importedSchema =
+    join(
+      schemaDirectory,
+      "common",
+      "Reusable.xsd"
+    );
 
-  await writeFile(
-    schemaRoot,
-    schema
-  );
+  await Promise.all([
+    writeFile(
+      schemaRoot,
+      schema
+    ),
+    writeFile(
+      importedSchema,
+      schema
+    )
+  ]);
 
   const tree =
     await createSchemaTreeEvidence(
@@ -128,6 +151,7 @@ const fixture = async () => {
     root,
     schemaDirectory,
     schemaRoot,
+    importedSchema,
     xml
   };
 };
@@ -195,7 +219,7 @@ test(
     );
     assert.equal(
       result.schemaFileCount,
-      1
+      2
     );
     assert.equal(
       result.networkAccess,
@@ -262,17 +286,17 @@ test(
 );
 
 test(
-  "fails closed if any installed schema file changes after manifest creation",
+  "fails closed if an imported schema changes after manifest creation",
   async () => {
     const {
       schemaDirectory,
-      schemaRoot,
+      importedSchema,
       xml
     } = await fixture();
 
     await writeFile(
-      schemaRoot,
-      '<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"><!-- tampered --></xsd:schema>'
+      importedSchema,
+      '<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"><!-- tampered imported schema --></xsd:schema>'
     );
 
     await assert.rejects(
@@ -288,7 +312,6 @@ test(
         }),
       (error) =>
         [
-          "ECMR_D25A_ROOT_SCHEMA_HASH_MISMATCH",
           "ECMR_D25A_SCHEMA_TREE_HASH_MISMATCH",
           "ECMR_D25A_SCHEMA_FILE_HASH_MISMATCH"
         ].includes(
