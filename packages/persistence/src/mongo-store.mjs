@@ -285,9 +285,7 @@ export class MongoStore {
   }
 
   get #regulatoryVersions() {
-    return this.#database.collection(
-      "deca_regulatory_versions"
-    );
+    return this.#database.collection("deca_regulatory_versions");
   }
 
   get #idempotency() {
