@@ -106,10 +106,26 @@ const schemaGate = (
     validSchemaEvidenceHash(
       evidence
     ) &&
+    evidence?.evidenceVersion ===
+      1 &&
     evidence?.status ===
       "pass" &&
     evidence?.check ===
       "ecmr-d25a-generated-xml-acceptance" &&
+    exactInstant(
+      evidence?.generatedAt
+    ) &&
+    SHA256.test(
+      evidence
+        ?.projectionSha256 ??
+        ""
+    ) &&
+    evidence?.serializer
+      ?.release ===
+      ECMR_D25A_PROFILE.release &&
+    evidence?.serializer
+      ?.rootSchema ===
+      ECMR_D25A_PROFILE.rootSchema &&
     validation
       ?.schemaConformance ===
       "official-d25a-xsd-pass" &&
