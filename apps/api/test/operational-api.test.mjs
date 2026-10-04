@@ -3112,3 +3112,352 @@ test("rate limit subjects isolate connector credentials", async () => {
     { rateLimiter }
   );
 });
+
+
+test("Kairoseth issuance-readiness verifies the immutable head, registered signer and external acceptance gates without issuing", async () => {
+  await withOperationalServer(
+    async ({
+      baseUrl,
+      apiKey,
+      store,
+      organization,
+      platformServiceSecret
+    }) => {
+      const createResponse =
+        await fetch(
+          `${baseUrl}/v1/shipments`,
+          {
+            method: "POST",
+            headers:
+              authHeaders(apiKey),
+            body:
+              JSON.stringify(
+                payload
+              )
+          }
+        );
+      const shipment =
+        await createResponse
+          .json();
+
+      assert.equal(
+        createResponse.status,
+        201
+      );
+
+      const versionResponse =
+        await fetch(
+          `${baseUrl}/v1/shipments/${shipment.shipmentId}/ecmr/versions/structured`,
+          {
+            method: "POST",
+            headers:
+              authHeaders(apiKey),
+            body:
+              JSON.stringify({
+                draft:
+                  ecmrDraft(),
+                reason:
+                  "prepare issuance-readiness test",
+                partyRole:
+                  "sender",
+                expectedPreviousVersionId:
+                  null
+              })
+          }
+        );
+      const created =
+        await versionResponse
+          .json();
+
+      assert.equal(
+        versionResponse.status,
+        201
+      );
+
+      const internalVersions =
+        await store
+          .listRegulatoryVersions({
+            organizationId:
+              organization
+                .organizationId,
+            shipmentId:
+              shipment.shipmentId,
+            regulatoryType:
+              "ecmr"
+          });
+      const internalVersion =
+        internalVersions.at(-1);
+
+      assert.ok(
+        internalVersion
+          .xml
+          .includes(
+            "<rsm:eCMR"
+          )
+      );
+
+      const {
+        privateKey,
+        publicKey
+      } =
+        generateKeyPairSync(
+          "ed25519"
+        );
+      const signer = {
+        signerId:
+          "kairoseth-user:user_issuance",
+        partyRole:
+          "sender",
+        identityScheme:
+          "kairoseth-user",
+        identityAssurance:
+          "platform-authenticated"
+      };
+      const registered =
+        await store
+          .registerEcmrSignerKey({
+            organizationId:
+              organization
+                .organizationId,
+            label:
+              "Issuance test key",
+            publicKey,
+            signer,
+            custody: {
+              mode:
+                "external",
+              provider:
+                "Test HSM",
+              keyReference:
+                "hsm://issuance/key-001",
+              controlModel:
+                "external-sole-control"
+            }
+          });
+      const signedAt =
+        new Date(
+          Date.now() +
+          5_000
+        ).toISOString();
+      const signatureEvidence =
+        createEcmrDetachedSignature({
+          xml:
+            internalVersion.xml,
+          privateKey,
+          signer,
+          signedAt
+        });
+      const schemaAcceptance =
+        officialD25aAcceptanceEvidence(
+          internalVersion
+            .contentHash
+        );
+      const serviceHeaders = {
+        "content-type":
+          "application/json",
+        "x-kairoseth-service-secret":
+          platformServiceSecret,
+        "x-kairoseth-organization-id":
+          organization
+            .organizationId,
+        "x-kairoseth-user-id":
+          "user_issuance"
+      };
+      const readinessPayload = {
+        signerKeyId:
+          registered
+            .signerKeyId,
+        signatureEvidence,
+        schemaAcceptance,
+        jurisdictionPolicy: {
+          status:
+            "accepted",
+          jurisdiction:
+            "ES/EU-test-policy",
+          policyId:
+            "test-signature-policy",
+          policyVersion:
+            "1",
+          acceptedAt:
+            signedAt,
+          identityAssurance:
+            "platform-authenticated",
+          custodyModel:
+            "external-sole-control",
+          signatureMethod:
+            signatureEvidence
+              .method,
+          signerKeyId:
+            registered
+              .signerKeyId,
+          publicKeyFingerprint:
+            registered
+              .publicKeyFingerprint
+        },
+        procedureAgreement: {
+          agreed: true,
+          agreementId:
+            "agreement_test_001",
+          procedureVersion:
+            "1",
+          proceduresHash:
+            `sha256:${"b".repeat(64)}`,
+          acceptedAt:
+            signedAt,
+          verificationMethod:
+            "kairoseth-agreement-record",
+          partyRoles: [
+            "sender",
+            "contractualCarrier"
+          ]
+        }
+      };
+
+      const readinessResponse =
+        await fetch(
+          `${baseUrl}/v1/shipments/${shipment.shipmentId}/ecmr/versions/${created.version.versionId}/issuance-readiness`,
+          {
+            method: "POST",
+            headers:
+              serviceHeaders,
+            body:
+              JSON.stringify(
+                readinessPayload
+              )
+          }
+        );
+      const readiness =
+        await readinessResponse
+          .json();
+
+      assert.equal(
+        readinessResponse.status,
+        200
+      );
+      assert.equal(
+        readiness.readiness
+          .ready,
+        true
+      );
+      assert.equal(
+        readiness.readiness
+          .status,
+        "ready"
+      );
+      assert.deepEqual(
+        readiness.readiness
+          .blockingCodes,
+        []
+      );
+      assert.ok(
+        readiness.readiness
+          .gates.every(
+            (entry) =>
+              entry.passed ===
+              true
+          )
+      );
+      assert.equal(
+        readiness.signature
+          .verificationCode,
+        null
+      );
+      assert.equal(
+        readiness.signature
+          .authorizationCode,
+        null
+      );
+      assert.equal(
+        readiness.readiness
+          .contentHash,
+        internalVersion
+          .contentHash
+      );
+      assert.equal(
+        JSON.stringify(
+          readiness
+        ).includes(
+          "<rsm:eCMR"
+        ),
+        false
+      );
+      assert.equal(
+        JSON.stringify(
+          readiness
+        ).includes(
+          "PRIVATE KEY"
+        ),
+        false
+      );
+
+      const connectorDenied =
+        await fetch(
+          `${baseUrl}/v1/shipments/${shipment.shipmentId}/ecmr/versions/${created.version.versionId}/issuance-readiness`,
+          {
+            method: "POST",
+            headers:
+              authHeaders(
+                apiKey
+              ),
+            body:
+              JSON.stringify(
+                readinessPayload
+              )
+          }
+        );
+
+      assert.equal(
+        connectorDenied.status,
+        401
+      );
+
+      const tamperedPayload =
+        structuredClone(
+          readinessPayload
+        );
+      tamperedPayload
+        .signatureEvidence
+        .signatureValue =
+          `${tamperedPayload.signatureEvidence.signatureValue.slice(0, -1)}A`;
+
+      const tamperedResponse =
+        await fetch(
+          `${baseUrl}/v1/shipments/${shipment.shipmentId}/ecmr/versions/${created.version.versionId}/issuance-readiness`,
+          {
+            method: "POST",
+            headers:
+              serviceHeaders,
+            body:
+              JSON.stringify(
+                tamperedPayload
+              )
+          }
+        );
+      const tampered =
+        await tamperedResponse
+          .json();
+
+      assert.equal(
+        tamperedResponse.status,
+        200
+      );
+      assert.equal(
+        tampered.readiness
+          .ready,
+        false
+      );
+      assert.ok(
+        tampered.readiness
+          .blockingCodes
+          .includes(
+            "ECMR_ISSUANCE_AUTHORIZED_SIGNATURE_REQUIRED"
+          )
+      );
+      assert.notEqual(
+        tampered.signature
+          .verificationCode,
+        null
+      );
+    }
+  );
+});
