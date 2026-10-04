@@ -5,7 +5,8 @@ import {
 const [
   draft,
   server,
-  openapi
+  openapi,
+  review
 ] = await Promise.all([
   readFile(
     "packages/core/src/ecmr-draft.mjs",
@@ -17,6 +18,10 @@ const [
   ),
   readFile(
     "docs/openapi.json",
+    "utf8"
+  ),
+  readFile(
+    "packages/ecmr-xml/src/review-snapshot.mjs",
     "utf8"
   )
 ]);
@@ -82,6 +87,33 @@ if (
   );
 }
 
+for (const token of [
+  "createEcmrReviewSnapshot",
+  "verifyEcmrReviewSnapshot",
+  "canonicalJson",
+  "ECMR_REVIEW_HASH_MISMATCH",
+  "ECMR_REVIEW_CONTENT_HASH_MISMATCH"
+]) {
+  if (!review.includes(token)) {
+    throw new Error(
+      `eCMR human-review integrity boundary is missing ${token}`
+    );
+  }
+}
+
+for (const token of [
+  "record.reviewSnapshot",
+  "record.reviewHash",
+  "verifyEcmrReviewSnapshot",
+  "ecmr_review_integrity_failure"
+]) {
+  if (!server.includes(token)) {
+    throw new Error(
+      `Structured eCMR history is missing review-snapshot enforcement: ${token}`
+    );
+  }
+}
+
 const document =
   JSON.parse(openapi);
 
@@ -138,5 +170,5 @@ if (
 }
 
 console.log(
-  "Structured eCMR flow contract OK (explicit legal facts, no DeCA role inference, server-side D25A generation, XML-free preview/append responses)"
+  "Structured eCMR flow contract OK (explicit legal facts, no DeCA role inference, server-side D25A generation, XML-free responses, verifiable human-review snapshots)"
 );

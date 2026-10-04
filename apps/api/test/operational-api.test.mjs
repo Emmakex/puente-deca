@@ -1871,6 +1871,16 @@ test("structured eCMR preview and append generate D25A internally without exposi
         first.version.contentHash,
         preview.wire.contentHash
       );
+      assert.equal(
+        first.version
+          .reviewSnapshot
+          .sender.legalName,
+        "Example Sender SL"
+      );
+      assert.match(
+        first.version.reviewHash,
+        /^sha256:[0-9a-f]{64}$/
+      );
 
       const internalVersions =
         await store
@@ -1904,6 +1914,47 @@ test("structured eCMR preview and append generate D25A internally without exposi
           .contentHash,
         preview.wire
           .contentHash
+      );
+      assert.equal(
+        internalVersions[0]
+          .reviewSnapshot
+          .consignee.address,
+        "10 Rue Example, Lyon"
+      );
+      assert.equal(
+        internalVersions[0]
+          .reviewHash,
+        first.version
+          .reviewHash
+      );
+
+      const structuredHistoryResponse =
+        await fetch(
+          `${baseUrl}/v1/shipments/${shipment.shipmentId}/ecmr/versions`,
+          {
+            headers:
+              authHeaders(apiKey)
+          }
+        );
+      const structuredHistory =
+        await structuredHistoryResponse
+          .json();
+
+      assert.equal(
+        structuredHistoryResponse.status,
+        200
+      );
+      assert.equal(
+        structuredHistory.versions[0]
+          .reviewSnapshot
+          .sender.legalName,
+        "Example Sender SL"
+      );
+      assert.equal(
+        structuredHistory.versions[0]
+          .reviewHash,
+        first.version
+          .reviewHash
       );
 
       const noOpResponse =
@@ -1989,6 +2040,16 @@ test("structured eCMR preview and append generate D25A internally without exposi
           "xml"
         ),
         false
+      );
+      assert.equal(
+        second.version
+          .reviewSnapshot
+          .consignee.address,
+        "20 Rue Updated, Lyon"
+      );
+      assert.match(
+        second.version.reviewHash,
+        /^sha256:[0-9a-f]{64}$/
       );
     },
     {

@@ -28,6 +28,10 @@ import {
   serializeEcmrD25aEnvelope
 } from "../../../packages/ecmr-xml/src/d25a-serializer.mjs";
 import {
+  createEcmrReviewSnapshot,
+  verifyEcmrReviewSnapshot
+} from "../../../packages/ecmr-xml/src/review-snapshot.mjs";
+import {
   createEcmrAmendmentChain,
   appendEcmrAmendment,
   verifyEcmrAmendmentChain
@@ -1871,6 +1875,34 @@ export function createServer({
                   createdAt
                 }).at(-1);
 
+          const reviewEvidence =
+            createEcmrReviewSnapshot(
+              prepared.projection
+            );
+
+          if (
+            reviewEvidence
+              .contentHash !==
+            record.contentHash
+          ) {
+            throw Object.assign(
+              new Error(
+                "Structured eCMR review snapshot does not match the immutable XML"
+              ),
+              {
+                code:
+                  "ECMR_REVIEW_CONTENT_HASH_MISMATCH"
+              }
+            );
+          }
+
+          record.reviewSnapshot =
+            reviewEvidence
+              .reviewSnapshot;
+          record.reviewHash =
+            reviewEvidence
+              .reviewHash;
+
           const stored =
             await store
               .appendRegulatoryVersion({
@@ -2010,6 +2042,46 @@ export function createServer({
                   "Stored eCMR amendment history failed integrity verification"
               }
             );
+          }
+
+          for (
+            const version of
+            versions
+          ) {
+            const reviewVerification =
+              verifyEcmrReviewSnapshot({
+                reviewSnapshot:
+                  version
+                    .reviewSnapshot,
+                reviewHash:
+                  version
+                    .reviewHash,
+                contentHash:
+                  version
+                    .contentHash
+              });
+
+            if (
+              !reviewVerification
+                .valid
+            ) {
+              return sendJson(
+                response,
+                500,
+                {
+                  error:
+                    "ecmr_review_integrity_failure",
+                  message:
+                    "Stored eCMR human-review evidence failed integrity verification",
+                  versionId:
+                    version
+                      .versionId,
+                  code:
+                    reviewVerification
+                      .code
+                }
+              );
+            }
           }
         }
 
