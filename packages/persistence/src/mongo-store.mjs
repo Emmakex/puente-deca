@@ -10,7 +10,8 @@ import {
 import { canonicalJson } from "../../core/src/canonical-json.mjs";
 import {
   normalizeRegulatoryVersionRecord,
-  assertRegulatoryVersionAppend
+  assertRegulatoryVersionAppend,
+  normalizeRegulatoryType
 } from "./regulatory-version-record.mjs";
 
 const clone = (value) => structuredClone(value);
@@ -1333,9 +1334,8 @@ export class MongoStore {
         "shipmentId"
       );
     const normalizedRegulatoryType =
-      requireText(
-        regulatoryType,
-        "regulatoryType"
+      normalizeRegulatoryType(
+        regulatoryType
       );
     const normalizedRecord =
       normalizeRegulatoryVersionRecord(
@@ -1487,9 +1487,8 @@ export class MongoStore {
         "shipmentId"
       );
     const normalizedRegulatoryType =
-      requireText(
-        regulatoryType,
-        "regulatoryType"
+      normalizeRegulatoryType(
+        regulatoryType
       );
 
     const documents =
