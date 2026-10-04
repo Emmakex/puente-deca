@@ -1059,6 +1059,149 @@
           }
         }
       }
+    },
+    "/v1/shipments/{shipmentId}/ecmr/preview": {
+      "post": {
+        "operationId": "previewShipmentEcmrDraft",
+        "summary": "Validate and preview a structured eCMR draft",
+        "description": "Requires regulatory:write. Reuses common Shipment facts and accepts only explicit eCMR-specific/legal facts. The generated XML remains internal and is not returned.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "platformServiceSecret": [],
+            "platformOrganizationId": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ShipmentId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "draft"
+                ],
+                "properties": {
+                  "draft": {
+                    "$ref": "#/components/schemas/EcmrStructuredDraft"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Article-6-complete structured preview with D25A wire metadata and content hash; no raw XML"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "regulatory:write scope missing"
+          },
+          "404": {
+            "description": "Shipment not found"
+          },
+          "422": {
+            "description": "Structured eCMR draft validation errors with path/code/legalBasis evidence"
+          },
+          "429": {
+            "description": "Authenticated subject exceeded the per-process request limit"
+          }
+        }
+      }
+    },
+    "/v1/shipments/{shipmentId}/ecmr/versions/structured": {
+      "post": {
+        "operationId": "appendStructuredShipmentEcmrVersion",
+        "summary": "Generate and append an immutable eCMR version from structured facts",
+        "description": "Requires regulatory:write. The engine regenerates D25A XML internally and appends it to the immutable ledger. Raw XML is not returned.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "platformServiceSecret": [],
+            "platformOrganizationId": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ShipmentId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "draft",
+                  "reason",
+                  "partyRole",
+                  "expectedPreviousVersionId"
+                ],
+                "properties": {
+                  "draft": {
+                    "$ref": "#/components/schemas/EcmrStructuredDraft"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  "partyRole": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                  },
+                  "expectedPreviousVersionId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "minLength": 1,
+                    "description": "Current accepted eCMR head versionId, or null for version 1."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Immutable version appended; response contains safe version metadata and structured preview, never raw XML"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "regulatory:write scope missing"
+          },
+          "404": {
+            "description": "Shipment not found"
+          },
+          "409": {
+            "description": "Stale head, no-op amendment or concurrent lineage conflict"
+          },
+          "422": {
+            "description": "Invalid structured draft or append request"
+          },
+          "429": {
+            "description": "Authenticated subject exceeded the per-process request limit"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1262,6 +1405,294 @@
           "unit": {
             "type": "string",
             "minLength": 1
+          }
+        }
+      },
+      "EcmrPartyInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "legalName",
+          "address"
+        ],
+        "properties": {
+          "legalName": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          }
+        }
+      },
+      "EcmrStructuredDraft": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sender",
+          "contractualCarrier",
+          "consignee",
+          "issue",
+          "takingOver",
+          "delivery",
+          "goods",
+          "charges",
+          "customsFormalities",
+          "conventionApplicability"
+        ],
+        "properties": {
+          "sender": {
+            "$ref": "#/components/schemas/EcmrPartyInput"
+          },
+          "contractualCarrier": {
+            "$ref": "#/components/schemas/EcmrPartyInput"
+          },
+          "consignee": {
+            "$ref": "#/components/schemas/EcmrPartyInput"
+          },
+          "issue": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "date",
+              "place"
+            ],
+            "properties": {
+              "date": {
+                "type": "string",
+                "format": "date"
+              },
+              "place": {
+                "type": "string"
+              }
+            }
+          },
+          "takingOver": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "date",
+              "place"
+            ],
+            "properties": {
+              "date": {
+                "type": "string",
+                "format": "date"
+              },
+              "place": {
+                "type": "string"
+              }
+            }
+          },
+          "delivery": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "place"
+            ],
+            "properties": {
+              "place": {
+                "type": "string"
+              }
+            }
+          },
+          "goods": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "packingMethod",
+              "packages",
+              "dangerousGoods"
+            ],
+            "properties": {
+              "packingMethod": {
+                "type": "string"
+              },
+              "packingMethodCode": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "dangerousGoodsDescription": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "packages": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "count",
+                  "marksAndNumbers"
+                ],
+                "properties": {
+                  "count": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "marksAndNumbers": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "dangerousGoods": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "declared"
+                ],
+                "properties": {
+                  "declared": {
+                    "type": "boolean"
+                  },
+                  "undgIdentificationCode": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "regulationCode": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "technicalName": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "properShippingName": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "packagingDangerLevelCode": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "hazardClassificationId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "charges": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "declared",
+              "items"
+            ],
+            "properties": {
+              "declared": {
+                "type": "boolean"
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "description": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "chargeCategoryCode": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "amount": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "value",
+                        "currency"
+                      ],
+                      "properties": {
+                        "value": {
+                          "type": "number",
+                          "minimum": 0
+                        },
+                        "currency": {
+                          "type": "string",
+                          "pattern": "^[A-Z]{3}$"
+                        }
+                      }
+                    },
+                    "payingPartyRoleCode": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "transportPaymentMethodCode": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "customsFormalities": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "declared",
+              "instructions"
+            ],
+            "properties": {
+              "declared": {
+                "type": "boolean"
+              },
+              "instructions": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "conventionApplicability": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "declared",
+              "statement"
+            ],
+            "properties": {
+              "declared": {
+                "type": "boolean"
+              },
+              "statement": {
+                "type": "string"
+              }
+            }
           }
         }
       }
