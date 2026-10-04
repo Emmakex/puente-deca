@@ -45,6 +45,32 @@ requirePattern(
 );
 requirePattern(
   server,
+  /ecmrPreviewMatch/,
+  "Structured eCMR preview endpoint is missing"
+);
+requirePattern(
+  server,
+  /ecmrStructuredVersionsMatch/,
+  "Structured eCMR append endpoint is missing"
+);
+requirePattern(
+  server,
+  /prepareStructuredEcmr/,
+  "Structured eCMR flow must generate and validate inside the engine"
+);
+requirePattern(
+  server,
+  /regulatoryVersionWithoutXml/,
+  "Structured eCMR append must strip raw XML from response metadata"
+);
+requirePattern(
+  server,
+  /prepared\.xml[\s\S]*appendRegulatoryVersion/,
+  "Structured eCMR append must persist internally generated XML"
+);
+
+requirePattern(
+  server,
   /"regulatory:read"/,
   "eCMR history reads must require regulatory:read"
 );
