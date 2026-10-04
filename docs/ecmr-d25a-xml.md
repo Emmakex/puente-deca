@@ -109,9 +109,12 @@ The serializer now maps these additional fields through UN/CEFACT structures tha
 | `goods.nature` | `IncludedSupplyChainConsignmentItem/NatureIdentificationTransportCargo/Identification` | Free text is XML-escaped, never code-mapped. |
 | `goods.packages.count` | `IncludedSupplyChainConsignmentItem/TransportLogisticsPackage/ItemQuantity` | Integer package count. |
 | `goods.packages.marksAndNumbers[]` | `IncludedSupplyChainConsignmentItem/TransportLogisticsPackage/PhysicalLogisticsShippingMarks/Marking` | One shipping-marks aggregate per non-empty mark. |
+| `goods.packingMethod` | `IncludedSupplyChainConsignmentItem/TransportLogisticsPackage/TypeText` | Free-text packing method is preserved as text; it is never promoted into a package code. |
 | `goods.packingMethodCode` | `IncludedSupplyChainConsignmentItem/TransportLogisticsPackage/TypeCode` | Serialized only when an integration supplies an explicit code; the text `packingMethod` is never converted into a code. |
 | `charges.items[]` | `ApplicableLogisticsServiceCharge` | Explicit charge facts map to ID/Description/ChargeCategoryCode/AppliedAmount/PayingPartyRoleCode/TransportPaymentMethodCode when supplied. `AppliedAmount` carries the explicit `currencyID`. |
 | `goods.dangerousGoods` | `IncludedSupplyChainConsignmentItem/ApplicableTransportDangerousGoods` | Serialized only when explicitly declared. UNDG code, regulation, technical/proper shipping name, packaging danger level and hazard classification are passed through as structured facts. |
+| `customsFormalities.instructions[]` | `ConsignorProvidedBorderClearanceTransportInstructions/Description` | One explicit border-clearance instruction aggregate per non-empty instruction. An empty array remains an explicit declaration that no instructions are required. |
+| `conventionApplicability.statement` | `ExchangedDocument/ContractualDocumentClause/Content` | Exact integration-supplied CMR applicability clause; Puente DeCA never fabricates or translates the legal statement. |
 
 The consignment item also receives deterministic `SequenceNumeric=1` because the current internal eCMR projection represents one aggregate goods line.
 
@@ -121,15 +124,16 @@ Structured charges are validation-first: every emitted charge needs a non-negati
 
 Structured dangerous goods are also fail-closed: when `declared=true`, an explicit four-digit `undgIdentificationCode` and a non-empty `properShippingName` are required. Optional regulation, technical name, packaging danger level and hazard classification are never derived from the legacy description.
 
-### Intentionally still pending
+### Intentionally still outside the Article 6 mapping gate
 
-These projection fields remain unmapped:
+All current Article 6 projection fields now have an explicit wire mapping.
 
-- `goods.packingMethod`: the legal/free-text description remains separate from the optional explicit `packingMethodCode`; Puente DeCA will not derive one from the other.
+The following remain outside that gate:
+
 - `goods.dangerousGoodsDescription`: retained only as a legacy/free-text compatibility field; it is never promoted into structured dangerous-goods facts. Use `goods.dangerousGoods` for wire serialization.
-- `customsFormalities`: no single confirmed D25A mapping has yet been fixed for the current free-text instructions.
-- `conventionApplicability`: the exact D25A representation must be confirmed from the normative bundle.
 - `authentication` / `integrity`: these belong to the later electronic-signature/versioning layer.
+
+The CMR applicability boolean alone is no longer considered sufficient. `conventionApplicability.statement` is mandatory when CMR applicability is declared, so the generated document carries actual clause content rather than an internal flag.
 
 ## Completion gate
 
