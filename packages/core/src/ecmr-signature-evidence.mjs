@@ -155,7 +155,7 @@ export function applyEcmrVerifiedSignatureEvidence(
 
   next.authentication = {
     state:
-      "authenticated",
+      "cryptographically-verified",
     method:
       ECMR_SIGNATURE_METHOD,
     signatures: [
