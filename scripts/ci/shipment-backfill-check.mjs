@@ -13,7 +13,7 @@ const required = [
   "BACKFILL_GENERIC_SHIPMENT_AGGREGATES",
   "MONGODB_DB_NAME",
   "deca_shipments",
-  "aggregate: {",
+  "aggregate:",
   "$exists: false",
   "buildAggregateForLegacyShipment",
   "invalidCandidates",
