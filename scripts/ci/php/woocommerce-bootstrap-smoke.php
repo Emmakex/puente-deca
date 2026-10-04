@@ -373,9 +373,13 @@ eval(
     '}'
 );
 
-$plugin = dirname(__DIR__, 3)
-    . '/connectors/woocommerce/puente-deca-woocommerce.php';
+$pluginOverride = getenv('PDECA_WOO_PLUGIN_FILE');
+$plugin = is_string($pluginOverride) && trim($pluginOverride) !== ''
+    ? $pluginOverride
+    : dirname(__DIR__, 3)
+        . '/connectors/woocommerce/puente-deca-woocommerce.php';
 
+pdeca_assert(is_file($plugin), 'WooCommerce plugin entrypoint was not found.');
 require $plugin;
 
 pdeca_assert(
