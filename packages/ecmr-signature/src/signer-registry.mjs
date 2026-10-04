@@ -94,9 +94,17 @@ const publicKeyDetails = (
 
   try {
     key =
-      createPublicKey(
-        value
-      );
+      value &&
+      typeof value ===
+        "object" &&
+      value.type ===
+        "public" &&
+      typeof value.export ===
+        "function"
+        ? value
+        : createPublicKey(
+            value
+          );
   } catch {
     throw fail(
       "ECMR_SIGNER_PUBLIC_KEY_INVALID",
