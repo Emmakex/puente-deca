@@ -8,6 +8,10 @@ import {
   ServerApiVersion
 } from "mongodb";
 import { canonicalJson } from "../../core/src/canonical-json.mjs";
+import {
+  normalizeRegulatoryVersionRecord,
+  assertRegulatoryVersionAppend
+} from "./regulatory-version-record.mjs";
 
 const clone = (value) => structuredClone(value);
 
@@ -110,6 +114,48 @@ const publicShipment = (document) => ({
   ],
   createdAt: iso(document.createdAt),
   updatedAt: iso(document.updatedAt)
+});
+
+const publicRegulatoryVersion = (
+  document
+) => ({
+  organizationId:
+    document.organizationId,
+  shipmentId:
+    document.shipmentId,
+  regulatoryType:
+    document.regulatoryType,
+  formatVersion:
+    document.formatVersion,
+  versionId:
+    document.versionId,
+  version:
+    document.version,
+  createdAt:
+    document.createdAt,
+  actor:
+    clone(document.actor),
+  reason:
+    document.reason,
+  xml:
+    document.xml,
+  contentHash:
+    document.contentHash,
+  originalContentHash:
+    document.originalContentHash,
+  previousVersionId:
+    document.previousVersionId ??
+    null,
+  previousContentHash:
+    document.previousContentHash ??
+    null,
+  previousChainHash:
+    document.previousChainHash ??
+    null,
+  chainHash:
+    document.chainHash,
+  storedAt:
+    iso(document.storedAt)
 });
 
 const publicDocument = (document) => ({
@@ -237,6 +283,12 @@ export class MongoStore {
     return this.#database.collection("deca_document_versions");
   }
 
+  get #regulatoryVersions() {
+    return this.#database.collection(
+      "deca_regulatory_versions"
+    );
+  }
+
   get #idempotency() {
     return this.#database.collection("deca_idempotency");
   }
@@ -293,6 +345,40 @@ export class MongoStore {
           documentId: 1
         },
         { name: "document_retention_floor" }
+      ),
+      this.#regulatoryVersions.createIndex(
+        { versionId: 1 },
+        {
+          unique: true,
+          name:
+            "regulatory_version_id_unique"
+        }
+      ),
+      this.#regulatoryVersions.createIndex(
+        {
+          organizationId: 1,
+          shipmentId: 1,
+          regulatoryType: 1,
+          version: 1
+        },
+        {
+          unique: true,
+          name:
+            "regulatory_lineage_unique"
+        }
+      ),
+      this.#regulatoryVersions.createIndex(
+        {
+          organizationId: 1,
+          shipmentId: 1,
+          regulatoryType: 1,
+          createdAt: 1,
+          versionId: 1
+        },
+        {
+          name:
+            "regulatory_shipment_created"
+        }
       ),
       this.#idempotency.createIndex(
         { scope: 1 },
@@ -1228,6 +1314,229 @@ export class MongoStore {
         changed: true
       };
     });
+  }
+
+  async appendRegulatoryVersion({
+    organizationId,
+    shipmentId,
+    regulatoryType,
+    record
+  }) {
+    const normalizedOrganizationId =
+      requireText(
+        organizationId,
+        "organizationId"
+      );
+    const normalizedShipmentId =
+      requireText(
+        shipmentId,
+        "shipmentId"
+      );
+    const normalizedRegulatoryType =
+      requireText(
+        regulatoryType,
+        "regulatoryType"
+      );
+    const normalizedRecord =
+      normalizeRegulatoryVersionRecord(
+        record
+      );
+
+    return this.#withTransaction(
+      async (session) => {
+        const shipment =
+          await this.#shipments
+            .findOne(
+              {
+                organizationId:
+                  normalizedOrganizationId,
+                shipmentId:
+                  normalizedShipmentId
+              },
+              { session }
+            );
+
+        if (!shipment) {
+          throw conflict(
+            "Shipment does not exist in this organization",
+            "SHIPMENT_NOT_FOUND"
+          );
+        }
+
+        const latest =
+          await this.#regulatoryVersions
+            .find(
+              {
+                organizationId:
+                  normalizedOrganizationId,
+                shipmentId:
+                  normalizedShipmentId,
+                regulatoryType:
+                  normalizedRegulatoryType
+              },
+              { session }
+            )
+            .sort({
+              version: -1,
+              _id: -1
+            })
+            .limit(1)
+            .next();
+
+        assertRegulatoryVersionAppend({
+          latest,
+          next:
+            normalizedRecord
+        });
+
+        const at =
+          this.#nowDate();
+        const document = {
+          organizationId:
+            normalizedOrganizationId,
+          shipmentId:
+            normalizedShipmentId,
+          regulatoryType:
+            normalizedRegulatoryType,
+          ...clone(
+            normalizedRecord
+          ),
+          storedAt: at
+        };
+
+        try {
+          await this.#regulatoryVersions
+            .insertOne(
+              document,
+              { session }
+            );
+        } catch (error) {
+          if (
+            error?.code === 11000
+          ) {
+            throw conflict(
+              "Regulatory version lineage changed concurrently",
+              "REGULATORY_VERSION_CONFLICT"
+            );
+          }
+          throw error;
+        }
+
+        const shipmentUpdate =
+          await this.#shipments
+            .updateOne(
+              {
+                organizationId:
+                  normalizedOrganizationId,
+                shipmentId:
+                  normalizedShipmentId
+              },
+              {
+                $set: {
+                  updatedAt: at
+                }
+              },
+              { session }
+            );
+
+        if (
+          shipmentUpdate
+            .matchedCount !== 1
+        ) {
+          throw conflict(
+            "Shipment disappeared during regulatory-version append",
+            "SHIPMENT_NOT_FOUND"
+          );
+        }
+
+        await this.#appendAudit(
+          {
+            organizationId:
+              normalizedOrganizationId,
+            shipmentId:
+              normalizedShipmentId,
+            subjectId:
+              document.versionId,
+            type:
+              "regulatory.version.created",
+            at
+          },
+          session
+        );
+
+        return publicRegulatoryVersion(
+          document
+        );
+      }
+    );
+  }
+
+  async listRegulatoryVersions({
+    organizationId,
+    shipmentId,
+    regulatoryType
+  }) {
+    const normalizedOrganizationId =
+      requireText(
+        organizationId,
+        "organizationId"
+      );
+    const normalizedShipmentId =
+      requireText(
+        shipmentId,
+        "shipmentId"
+      );
+    const normalizedRegulatoryType =
+      requireText(
+        regulatoryType,
+        "regulatoryType"
+      );
+
+    const documents =
+      await this.#regulatoryVersions
+        .find({
+          organizationId:
+            normalizedOrganizationId,
+          shipmentId:
+            normalizedShipmentId,
+          regulatoryType:
+            normalizedRegulatoryType
+        })
+        .sort({
+          version: 1,
+          _id: 1
+        })
+        .toArray();
+
+    return documents.map(
+      publicRegulatoryVersion
+    );
+  }
+
+  async getRegulatoryVersion({
+    organizationId,
+    versionId
+  }) {
+    const document =
+      await this.#regulatoryVersions
+        .findOne({
+          organizationId:
+            requireText(
+              organizationId,
+              "organizationId"
+            ),
+          versionId:
+            requireText(
+              versionId,
+              "versionId"
+            )
+        });
+
+    return document
+      ? publicRegulatoryVersion(
+          document
+        )
+      : null;
   }
 
   async appendDocumentVersion({
