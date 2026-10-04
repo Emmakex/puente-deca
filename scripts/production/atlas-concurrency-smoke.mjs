@@ -10,11 +10,16 @@ import {
 import {
   MongoStore
 } from "../../packages/persistence/src/mongo-store.mjs";
+import {
+  createEcmrAmendmentChain,
+  appendEcmrAmendment
+} from "../../packages/ecmr-amendment/src/amendment-chain.mjs";
 
 const SERVICE_COLLECTIONS = [
   "deca_artifact_purges",
   "deca_audit_events",
   "deca_document_versions",
+  "deca_ecmr_amendment_versions",
   "deca_idempotency",
   "deca_shipments",
   "deca_api_credentials",
@@ -205,6 +210,62 @@ const assertConcurrentDocumentResult =
     }
 
     return fulfilled[0];
+  };
+
+const assertConcurrentEcmrAmendmentResult =
+  (
+    results
+  ) => {
+    const fulfilled =
+      results.filter(
+        (result) =>
+          result.status ===
+          "fulfilled"
+      );
+    const rejected =
+      results.filter(
+        (result) =>
+          result.status ===
+          "rejected"
+      );
+
+    if (
+      fulfilled.length !== 1 ||
+      rejected.length !== 1
+    ) {
+      throw Object.assign(
+        new Error(
+          "Concurrent eCMR amendment creation did not produce one winner and one rejected head"
+        ),
+        {
+          code:
+            "ATLAS_ECMR_AMENDMENT_CONCURRENCY_FAILED"
+        }
+      );
+    }
+
+    if (
+      ![
+        "ECMR_AMENDMENT_CONFLICT",
+        "ECMR_AMENDMENT_LINEAGE_CONFLICT"
+      ].includes(
+        rejected[0]
+          .reason?.code
+      )
+    ) {
+      throw Object.assign(
+        new Error(
+          "Concurrent eCMR amendment collision returned an unexpected error"
+        ),
+        {
+          code:
+            "ATLAS_ECMR_AMENDMENT_CONCURRENCY_FAILED"
+        }
+      );
+    }
+
+    return fulfilled[0]
+      .value;
   };
 
 let client = null;
@@ -452,6 +513,164 @@ try {
     );
   }
 
+  const originalEcmrChain =
+    createEcmrAmendmentChain({
+      xml:
+        "<rsm:eCMR><ram:Content>original</ram:Content></rsm:eCMR>",
+      actor: {
+        actorId:
+          "atlas-smoke",
+        partyRole:
+          "sender",
+        identityScheme:
+          "smoke"
+      },
+      reason:
+        "initial issue",
+      createdAt:
+        "2026-10-05T12:00:00.000Z",
+      idFactory:
+        () =>
+          `smoke_ecmr_v1_${randomUUID()}`
+    });
+
+  await store
+    .appendEcmrAmendmentVersion({
+      organizationId:
+        smokeOrganizationId,
+      shipmentId,
+      record:
+        originalEcmrChain[0]
+    });
+
+  const revisionA =
+    appendEcmrAmendment({
+      chain:
+        originalEcmrChain,
+      xml:
+        "<rsm:eCMR><ram:Content>revision-a</ram:Content></rsm:eCMR>",
+      actor: {
+        actorId:
+          "atlas-smoke",
+        partyRole:
+          "sender",
+        identityScheme:
+          "smoke"
+      },
+      reason:
+        "concurrency candidate A",
+      createdAt:
+        "2026-10-05T12:05:00.000Z",
+      idFactory:
+        () =>
+          `smoke_ecmr_v2_a_${randomUUID()}`
+    });
+
+  const revisionB =
+    appendEcmrAmendment({
+      chain:
+        originalEcmrChain,
+      xml:
+        "<rsm:eCMR><ram:Content>revision-b</ram:Content></rsm:eCMR>",
+      actor: {
+        actorId:
+          "atlas-smoke",
+        partyRole:
+          "sender",
+        identityScheme:
+          "smoke"
+      },
+      reason:
+        "concurrency candidate B",
+      createdAt:
+        "2026-10-05T12:05:00.000Z",
+      idFactory:
+        () =>
+          `smoke_ecmr_v2_b_${randomUUID()}`
+    });
+
+  const amendmentRace =
+    await Promise.allSettled([
+      store
+        .appendEcmrAmendmentVersion({
+          organizationId:
+            smokeOrganizationId,
+          shipmentId,
+          record:
+            revisionA[1]
+        }),
+      store
+        .appendEcmrAmendmentVersion({
+          organizationId:
+            smokeOrganizationId,
+          shipmentId,
+          record:
+            revisionB[1]
+        })
+    ]);
+
+  const winningAmendment =
+    assertConcurrentEcmrAmendmentResult(
+      amendmentRace
+    );
+
+  const [
+    amendmentCount,
+    amendmentAuditCount,
+    amendmentVersions
+  ] = await Promise.all([
+    database
+      .collection(
+        "deca_ecmr_amendment_versions"
+      )
+      .countDocuments({
+        organizationId:
+          smokeOrganizationId,
+        shipmentId
+      }),
+    database
+      .collection(
+        "deca_audit_events"
+      )
+      .countDocuments({
+        organizationId:
+          smokeOrganizationId,
+        shipmentId,
+        type:
+          "ecmr.amendment.version.created"
+      }),
+    store
+      .listEcmrAmendmentVersions({
+        organizationId:
+          smokeOrganizationId,
+        shipmentId
+      })
+  ]);
+
+  if (
+    amendmentCount !== 2 ||
+    amendmentAuditCount !== 2 ||
+    amendmentVersions.length !==
+      2 ||
+    amendmentVersions[0]
+      .version !== 1 ||
+    amendmentVersions[1]
+      .version !== 2 ||
+    amendmentVersions[1]
+      .versionId !==
+      winningAmendment.versionId
+  ) {
+    throw Object.assign(
+      new Error(
+        "Concurrent eCMR amendments left divergent accepted heads"
+      ),
+      {
+        code:
+          "ATLAS_ECMR_AMENDMENT_LINEAGE_INCONSISTENT"
+      }
+    );
+  }
+
   await cleanupOrganization(
     database,
     smokeOrganizationId
@@ -492,6 +711,10 @@ try {
         documentVersionConcurrency:
           true,
         documentLineageConsistent:
+          true,
+        ecmrAmendmentConcurrency:
+          true,
+        ecmrAmendmentSingleHead:
           true,
         cleanupVerified:
           true
