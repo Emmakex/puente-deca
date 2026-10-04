@@ -1538,8 +1538,6 @@ export function createServer({
           payload
             ?.expectedPreviousVersionId;
         const expectedPreviousVersionId =
-          rawExpectedHead ===
-            undefined ||
           rawExpectedHead === null
             ? null
             : typeof rawExpectedHead ===
