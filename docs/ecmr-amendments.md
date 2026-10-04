@@ -93,10 +93,11 @@ Persistence guarantees include:
 - serialized append semantics in JsonStore;
 - DR restore treats the ledger as a required collection.
 
+The lifecycle now also exposes organization-scoped immutable read/append endpoints protected by `regulatory:read` / `regulatory:write`. Appends require an explicit expected predecessor head, derive actor identity from the authenticated Kairoseth/API credential and use a server-controlled timestamp. See [`docs/ecmr-amendment-api.md`](ecmr-amendment-api.md).
+
 The lifecycle is not production-complete until:
 
-- APIs/workspace operations append versions rather than replacing history;
-- authorization policy defines who may amend each eCMR;
+- Kairoseth workspace policy/UX defines which authenticated human users may request each eCMR amendment and records stronger human identity evidence where required;
 - signatures/identity evidence for versions are retained as required;
 - production/live backup-restore evidence confirms the ledger survives DR;
 - production concurrency tests prove two simultaneous amendments cannot create divergent accepted heads.
