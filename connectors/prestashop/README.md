@@ -115,6 +115,14 @@ v0.1.0 includes deterministic connector-contract fixtures, static architecture/s
 
 This simulated host-contract matrix does not replace a real PrestaShop installation. Real 1.7.8.x and 8.x store acceptance remains a production-hardening gate before public release.
 
+The live gate is automated and read-only. On an approved store host run:
+
+```bash
+PDECA_PRESTASHOP_ROOT=/absolute/path/to/prestashop npm run production:prestashop-live-smoke
+```
+
+An optional `PDECA_PRESTASHOP_SMOKE_ORDER_ID` maps an existing order in memory without writing connector sync state or creating a Cargo shipment.
+
 ## Connection check
 
 After saving the Kairoseth Cargo endpoint and connector API key, use **Test Kairoseth Cargo connection** in the module configuration.

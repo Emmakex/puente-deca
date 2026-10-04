@@ -7,7 +7,9 @@ on:
     paths:
       - connectors/**
       - scripts/ci/connector-bootstrap-smoke.sh
+      - scripts/ci/live-store-smoke-check.mjs
       - scripts/ci/php/**
+      - scripts/production/*live-store-smoke.php
       - scripts/release/**
       - .github/workflows/release-candidate.yml
       - package.json

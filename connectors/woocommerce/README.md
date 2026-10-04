@@ -80,6 +80,14 @@ The connector now has an executable PHP host-contract smoke in CI. It loads the 
 
 This is a deterministic pre-release gate, not a claim that every WordPress/WooCommerce/plugin combination has been exercised. A live WooCommerce store smoke remains required before public connector release.
 
+The live gate is automated and read-only. On an approved store host run:
+
+```bash
+PDECA_WP_ROOT=/absolute/path/to/wordpress npm run production:woocommerce-live-smoke
+```
+
+An optional `PDECA_WOO_SMOKE_ORDER_ID` maps an existing order in memory without saving it or creating a Cargo shipment.
+
 ## Connection check
 
 After saving the Kairoseth Cargo endpoint and API key, use **Test Kairoseth Cargo connection** in the connector settings.
