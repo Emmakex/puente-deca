@@ -14,6 +14,9 @@ import {
 import {
   GridFsArtifactStore
 } from "../../packages/persistence/src/gridfs-artifact-store.mjs";
+import {
+  verifyAtlasIndexContract
+} from "./atlas-index-contract.mjs";
 
 const sha256 = (bytes) =>
   `sha256:${createHash("sha256")
@@ -70,6 +73,13 @@ try {
   const database = client.db(
     process.env.MONGODB_DB_NAME
   );
+
+  const indexEvidence =
+    await verifyAtlasIndexContract({
+      database,
+      bucketName:
+        process.env.DECA_GRIDFS_BUCKET
+    });
 
   const smokeOrganizationId =
     `__pdeca_smoke_${randomUUID()}`;
@@ -212,6 +222,11 @@ try {
             .artifactBucket,
         metadataPing: true,
         artifactPing: true,
+        indexContract: true,
+        metadataIndexesVerified:
+          indexEvidence.metadataIndexes,
+        gridFsIndexesVerified:
+          indexEvidence.gridFsIndexes,
         transactionRollback: true,
         gridfsRoundTrip: true,
         gridfsCleanup: true
