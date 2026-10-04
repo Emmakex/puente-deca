@@ -52,6 +52,11 @@ requirePattern(
 );
 
 requirePattern(
+  /kairoseth-engine-production-acceptance/,
+  "Go-live must disclose the external Kairoseth engine production acceptance gate"
+);
+
+requirePattern(
   /productionReady:[\s\S]*manualGatesRemaining[\s\S]*length === 0/,
   "Automated acceptance must not claim production-ready while manual gates remain"
 );
