@@ -111,6 +111,7 @@ The serializer now maps these additional fields through UN/CEFACT structures tha
 | `goods.packages.marksAndNumbers[]` | `IncludedSupplyChainConsignmentItem/TransportLogisticsPackage/PhysicalLogisticsShippingMarks/Marking` | One shipping-marks aggregate per non-empty mark. |
 | `goods.packingMethodCode` | `IncludedSupplyChainConsignmentItem/TransportLogisticsPackage/TypeCode` | Serialized only when an integration supplies an explicit code; the text `packingMethod` is never converted into a code. |
 | `charges.items[]` | `ApplicableLogisticsServiceCharge` | Explicit charge facts map to ID/Description/ChargeCategoryCode/AppliedAmount/PayingPartyRoleCode/TransportPaymentMethodCode when supplied. `AppliedAmount` carries the explicit `currencyID`. |
+| `goods.dangerousGoods` | `IncludedSupplyChainConsignmentItem/ApplicableTransportDangerousGoods` | Serialized only when explicitly declared. UNDG code, regulation, technical/proper shipping name, packaging danger level and hazard classification are passed through as structured facts. |
 
 The consignment item also receives deterministic `SequenceNumeric=1` because the current internal eCMR projection represents one aggregate goods line.
 
@@ -118,12 +119,14 @@ Evidence used for these paths includes the European Maritime Safety Agency UN/CE
 
 Structured charges are validation-first: every emitted charge needs a non-negative numeric amount and an explicit three-letter uppercase currency code, plus at least an ID, description or explicit category code. Optional paying-party/payment-method codes are passed through only when explicitly supplied.
 
+Structured dangerous goods are also fail-closed: when `declared=true`, an explicit four-digit `undgIdentificationCode` and a non-empty `properShippingName` are required. Optional regulation, technical name, packaging danger level and hazard classification are never derived from the legacy description.
+
 ### Intentionally still pending
 
 These projection fields remain unmapped:
 
 - `goods.packingMethod`: the legal/free-text description remains separate from the optional explicit `packingMethodCode`; Puente DeCA will not derive one from the other.
-- `goods.dangerousGoodsDescription`: D25A dangerous-goods structures require more structured facts than a single free-text description.
+- `goods.dangerousGoodsDescription`: retained only as a legacy/free-text compatibility field; it is never promoted into structured dangerous-goods facts. Use `goods.dangerousGoods` for wire serialization.
 - `customsFormalities`: no single confirmed D25A mapping has yet been fixed for the current free-text instructions.
 - `conventionApplicability`: the exact D25A representation must be confirmed from the normative bundle.
 - `authentication` / `integrity`: these belong to the later electronic-signature/versioning layer.
