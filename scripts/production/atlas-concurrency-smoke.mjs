@@ -10,11 +10,16 @@ import {
 import {
   MongoStore
 } from "../../packages/persistence/src/mongo-store.mjs";
+import {
+  createEcmrAmendmentChain,
+  appendEcmrAmendment
+} from "../../packages/ecmr-amendment/src/amendment-chain.mjs";
 
 const SERVICE_COLLECTIONS = [
   "deca_artifact_purges",
   "deca_audit_events",
   "deca_document_versions",
+  "deca_regulatory_versions",
   "deca_idempotency",
   "deca_shipments",
   "deca_api_credentials",
