@@ -314,6 +314,8 @@ const authenticatePlatformService = async (
     request.headers["x-kairoseth-service-secret"];
   const serviceOrganizationId =
     request.headers["x-kairoseth-organization-id"];
+  const serviceUserId =
+    request.headers["x-kairoseth-user-id"];
 
   if (
     typeof serviceSecret !== "string" ||
@@ -333,6 +335,28 @@ const authenticatePlatformService = async (
 
   const organizationId =
     serviceOrganizationId.trim();
+
+  const actorUserId =
+    serviceUserId === undefined
+      ? null
+      : typeof serviceUserId === "string" &&
+          /^[A-Za-z0-9][A-Za-z0-9._:@-]{0,159}$/.test(
+            serviceUserId.trim()
+          )
+        ? serviceUserId.trim()
+        : undefined;
+
+  if (
+    serviceUserId !== undefined &&
+    actorUserId === undefined
+  ) {
+    sendJson(response, 401, {
+      error: "unauthorized",
+      message:
+        "Kairoseth user context is invalid"
+    });
+    return null;
+  }
 
   if (!organizationId) {
     sendJson(response, 401, {
@@ -360,7 +384,8 @@ const authenticatePlatformService = async (
       "regulatory:read",
       "regulatory:write"
     ],
-    source: "kairoseth-platform"
+    source: "kairoseth-platform",
+    actorUserId
   };
 
   if (
@@ -625,19 +650,34 @@ const normalizeEcmrXml = (
 const amendmentActorFromCredential = (
   credential,
   partyRole
-) => ({
-  actorId:
+) => {
+  const humanUserId =
     credential.source ===
-      "kairoseth-platform"
-      ? `kairoseth-platform:${credential.organizationId}`
-      : `credential:${credential.credentialId}`,
-  partyRole,
-  identityScheme:
-    credential.source ===
-      "kairoseth-platform"
-      ? "kairoseth-platform-service"
-      : "kairoseth-api-credential"
-});
+        "kairoseth-platform" &&
+      typeof credential.actorUserId ===
+        "string" &&
+      credential.actorUserId.length > 0
+      ? credential.actorUserId
+      : null;
+
+  return {
+    actorId:
+      humanUserId
+        ? `kairoseth-user:${humanUserId}`
+        : credential.source ===
+              "kairoseth-platform"
+          ? `kairoseth-platform:${credential.organizationId}`
+          : `credential:${credential.credentialId}`,
+    partyRole,
+    identityScheme:
+      humanUserId
+        ? "kairoseth-user"
+        : credential.source ===
+              "kairoseth-platform"
+          ? "kairoseth-platform-service"
+          : "kairoseth-api-credential"
+  };
+};
 
 const amendmentInstant = (
   now,
