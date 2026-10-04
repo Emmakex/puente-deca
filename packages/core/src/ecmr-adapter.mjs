@@ -234,6 +234,11 @@ export function ecmrProjectionFromShipment(
         ecmrGoods
           .packingMethod
       ),
+    packingMethodCode:
+      text(
+        ecmrGoods
+          .packingMethodCode
+      ) || null,
     dangerousGoodsDescription:
       ecmrGoods
         .dangerousGoodsDescription ==
@@ -273,8 +278,52 @@ export function ecmrProjectionFromShipment(
       Array.isArray(
         charges.items
       )
-        ? structuredClone(
-            charges.items
+        ? charges.items.map(
+            (entry) => {
+              const charge =
+                record(entry);
+              const amount =
+                record(
+                  charge.amount
+                );
+
+              return {
+                id:
+                  text(charge.id) ||
+                  null,
+                description:
+                  text(
+                    charge.description
+                  ) || null,
+                chargeCategoryCode:
+                  text(
+                    charge
+                      .chargeCategoryCode
+                  ) || null,
+                amount: {
+                  value:
+                    Number.isFinite(
+                      amount.value
+                    )
+                      ? amount.value
+                      : null,
+                  currency:
+                    text(
+                      amount.currency
+                    ) || null
+                },
+                payingPartyRoleCode:
+                  text(
+                    charge
+                      .payingPartyRoleCode
+                  ) || null,
+                transportPaymentMethodCode:
+                  text(
+                    charge
+                      .transportPaymentMethodCode
+                  ) || null
+              };
+            }
           )
         : []
   };
