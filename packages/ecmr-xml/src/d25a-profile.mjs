@@ -33,6 +33,16 @@ export const ECMR_D25A_CONFIRMED_WIRE_NODES =
     "CarrierTradeParty",
     "CarrierAcceptanceLogisticsLocation",
     "ConsigneeReceiptLogisticsLocation",
+    "PickUpTransportEvent",
+    "ActualOccurrenceDateTime",
+    "IncludedSupplyChainConsignmentItem",
+    "SequenceNumeric",
+    "NatureIdentificationTransportCargo",
+    "Identification",
+    "TransportLogisticsPackage",
+    "ItemQuantity",
+    "PhysicalLogisticsShippingMarks",
+    "Marking",
     "GrossWeightMeasure",
     "ConsignmentItemQuantity"
   ]);
