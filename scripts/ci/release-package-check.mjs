@@ -1,4 +1,5 @@
 import {
+  mkdir,
   mkdtemp,
   readFile,
   rm
@@ -149,6 +150,72 @@ try {
     }
   }
 
+  const runtime = join(
+    directory,
+    "runtime"
+  );
+  await mkdir(runtime, {
+    recursive: true
+  });
+
+  const wooPackage = join(
+    first,
+    "puente-deca-woocommerce-0.1.0.zip"
+  );
+  const prestaPackage = join(
+    first,
+    "puentedeca-prestashop-0.1.0.zip"
+  );
+
+  run([
+    "unzip",
+    "-q",
+    wooPackage,
+    "-d",
+    runtime
+  ]);
+  run([
+    "unzip",
+    "-q",
+    prestaPackage,
+    "-d",
+    runtime
+  ]);
+
+  const packagedSmokeOutput = run(
+    [
+      "bash",
+      "scripts/ci/connector-bootstrap-smoke.sh"
+    ],
+    {
+      env: {
+        ...process.env,
+        PDECA_WOO_PLUGIN_FILE:
+          join(
+            runtime,
+            "puente-deca-woocommerce",
+            "puente-deca-woocommerce.php"
+          ),
+        PDECA_PS_MODULE_FILE:
+          join(
+            runtime,
+            "puentedeca",
+            "puentedeca.php"
+          )
+      }
+    }
+  );
+
+  if (
+    !packagedSmokeOutput.includes(
+      "Connector PHP bootstrap acceptance passed."
+    )
+  ) {
+    throw new Error(
+      "Extracted connector runtime smoke did not complete"
+    );
+  }
+
   const sums =
     await readFile(
       join(first, "SHA256SUMS"),
@@ -169,7 +236,7 @@ try {
   }
 
   console.log(
-    "Connector release packaging OK (stable top-level folders, deterministic ZIP bytes, SHA-256 manifest)"
+    "Connector release packaging OK (stable top-level folders, deterministic ZIP bytes, SHA-256 manifest, extracted PHP runtime smoke)"
   );
 } finally {
   await rm(directory, {
