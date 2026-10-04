@@ -411,6 +411,7 @@ test("Kairoseth usage endpoint counts canonical DeCA versions across connector t
       baseUrl,
       apiKey,
       organization,
+      store,
       platformServiceSecret
     }) => {
       const createdResponse = await fetch(
@@ -490,10 +491,18 @@ test("Kairoseth usage endpoint counts canonical DeCA versions across connector t
       );
 
       const migratedInternal =
-        await withInternalShipment(
-          baseUrl,
-          shipment.shipmentId
-        );
+        await store.getShipment({
+          organizationId:
+            organization.organizationId,
+          shipmentId:
+            shipment.shipmentId
+        });
+
+      assert.equal(
+        migratedInternal.aggregate
+          .route.destination,
+        "Valencia"
+      );
 
       const secondResponse = await fetch(
         `${baseUrl}/v1/shipments/${shipment.shipmentId}/deca`,
