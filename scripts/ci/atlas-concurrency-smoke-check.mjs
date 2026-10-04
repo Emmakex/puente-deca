@@ -12,8 +12,15 @@ const required = [
   "IDEMPOTENCY_RETRY",
   "DOCUMENT_VERSION_EXISTS",
   "DOCUMENT_LINEAGE_CONFLICT",
+  "ECMR_AMENDMENT_CONFLICT",
+  "ECMR_AMENDMENT_LINEAGE_CONFLICT",
+  "deca_ecmr_amendment_versions",
+  "createEcmrAmendmentChain",
+  "appendEcmrAmendment",
   "idempotencyConcurrency",
   "documentVersionConcurrency",
+  "ecmrAmendmentConcurrency",
+  "ecmrAmendmentSingleHead",
   "cleanupVerified",
   "deleteMany",
   "countDocuments"
@@ -48,5 +55,5 @@ if (
 }
 
 console.log(
-  "Atlas concurrency smoke contract OK (idempotency race, document-version race, convergence, scoped cleanup)"
+  "Atlas concurrency smoke contract OK (idempotency race, document-version race, eCMR single-head amendment race, convergence, scoped cleanup)"
 );
