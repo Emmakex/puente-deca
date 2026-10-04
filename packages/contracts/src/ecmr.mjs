@@ -36,6 +36,7 @@ export const emptyEcmrProjection = () => ({
   goods: {
     nature: "",
     packingMethod: "",
+    packingMethodCode: null,
     dangerousGoodsDescription:
       null,
     packages: {
