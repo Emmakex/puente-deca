@@ -38,6 +38,22 @@ if (
     pdeca_full_stack_fail('PrestaShop version is outside supported range: ' . $prestaVersion);
 }
 
+$shopId = (int) Db::getInstance()->getValue(
+    'SELECT id_shop FROM `' . _DB_PREFIX_ . 'shop`'
+    . ' WHERE active = 1 ORDER BY id_shop ASC'
+);
+if ($shopId <= 0) {
+    pdeca_full_stack_fail('Controlled PrestaShop fixture has no active shop');
+}
+
+Shop::setContext(Shop::CONTEXT_SHOP, $shopId);
+$context = Context::getContext();
+$context->shop = new Shop($shopId);
+
+if (!Validate::isLoadedObject($context->shop)) {
+    pdeca_full_stack_fail('Synthetic PrestaShop shop context could not be initialized');
+}
+
 if (!Module::isInstalled('puentedeca')) {
     pdeca_full_stack_fail('Kairoseth Cargo module is not installed');
 }
@@ -46,6 +62,7 @@ $module = Module::getInstanceByName('puentedeca');
 if (!$module || !is_object($module) || empty($module->active)) {
     pdeca_full_stack_fail('Kairoseth Cargo module is not active');
 }
+$module->context = $context;
 
 if (
     !class_exists('PDECAPrestaShopSecretStore')
@@ -53,13 +70,6 @@ if (
     || !class_exists('PDECAPrestaShopConnector')
 ) {
     pdeca_full_stack_fail('Kairoseth Cargo module runtime is incomplete');
-}
-
-$shopId = isset($module->context->shop->id)
-    ? (int) $module->context->shop->id
-    : 0;
-if ($shopId <= 0) {
-    pdeca_full_stack_fail('PrestaShop shop context is unavailable');
 }
 
 Configuration::updateValue(
@@ -189,6 +199,7 @@ try {
                 'connectorVersion' => (string) $module->version,
                 'moduleInstalled' => true,
                 'moduleActive' => true,
+                'shopContextInitialized' => true,
                 'secretRoundTrip' => true,
                 'syntheticSeedOrderLoaded' => true,
                 'payloadMapped' => true,
