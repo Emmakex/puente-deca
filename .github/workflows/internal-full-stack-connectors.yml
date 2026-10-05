@@ -233,6 +233,8 @@ jobs:
           docker run --detach \
             --name pdeca-presta \
             --network pdeca-presta \
+            --user 0:0 \
+            --env HOME=/root \
             --publish 18081:80 \
             --env PS_DOMAIN=localhost:18081 \
             --env MYSQL_HOST=pdeca-presta-db \
@@ -240,7 +242,7 @@ jobs:
             --env MYSQL_USER=prestashop \
             --env MYSQL_PASSWORD=prestashop \
             --volume "$PWD/.artifacts/prestashop-module/puentedeca:/var/www/html/modules/puentedeca" \
-            --volume "$PWD/.artifacts/presta-client.cnf:/etc/mysql/conf.d/99-pdeca-internal.cnf:ro" \
+            --volume "$PWD/.artifacts/presta-client.cnf:/root/.my.cnf:ro" \
             --volume "$PWD:/repo:ro" \
             '${{ matrix.image }}'
 
