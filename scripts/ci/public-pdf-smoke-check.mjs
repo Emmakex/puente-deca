@@ -62,6 +62,34 @@ requirePattern(
   /noindex/i,
   "Public smoke must validate noindex"
 );
+requirePattern(
+  /default-src\\s\+?'none'|default-src\\s\+'none'/i,
+  "Public smoke must validate a locked-down CSP"
+);
+requirePattern(
+  /PUBLIC_PDF_INTERNAL_HEADER_LEAK/,
+  "Public smoke must fail on internal header exposure"
+);
+requirePattern(
+  /set-cookie/i,
+  "Public smoke must reject session cookies"
+);
+requirePattern(
+  /x-powered-by/i,
+  "Public smoke must reject framework disclosure"
+);
+requirePattern(
+  /x-deca-document-id/i,
+  "Public smoke must reject internal DeCA document IDs"
+);
+requirePattern(
+  /x-deca-version/i,
+  "Public smoke must reject internal DeCA versions"
+);
+requirePattern(
+  /x-kairoseth-/i,
+  "Public smoke must reject internal Kairoseth headers"
+);
 
 if (
   /KAIROSETH_SERVICE_SECRET|MONGODB_URI/.test(
@@ -74,5 +102,5 @@ if (
 }
 
 console.log(
-  "Public PDF smoke contract OK (canonical Kairoseth URL, direct PDF, size, integrity and privacy headers)"
+  "Public PDF smoke contract OK (canonical Kairoseth URL, direct PDF, size, integrity, privacy, CSP and leak protection)"
 );
