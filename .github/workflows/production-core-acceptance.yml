@@ -1,0 +1,125 @@
+name: DeCA Production Core Acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      public_pdf_url:
+        description: Canonical synthetic DeCA PDF URL from the acceptance fixture
+        required: true
+        type: string
+      public_pdf_sha256:
+        description: Immutable sha256:<hex> for the synthetic DeCA PDF
+        required: true
+        type: string
+      confirm:
+        description: Confirm production core acceptance against Atlas and Kairoseth
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: puente-deca-production-core-acceptance
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    if: ${{ inputs.confirm == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: deca-production
+
+    env:
+      NODE_ENV: production
+      PUBLIC_BASE_URL: https://kairoseth.com/deca
+      KAIROSETH_PUBLIC_BASE_URL: https://kairoseth.com
+      MONGODB_DB_NAME: kairoseth
+      PERSISTENCE_DRIVER: mongodb
+      ARTIFACT_DRIVER: gridfs
+      DECA_GRIDFS_BUCKET: deca_pdf
+      DECA_SMOKE_PUBLIC_URL: ${{ inputs.public_pdf_url }}
+      DECA_SMOKE_EXPECTED_SHA256: ${{ inputs.public_pdf_sha256 }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Assert protected main execution and input shape
+        shell: bash
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          KAIROSETH_SERVICE_SECRET: ${{ secrets.KAIROSETH_SERVICE_SECRET }}
+          OPERATIONS_HEALTH_SECRET: ${{ secrets.OPERATIONS_HEALTH_SECRET }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_SHA" = "$(git rev-parse HEAD)"
+          test -n "$MONGODB_URI"
+          test ${#KAIROSETH_SERVICE_SECRET} -ge 32
+          test ${#OPERATIONS_HEALTH_SECRET} -ge 32
+          [[ "$DECA_SMOKE_PUBLIC_URL" =~ ^https://kairoseth\.com/deca/d/[A-Za-z0-9_-]{16,128}\.pdf$ ]]
+          [[ "$DECA_SMOKE_EXPECTED_SHA256" =~ ^sha256:[a-f0-9]{64}$ ]]
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Run automated production core acceptance
+        shell: bash
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          KAIROSETH_SERVICE_SECRET: ${{ secrets.KAIROSETH_SERVICE_SECRET }}
+          OPERATIONS_HEALTH_SECRET: ${{ secrets.OPERATIONS_HEALTH_SECRET }}
+        run: |
+          set -euo pipefail
+          mkdir -p .artifacts/deca-core
+          npm run --silent production:go-live \
+            > .artifacts/deca-core/result.json
+          node -e '
+            const fs = require("node:fs");
+            const result = JSON.parse(fs.readFileSync(".artifacts/deca-core/result.json", "utf8"));
+            if (result?.status !== "ok" || result?.check !== "puente-deca-go-live") {
+              throw new Error("Core acceptance result is not green");
+            }
+            const evidence = {
+              schemaVersion: 1,
+              check: "puente-deca-production-core-acceptance",
+              repository: process.env.GITHUB_REPOSITORY,
+              commit: process.env.GITHUB_SHA,
+              runId: process.env.GITHUB_RUN_ID,
+              runAttempt: process.env.GITHUB_RUN_ATTEMPT,
+              recordedAt: new Date().toISOString(),
+              result
+            };
+            fs.writeFileSync(
+              ".artifacts/deca-core/acceptance-evidence.json",
+              `${JSON.stringify(evidence, null, 2)}\n`,
+              { mode: 0o600 }
+            );
+          '
+          sha256sum .artifacts/deca-core/acceptance-evidence.json \
+            > .artifacts/deca-core/acceptance-evidence.json.sha256
+
+      - name: Upload sanitized core acceptance evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: puente-deca-core-acceptance-${{ github.run_id }}
+          path: |
+            .artifacts/deca-core/acceptance-evidence.json
+            .artifacts/deca-core/acceptance-evidence.json.sha256
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+      - name: Remove transient raw output
+        if: ${{ always() }}
+        shell: bash
+        run: rm -f .artifacts/deca-core/result.json
