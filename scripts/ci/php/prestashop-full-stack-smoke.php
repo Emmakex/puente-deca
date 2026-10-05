@@ -62,7 +62,6 @@ $module = Module::getInstanceByName('puentedeca');
 if (!$module || !is_object($module) || empty($module->active)) {
     pdeca_full_stack_fail('Kairoseth Cargo module is not active');
 }
-$module->context = $context;
 
 if (
     !class_exists('PDECAPrestaShopSecretStore')
