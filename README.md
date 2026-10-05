@@ -1,6 +1,6 @@
 # Puente DeCA
 
-Puente DeCA is the transport-compliance engine behind the **Puente DeCA product inside Kairoseth Platform (kairoseth.com)**. It provides an API-first bridge for generating and managing Spain's electronic Documento de Control Administrativo (DeCA).
+Puente DeCA is the transport-compliance engine behind **Kairoseth Cargo inside Kairoseth Platform (kairoseth.com)**. It provides an API-first bridge for generating and managing Spain's electronic Documento de Control Administrativo (DeCA).
 
 It is deliberately **not a separate customer platform**. Customer authentication, organizations, product RBAC, billing/entitlements and workspace UX belong to Kairoseth Platform.
 
@@ -49,10 +49,15 @@ The repository follows the same engineering principle as Puente VeriFactu: a sma
 
 ## Status
 
-The agreed DeCA production scope is internally engineered and covered by automated CI/runtime acceptance. Active development is now in **Phase 7 — Transport Compliance Engine**, including the generic Shipment model and eCMR support. Live infrastructure, store compatibility, Atlas/DR and external security evidence remain explicit deployment gates.
+The agreed **DeCA product scope remains the only active completion priority**. Internal engineering and internal acceptance are substantially complete; the remaining work is the Kairoseth-controlled live acceptance/evidence layer for Atlas/GridFS, DR, deployed engine/public route, controlled connector stores, Hostinger edge/provider controls and the final evidence freeze.
 
-See [`docs/roadmap.md`](docs/roadmap.md) for the current source of truth.
+**eCMR and eFTI are frozen and must not receive new development until DeCA reaches 100% under the acceptance ledger.** Existing Phase 7 work is preserved but is not an active completion track and does not count toward the DeCA percentage.
 
+Sources of truth:
+
+- [`docs/deca-100-percent-acceptance-ledger.md`](docs/deca-100-percent-acceptance-ledger.md) — exact gates required to declare DeCA 100%;
+- [`docs/roadmap.md`](docs/roadmap.md) — full historical/global roadmap;
+- [`docs/deca-first-completion-policy.md`](docs/deca-first-completion-policy.md) — DeCA-first scope rule.
 
 ## Kairoseth Platform boundary
 
@@ -60,7 +65,7 @@ Canonical production product identity:
 
 ```text
 area        extensions
-product     Puente DeCA
+product     Kairoseth Cargo
 slug        puente-deca
 platform    Kairoseth Platform
 ```
