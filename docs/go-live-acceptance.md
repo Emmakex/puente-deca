@@ -20,56 +20,50 @@ The controlled DeCA URL must already exist; the command does not create a retain
 
 ## Kairoseth Cargo acceptance fixture provisioning
 
-The Kairoseth Cargo production acceptance workflow is intentionally read-only. Its isolated synthetic fixture is provisioned separately from customer data.
+The Kairoseth Cargo production acceptance workflow uses only Kairoseth-controlled synthetic data. Customer stores and customer shipment data are not involved.
 
 ### Preferred protected GitHub workflow
 
 Use the manual workflow `DeCA Kairoseth Cargo Acceptance Fixture` in the protected GitHub environment `deca-production`.
 
-Configure these environment secrets:
+The workflow requires only this protected environment secret:
 
 ```text
-PUENTE_DECA_SERVICE_URL=<production Puente DeCA service URL>
-PUENTE_DECA_SERVICE_SECRET=<production Kairoseth service secret>
-KAIROSETH_CARGO_ACCEPTANCE_API_KEY=<dedicated reusable synthetic acceptance key>
+OPERATIONS_HEALTH_SECRET=<same operations secret configured in the deployed Kairoseth runtime>
 ```
 
-Run the workflow from `main` with `confirm=true`. The workflow:
+Run the workflow from `main` with `confirm=true`.
 
-1. writes the reusable acceptance API key only to a temporary owner-readable file (`0600`);
-2. refreshes the isolated synthetic organization/connector access and idempotent shipment;
-3. requires the protected acceptance key to be reused and fails if the provisioner minted a replacement credential;
-4. generates/reuses the retained synthetic DeCA and verifies its public PDF;
-5. retains sanitized evidence for 90 days containing only hashes/metadata and the immutable PDF SHA-256;
-6. uploads a separate operator handoff containing `shipmentId`, public synthetic PDF URL and PDF SHA-256 for only 1 day;
-7. removes the raw provisioner output, operator handoff file and transient API-key file from the runner.
+The workflow deliberately does **not** connect from the GitHub-hosted runner to `PUENTE_DECA_SERVICE_URL` and does not require a persistent acceptance API key. The deployed Kairoseth runtime owns the internal Puente DeCA bridge, including its internal service URL and server-to-server secret. This matters when the production bridge is bound to an internal address such as `http://127.0.0.1:8080`: that address is meaningful only inside the Kairoseth runtime, not from a GitHub-hosted runner.
+
+The protected flow is:
+
+1. the GitHub workflow authenticates to the deployed Kairoseth operations endpoint with `OPERATIONS_HEALTH_SECRET`;
+2. Kairoseth creates/reuses the isolated synthetic shipment through its existing internal Puente DeCA server bridge;
+3. Kairoseth generates/reuses the retained DeCA and returns only the synthetic `shipmentId` and canonical public PDF URL;
+4. the GitHub runner downloads that PDF independently through `https://kairoseth.com`, verifies the PDF signature/size and calculates the immutable SHA-256 from the public edge;
+5. sanitized evidence is retained for 90 days with only hashes/metadata and the PDF SHA-256;
+6. a separate operator handoff containing `shipmentId`, public synthetic PDF URL and PDF SHA-256 is retained for only 1 day;
+7. raw endpoint output, the temporary URL file, handoff file and downloaded PDF are removed from the runner.
+
+The Kairoseth operations endpoint additionally requires the explicit confirmation header `x-kairoseth-acceptance-confirm: synthetic-production-fixture` and is protected by the same constant-time operations-secret authorization used by protected health operations.
 
 The short-lived handoff exists only to populate the next protected acceptance gates. It is not final acceptance evidence and must not be copied into tickets, documentation or long-lived artifacts.
 
-### Local/bootstrap provisioner
+### Local/operator fallback
 
-If the dedicated API key has not yet been created, bootstrap it through the approved operator path:
+A local operator bootstrap command remains available for diagnostics or one-off recovery when running in an approved environment that can reach the internal Puente DeCA service directly:
 
 ```bash
-export PUENTE_DECA_SERVICE_URL="<production Puente DeCA service URL>"
-export PUENTE_DECA_SERVICE_SECRET="<production Kairoseth service secret>"
+export PUENTE_DECA_SERVICE_URL="<internal Puente DeCA service URL>"
+export PUENTE_DECA_SERVICE_SECRET="<Kairoseth service secret>"
 export KAIROSETH_CARGO_ACCEPTANCE_API_KEY_FILE="$HOME/.puente-deca/kairoseth-cargo-acceptance-api-key"
 npm run production:kairoseth-cargo-acceptance-fixture
 ```
 
-The provisioner:
+This fallback is **not** the preferred GitHub acceptance path. It preserves the original owner-only (`0600`) API-key handling and never prints the API key or service secret.
 
-- uses the isolated organization `kairoseth-cargo-production-acceptance` by default;
-- stores only synthetic QA data and never copies customer/business shipment data;
-- creates or reuses a dedicated API key from the protected local file and never prints that key;
-- creates the shipment idempotently;
-- generates/reuses its retained DeCA PDF;
-- downloads the public Kairoseth PDF and calculates its immutable SHA-256;
-- prints only the non-secret handoff values needed by the protected acceptance gates.
-
-The API-key file is created with mode `0600`. Copy its value into the protected `KAIROSETH_CARGO_ACCEPTANCE_API_KEY` GitHub Actions secret through the approved secret-management path; do not paste the value into logs, tickets, documentation, or workflow inputs.
-
-The dynamic handoff values map to:
+The dynamic handoff values produced by the preferred protected workflow map to:
 
 ```text
 KAIROSETH_CARGO_ACCEPTANCE_SHIPMENT_ID
@@ -77,7 +71,7 @@ KAIROSETH_CARGO_ACCEPTANCE_PUBLIC_PDF_URL
 KAIROSETH_CARGO_ACCEPTANCE_PDF_SHA256
 ```
 
-`OPERATIONS_HEALTH_SECRET` remains an independent protected production secret and is not generated by the fixture provisioner.
+`OPERATIONS_HEALTH_SECRET` is an existing Kairoseth production operations secret; the acceptance workflow does not generate or rotate it.
 
 ## Production backup → isolated restore acceptance
 
@@ -151,14 +145,14 @@ This distinction prevents "pending execution" from being confused with "developm
 
 The following remain explicit release gates because the engine core command alone cannot prove them:
 
-- synthetic Kairoseth Cargo acceptance fixture — automation ready through the manual protected `DeCA Kairoseth Cargo Acceptance Fixture` workflow;
+- synthetic Kairoseth Cargo acceptance fixture — automation ready through the manual protected `DeCA Kairoseth Cargo Acceptance Fixture` workflow and deployed Kairoseth operations bridge;
 - Kairoseth Cargo engine production acceptance — automation ready in the private `kairoseth-platform` workflow `Kairoseth Cargo Engine Production Acceptance`;
 - WooCommerce controlled live-store read acceptance — automation ready via the host-local read-only evidence wrapper;
 - PrestaShop 1.7.8.x and 8.x controlled live-store read acceptance — automation ready via the host-local read-only evidence wrapper;
 - backup → isolated restore drill — automation ready via the manual workflow `DeCA Backup Restore Acceptance` and `production:backup-restore-drill`;
 - Hostinger edge technical acceptance — automation ready via the bounded manual Kairoseth edge workflow;
 - Hostinger CDN/WAF/provider protection configuration — provider configuration evidence, never a disruptive stress/DDoS test;
-- infrastructure security acceptance — fail-closed evidence gate covering Atlas least privilege/network boundary, deployment isolation/secrets, rollback readiness and Hostinger provider controls;
+- infrastructure security acceptance — fail-closed evidence gate covering Atlas least privilege/network boundary, deployed tenant isolation, deployment isolation/secrets, rollback readiness and Hostinger provider controls;
 - focused application penetration/security acceptance — already internal, synthetic and CI-covered; no external pentest is required to declare the agreed DeCA scope complete.
 
 Do not reinterpret a green `production:go-live` result as final launch authorization until every row in `docs/deca-100-percent-acceptance-ledger.md` is green and the final `deca-100` evidence freeze validates successfully.
