@@ -41,49 +41,54 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: npm
 
-      - name: Install locked dependencies
-        run: npm ci --ignore-scripts --no-audit --no-fund
-
-      - name: Prepare protected reusable acceptance key
+      - name: Refresh isolated fixture through deployed Kairoseth bridge
         shell: bash
         env:
-          KAIROSETH_CARGO_ACCEPTANCE_API_KEY: ${{ secrets.KAIROSETH_CARGO_ACCEPTANCE_API_KEY }}
+          OPERATIONS_HEALTH_SECRET: ${{ secrets.OPERATIONS_HEALTH_SECRET }}
         run: |
           set -euo pipefail
-          test ${#KAIROSETH_CARGO_ACCEPTANCE_API_KEY} -ge 16
-          umask 077
-          printf '%s\n' "$KAIROSETH_CARGO_ACCEPTANCE_API_KEY" > "$RUNNER_TEMP/kairoseth-cargo-acceptance-api-key"
-          chmod 600 "$RUNNER_TEMP/kairoseth-cargo-acceptance-api-key"
-
-      - name: Refresh isolated synthetic acceptance fixture
-        shell: bash
-        env:
-          PUENTE_DECA_SERVICE_URL: ${{ secrets.PUENTE_DECA_SERVICE_URL }}
-          PUENTE_DECA_SERVICE_SECRET: ${{ secrets.PUENTE_DECA_SERVICE_SECRET }}
-          KAIROSETH_CARGO_ACCEPTANCE_API_KEY_FILE: ${{ runner.temp }}/kairoseth-cargo-acceptance-api-key
-          KAIROSETH_PUBLIC_PRODUCTION_URL: https://kairoseth.com
-        run: |
-          set -euo pipefail
-          test -n "$PUENTE_DECA_SERVICE_URL"
-          test ${#PUENTE_DECA_SERVICE_SECRET} -ge 32
+          test ${#OPERATIONS_HEALTH_SECRET} -ge 32
           mkdir -p .artifacts/deca-fixture
-          npm run --silent production:kairoseth-cargo-acceptance-fixture \
-            > .artifacts/deca-fixture/raw-result.json
+
+          endpoint="https://kairoseth.com/api/operations/deca/acceptance-fixture"
+          raw=".artifacts/deca-fixture/raw-result.json"
+          status=""
+          curl_status=0
+          user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+
+          for attempt in 1 2 3 4; do
+            set +e
+            status="$(curl -4 --silent --show-error --request POST \
+              --connect-timeout 8 --max-time 25 \
+              --header "Authorization: Bearer $OPERATIONS_HEALTH_SECRET" \
+              --header "x-kairoseth-acceptance-confirm: synthetic-production-fixture" \
+              --header "Accept: application/json" \
+              --header "User-Agent: $user_agent" \
+              --output "$raw" --write-out '%{http_code}' \
+              "$endpoint")"
+            curl_status=$?
+            set -e
+
+            if [ "$curl_status" -eq 0 ] && [ "$status" = "200" ]; then
+              break
+            fi
+            [ "$attempt" -eq 4 ] || sleep 2
+          done
+
+          test "$curl_status" -eq 0
+          test "$status" = "200"
 
           node <<'NODE'
           const fs = require('node:fs');
-          const crypto = require('node:crypto');
-          const rawPath = '.artifacts/deca-fixture/raw-result.json';
-          const result = JSON.parse(fs.readFileSync(rawPath, 'utf8'));
-          const hash = (value) => `sha256:${crypto.createHash('sha256').update(value).digest('hex')}`;
-
-          if (result?.status !== 'ok' || result?.check !== 'kairoseth-cargo-acceptance-fixture') {
-            throw new Error('Acceptance fixture result is not green');
-          }
-          if (result?.credentialReused !== true) {
-            throw new Error('Protected reusable acceptance API key was not reused; refusing to retain a newly minted credential');
+          const result = JSON.parse(fs.readFileSync('.artifacts/deca-fixture/raw-result.json', 'utf8'));
+          if (
+            result?.status !== 'ok' ||
+            result?.check !== 'kairoseth-cargo-acceptance-fixture' ||
+            result?.synthetic !== true ||
+            result?.customerData !== false
+          ) {
+            throw new Error('Kairoseth fixture response is not green and synthetic');
           }
           if (typeof result?.shipmentId !== 'string' || result.shipmentId.length < 8) {
             throw new Error('Synthetic shipment ID is invalid');
@@ -91,7 +96,54 @@ jobs:
           if (!/^https:\/\/kairoseth\.com\/deca\/d\/[A-Za-z0-9_-]{16,128}\.pdf$/.test(result?.publicPdfUrl ?? '')) {
             throw new Error('Synthetic public PDF URL is not canonical');
           }
-          if (!/^sha256:[a-f0-9]{64}$/.test(result?.pdfSha256 ?? '')) {
+          fs.writeFileSync(
+            '.artifacts/deca-fixture/public-pdf-url.txt',
+            `${result.publicPdfUrl}\n`,
+            { mode: 0o600 }
+          );
+          NODE
+
+      - name: Verify public PDF and freeze fixture evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          public_pdf_url="$(tr -d '\r\n' < .artifacts/deca-fixture/public-pdf-url.txt)"
+          pdf_file="$RUNNER_TEMP/kairoseth-cargo-acceptance.pdf"
+          user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+          status=""
+          curl_status=0
+
+          for attempt in 1 2 3 4; do
+            set +e
+            status="$(curl -4 --silent --show-error \
+              --connect-timeout 8 --max-time 25 \
+              --header "Accept: application/pdf" \
+              --header "User-Agent: $user_agent" \
+              --output "$pdf_file" --write-out '%{http_code}' \
+              "$public_pdf_url")"
+            curl_status=$?
+            set -e
+
+            if [ "$curl_status" -eq 0 ] && [ "$status" = "200" ]; then
+              break
+            fi
+            [ "$attempt" -eq 4 ] || sleep 2
+          done
+
+          test "$curl_status" -eq 0
+          test "$status" = "200"
+          test "$(head -c 5 "$pdf_file")" = "%PDF-"
+          pdf_size="$(stat -c '%s' "$pdf_file")"
+          test "$pdf_size" -gt 0
+          test "$pdf_size" -le 5000000
+          export PDF_SHA256="sha256:$(sha256sum "$pdf_file" | awk '{print $1}')"
+
+          node <<'NODE'
+          const fs = require('node:fs');
+          const crypto = require('node:crypto');
+          const result = JSON.parse(fs.readFileSync('.artifacts/deca-fixture/raw-result.json', 'utf8'));
+          const hash = (value) => `sha256:${crypto.createHash('sha256').update(value).digest('hex')}`;
+          if (!/^sha256:[a-f0-9]{64}$/.test(process.env.PDF_SHA256 ?? '')) {
             throw new Error('Synthetic PDF SHA-256 is invalid');
           }
 
@@ -105,10 +157,10 @@ jobs:
             recordedAt: new Date().toISOString(),
             synthetic: true,
             customerData: false,
-            credentialReused: true,
+            source: 'deployed-kairoseth-runtime-bridge',
             shipmentIdSha256: hash(result.shipmentId),
             publicPdfUrlSha256: hash(result.publicPdfUrl),
-            pdfSha256: result.pdfSha256
+            pdfSha256: process.env.PDF_SHA256
           };
           fs.writeFileSync(
             '.artifacts/deca-fixture/acceptance-evidence.json',
@@ -120,7 +172,7 @@ jobs:
             schemaVersion: 1,
             shipmentId: result.shipmentId,
             publicPdfUrl: result.publicPdfUrl,
-            pdfSha256: result.pdfSha256
+            pdfSha256: process.env.PDF_SHA256
           };
           fs.writeFileSync(
             '.artifacts/deca-fixture/operator-handoff.json',
@@ -153,10 +205,11 @@ jobs:
           retention-days: 1
           compression-level: 0
 
-      - name: Remove transient secrets and raw fixture output
+      - name: Remove transient fixture material
         if: ${{ always() }}
         shell: bash
         run: |
-          rm -f "$RUNNER_TEMP/kairoseth-cargo-acceptance-api-key"
           rm -f .artifacts/deca-fixture/raw-result.json
+          rm -f .artifacts/deca-fixture/public-pdf-url.txt
           rm -f .artifacts/deca-fixture/operator-handoff.json
+          rm -f "$RUNNER_TEMP/kairoseth-cargo-acceptance.pdf"
