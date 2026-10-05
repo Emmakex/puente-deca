@@ -11,4 +11,11 @@ Allowed diagnostic fields:
 
 The workflow must never print the protected raw response body, operations secret, PDF token, shipment ID, or public PDF URL on failure.
 
-This diagnostic exists only to distinguish authentication mismatch, internal bridge unavailability and edge/provider failures without weakening the production secret boundary.
+The diagnostic is intended to distinguish these operational classes without weakening the production secret boundary:
+
+- HTTP `401`: the GitHub environment secret does not match the deployed Kairoseth operations secret;
+- HTTP `503`: Kairoseth accepted the request boundary but the protected fixture operation could not complete, typically requiring bridge/runtime investigation;
+- transport/edge status other than `200`: provider/CDN/WAF or connectivity investigation;
+- HTTP `200` with a non-green sanitized contract: application-level fixture response validation failure.
+
+No raw response body is retained or printed when classifying these failures.
