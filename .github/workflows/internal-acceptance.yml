@@ -112,7 +112,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p .artifacts/connectors .artifacts/runtime
-          bash scripts/release/package-connectors.sh .artifacts/connectors
+          bash scripts/release/package-connectors.sh "$PWD/.artifacts/connectors"
           unzip -q .artifacts/connectors/puente-deca-woocommerce-0.1.0.zip -d .artifacts/runtime
           unzip -q .artifacts/connectors/puentedeca-prestashop-0.1.0.zip -d .artifacts/runtime
 
