@@ -2,9 +2,6 @@ name: DeCA Internal Acceptance
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - test/deca-internal-acceptance
 
 concurrency:
   group: deca-internal-acceptance
