@@ -8,7 +8,7 @@ on:
 
 concurrency:
   group: deca-internal-full-stack-connectors
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -174,8 +174,10 @@ jobs:
         include:
           - prestashop: "1.7.8.11"
             image: "prestashop/prestashop-flashlight:1.7.8.11"
+            database: "mysql:5.7"
           - prestashop: "8.2.7"
             image: "prestashop/prestashop-flashlight:8.2.7-nginx"
+            database: "mysql:8.0"
 
     steps:
       - uses: actions/checkout@v4
@@ -199,14 +201,14 @@ jobs:
           docker run --detach \
             --name pdeca-presta-db \
             --network pdeca-presta \
-            --env MARIADB_DATABASE=prestashop \
-            --env MARIADB_USER=prestashop \
-            --env MARIADB_PASSWORD=prestashop \
-            --env MARIADB_ROOT_PASSWORD=internal-root-only \
-            mariadb:10.6
+            --env MYSQL_DATABASE=prestashop \
+            --env MYSQL_USER=prestashop \
+            --env MYSQL_PASSWORD=prestashop \
+            --env MYSQL_ROOT_PASSWORD=internal-root-only \
+            '${{ matrix.database }}'
           ready=0
           for attempt in $(seq 1 60); do
-            if docker exec pdeca-presta-db mariadb-admin ping -uroot -pinternal-root-only --silent >/dev/null 2>&1; then
+            if docker exec pdeca-presta-db mysqladmin ping -uroot -pinternal-root-only --silent >/dev/null 2>&1; then
               ready=1
               break
             fi
@@ -271,6 +273,7 @@ jobs:
 
           printf '%s\n' \
             'prestashop=${{ matrix.prestashop }}' \
+            'database=${{ matrix.database }}' \
             'httpRuntime=ok' \
             > .artifacts/connectors/prestashop-stack.txt
           sha256sum \
