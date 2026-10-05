@@ -2,13 +2,10 @@ name: DeCA Internal Security Acceptance
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - test/deca-internal-security-acceptance
 
 concurrency:
   group: deca-internal-security-acceptance
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
