@@ -130,9 +130,10 @@ Characters outside the embedded font set continue to fail closed rather than bei
 - [x] Dedicated container build/smoke workflow with read-only root filesystem and dropped capabilities.
 - [ ] Internal deployment acceptance on the chosen Kairoseth-owned service runtime (read-only production acceptance workflow implemented; pending controlled execution).
 - [x] Static application-security review with CI regression guard.
-- [ ] Internal infrastructure security acceptance and focused internal penetration/security test.
+- [x] Focused internal penetration/security acceptance with synthetic fixtures: auth fail-closed, standalone-surface closure, connector privilege/revocation, tenant isolation, public-token tamper/traversal, oversized-body rejection, organization-scoped rate limiting and Kairoseth E2E isolation.
+- [ ] Kairoseth-owned infrastructure security acceptance for Atlas/network/deployment/Hostinger edge controls.
 
-**Phase 6 internal engineering status:** complete for the agreed DeCA product scope. Internal acceptance is green for MongoDB/GridFS/concurrency, exact packaged WooCommerce/PrestaShop connector artifacts on PHP 8.1–8.3, WooCommerce full-stack stores, and PrestaShop 1.7.8.x/8.x full-stack stores. Remaining unchecked Phase 6 items require only Kairoseth-owned Atlas/Hostinger/DR/deployment/security execution and retained evidence; customer systems and customer data are not required.
+**Phase 6 internal engineering status:** complete for the agreed DeCA product scope. Internal acceptance is green for MongoDB/GridFS/concurrency, exact packaged WooCommerce/PrestaShop connector artifacts on PHP 8.1–8.3, WooCommerce/PrestaShop full-stack stores, and the focused internal application-security/penetration gate. Remaining unchecked Phase 6 items require only Kairoseth-owned Atlas/Hostinger/DR/deployment/infrastructure-security execution and retained evidence; customer systems and customer data are not required.
 
 ## Phase 7 — Transport Compliance Engine
 

@@ -1,0 +1,101 @@
+name: DeCA Internal Security Acceptance
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deca-internal-security-acceptance
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  focused-security:
+    name: Focused internal security acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Run static security invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .artifacts/internal-security
+          npm run --silent check:security \
+            | tee .artifacts/internal-security/static-security.log
+
+      - name: Run focused negative security acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test \
+            apps/api/test/internal-security-acceptance.test.mjs \
+            | tee .artifacts/internal-security/focused-security.log
+
+      - name: Re-run canonical Kairoseth isolation contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run --silent contract:kairoseth \
+            | tee .artifacts/internal-security/kairoseth-isolation.log
+
+      - name: Build sanitized acceptance evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum \
+            .artifacts/internal-security/static-security.log \
+            .artifacts/internal-security/focused-security.log \
+            .artifacts/internal-security/kairoseth-isolation.log \
+            > .artifacts/internal-security/SHA256SUMS
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const evidence = {
+            schemaVersion: 1,
+            check: 'deca-internal-focused-security-acceptance',
+            repository: process.env.GITHUB_REPOSITORY,
+            commit: process.env.GITHUB_SHA,
+            runId: process.env.GITHUB_RUN_ID,
+            runAttempt: process.env.GITHUB_RUN_ATTEMPT,
+            recordedAt: new Date().toISOString(),
+            syntheticOnly: true,
+            checks: [
+              'static-security-invariants',
+              'platform-auth-fail-closed',
+              'standalone-surface-hidden',
+              'connector-privilege-boundary',
+              'credential-revocation',
+              'tenant-object-isolation',
+              'public-token-tamper',
+              'oversized-body-rejection',
+              'organization-scoped-rate-limit',
+              'canonical-kairoseth-e2e-isolation'
+            ]
+          };
+          fs.writeFileSync(
+            '.artifacts/internal-security/acceptance-evidence.json',
+            `${JSON.stringify(evidence, null, 2)}\n`
+          );
+          NODE
+          sha256sum .artifacts/internal-security/acceptance-evidence.json \
+            >> .artifacts/internal-security/SHA256SUMS
+
+      - name: Upload internal security evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: deca-internal-security-${{ github.sha }}
+          path: .artifacts/internal-security/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
