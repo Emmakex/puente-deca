@@ -12,7 +12,7 @@ const REQUIRED_CONTROLS = [
 ];
 
 const SHA256_RE = /^sha256:[a-f0-9]{64}$/;
-const ISO_UTC_RE = /^\d{4}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
+const ISO_UTC_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
 const REF_RE = /^[A-Za-z0-9._:-]{1,160}$/;
 
 const fail = (message) => {
