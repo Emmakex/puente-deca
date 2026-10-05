@@ -20,13 +20,41 @@ The controlled DeCA URL must already exist; the command does not create a retain
 
 ## Kairoseth Cargo acceptance fixture provisioning
 
-The Kairoseth Cargo production acceptance workflow is intentionally read-only. Provision its isolated synthetic fixture separately, using the production Puente DeCA service configuration:
+The Kairoseth Cargo production acceptance workflow is intentionally read-only. Its isolated synthetic fixture is provisioned separately from customer data.
+
+### Preferred protected GitHub workflow
+
+Use the manual workflow `DeCA Kairoseth Cargo Acceptance Fixture` in the protected GitHub environment `deca-production`.
+
+Configure these environment secrets:
+
+```text
+PUENTE_DECA_SERVICE_URL=<production Puente DeCA service URL>
+PUENTE_DECA_SERVICE_SECRET=<production Kairoseth service secret>
+KAIROSETH_CARGO_ACCEPTANCE_API_KEY=<dedicated reusable synthetic acceptance key>
+```
+
+Run the workflow from `main` with `confirm=true`. The workflow:
+
+1. writes the reusable acceptance API key only to a temporary owner-readable file (`0600`);
+2. refreshes the isolated synthetic organization/connector access and idempotent shipment;
+3. requires the protected acceptance key to be reused and fails if the provisioner minted a replacement credential;
+4. generates/reuses the retained synthetic DeCA and verifies its public PDF;
+5. retains sanitized evidence for 90 days containing only hashes/metadata and the immutable PDF SHA-256;
+6. uploads a separate operator handoff containing `shipmentId`, public synthetic PDF URL and PDF SHA-256 for only 1 day;
+7. removes the raw provisioner output, operator handoff file and transient API-key file from the runner.
+
+The short-lived handoff exists only to populate the next protected acceptance gates. It is not final acceptance evidence and must not be copied into tickets, documentation or long-lived artifacts.
+
+### Local/bootstrap provisioner
+
+If the dedicated API key has not yet been created, bootstrap it through the approved operator path:
 
 ```bash
 export PUENTE_DECA_SERVICE_URL="<production Puente DeCA service URL>"
 export PUENTE_DECA_SERVICE_SECRET="<production Kairoseth service secret>"
 export KAIROSETH_CARGO_ACCEPTANCE_API_KEY_FILE="$HOME/.puente-deca/kairoseth-cargo-acceptance-api-key"
-node scripts/production/provision-kairoseth-cargo-acceptance.mjs
+npm run production:kairoseth-cargo-acceptance-fixture
 ```
 
 The provisioner:
@@ -37,11 +65,11 @@ The provisioner:
 - creates the shipment idempotently;
 - generates/reuses its retained DeCA PDF;
 - downloads the public Kairoseth PDF and calculates its immutable SHA-256;
-- prints only the non-secret GitHub Actions inputs needed by the read-only acceptance gate.
+- prints only the non-secret handoff values needed by the protected acceptance gates.
 
 The API-key file is created with mode `0600`. Copy its value into the protected `KAIROSETH_CARGO_ACCEPTANCE_API_KEY` GitHub Actions secret through the approved secret-management path; do not paste the value into logs, tickets, documentation, or workflow inputs.
 
-The remaining non-secret values printed by the provisioner map directly to:
+The dynamic handoff values map to:
 
 ```text
 KAIROSETH_CARGO_ACCEPTANCE_SHIPMENT_ID
@@ -110,25 +138,27 @@ A green automated result contains:
 }
 ```
 
-`productionReady` intentionally remains false while manual/external gates are outstanding.
+`productionReady` intentionally remains false while live infrastructure/operational gates are outstanding.
 
 The result also lists `manualGatesRemaining` and a structured `manualGateStatus` array. Each pending gate is labelled either:
 
-- `automation=ready`: the repository/platform already contains the acceptance command or workflow and only the approved external environment/evidence is missing;
-- `automation=external`: completion belongs to infrastructure/security work outside the engine repository.
+- `automation=ready`: the repository/platform already contains the acceptance command or workflow and only the approved Kairoseth-controlled environment/evidence is missing;
+- `automation=external`: completion belongs to provider/infrastructure evidence outside the engine runtime.
 
 This distinction prevents "pending execution" from being confused with "development not implemented".
 
-## Gates intentionally not automated here
+## Gates intentionally separated from the core command
 
-The following remain explicit release gates because the engine alone cannot prove them:
+The following remain explicit release gates because the engine core command alone cannot prove them:
 
+- synthetic Kairoseth Cargo acceptance fixture — automation ready through the manual protected `DeCA Kairoseth Cargo Acceptance Fixture` workflow;
 - Kairoseth Cargo engine production acceptance — automation ready in the private `kairoseth-platform` workflow `Kairoseth Cargo Engine Production Acceptance`;
-- WooCommerce live-store smoke — automation ready via `production:woocommerce-live-smoke`;
-- PrestaShop 1.7.8 + 8.x compatibility smoke — automation ready via `production:prestashop-live-smoke`;
+- WooCommerce controlled live-store read acceptance — automation ready via the host-local read-only evidence wrapper;
+- PrestaShop 1.7.8.x and 8.x controlled live-store read acceptance — automation ready via the host-local read-only evidence wrapper;
 - backup → isolated restore drill — automation ready via the manual workflow `DeCA Backup Restore Acceptance` and `production:backup-restore-drill`;
-- edge/reverse-proxy volumetric protection — external infrastructure acceptance;
-- live infrastructure security review — external security acceptance;
-- focused external penetration test — external security acceptance.
+- Hostinger edge technical acceptance — automation ready via the bounded manual Kairoseth edge workflow;
+- Hostinger CDN/WAF/provider protection configuration — provider configuration evidence, never a disruptive stress/DDoS test;
+- infrastructure security acceptance — fail-closed evidence gate covering Atlas least privilege/network boundary, deployment isolation/secrets, rollback readiness and Hostinger provider controls;
+- focused application penetration/security acceptance — already internal, synthetic and CI-covered; no external pentest is required to declare the agreed DeCA scope complete.
 
-Do not reinterpret a green `production:go-live` result as final launch authorization until those gates are also complete.
+Do not reinterpret a green `production:go-live` result as final launch authorization until every row in `docs/deca-100-percent-acceptance-ledger.md` is green and the final `deca-100` evidence freeze validates successfully.

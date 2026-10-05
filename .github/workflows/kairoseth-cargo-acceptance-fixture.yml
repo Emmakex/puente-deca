@@ -1,0 +1,162 @@
+name: DeCA Kairoseth Cargo Acceptance Fixture
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Confirm synthetic production acceptance fixture refresh
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: puente-deca-kairoseth-cargo-acceptance-fixture
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  fixture:
+    if: ${{ inputs.confirm == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: deca-production
+
+    steps:
+      - name: Checkout protected main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Assert protected main execution
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_SHA" = "$(git rev-parse HEAD)"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Prepare protected reusable acceptance key
+        shell: bash
+        env:
+          KAIROSETH_CARGO_ACCEPTANCE_API_KEY: ${{ secrets.KAIROSETH_CARGO_ACCEPTANCE_API_KEY }}
+        run: |
+          set -euo pipefail
+          test ${#KAIROSETH_CARGO_ACCEPTANCE_API_KEY} -ge 16
+          umask 077
+          printf '%s\n' "$KAIROSETH_CARGO_ACCEPTANCE_API_KEY" > "$RUNNER_TEMP/kairoseth-cargo-acceptance-api-key"
+          chmod 600 "$RUNNER_TEMP/kairoseth-cargo-acceptance-api-key"
+
+      - name: Refresh isolated synthetic acceptance fixture
+        shell: bash
+        env:
+          PUENTE_DECA_SERVICE_URL: ${{ secrets.PUENTE_DECA_SERVICE_URL }}
+          PUENTE_DECA_SERVICE_SECRET: ${{ secrets.PUENTE_DECA_SERVICE_SECRET }}
+          KAIROSETH_CARGO_ACCEPTANCE_API_KEY_FILE: ${{ runner.temp }}/kairoseth-cargo-acceptance-api-key
+          KAIROSETH_PUBLIC_PRODUCTION_URL: https://kairoseth.com
+        run: |
+          set -euo pipefail
+          test -n "$PUENTE_DECA_SERVICE_URL"
+          test ${#PUENTE_DECA_SERVICE_SECRET} -ge 32
+          mkdir -p .artifacts/deca-fixture
+          npm run --silent production:kairoseth-cargo-acceptance-fixture \
+            > .artifacts/deca-fixture/raw-result.json
+
+          node <<'NODE'
+          const fs = require('node:fs');
+          const crypto = require('node:crypto');
+          const rawPath = '.artifacts/deca-fixture/raw-result.json';
+          const result = JSON.parse(fs.readFileSync(rawPath, 'utf8'));
+          const hash = (value) => `sha256:${crypto.createHash('sha256').update(value).digest('hex')}`;
+
+          if (result?.status !== 'ok' || result?.check !== 'kairoseth-cargo-acceptance-fixture') {
+            throw new Error('Acceptance fixture result is not green');
+          }
+          if (result?.credentialReused !== true) {
+            throw new Error('Protected reusable acceptance API key was not reused; refusing to retain a newly minted credential');
+          }
+          if (typeof result?.shipmentId !== 'string' || result.shipmentId.length < 8) {
+            throw new Error('Synthetic shipment ID is invalid');
+          }
+          if (!/^https:\/\/kairoseth\.com\/deca\/d\/[A-Za-z0-9_-]{16,128}\.pdf$/.test(result?.publicPdfUrl ?? '')) {
+            throw new Error('Synthetic public PDF URL is not canonical');
+          }
+          if (!/^sha256:[a-f0-9]{64}$/.test(result?.pdfSha256 ?? '')) {
+            throw new Error('Synthetic PDF SHA-256 is invalid');
+          }
+
+          const evidence = {
+            schemaVersion: 1,
+            check: 'kairoseth-cargo-acceptance-fixture',
+            repository: process.env.GITHUB_REPOSITORY,
+            commit: process.env.GITHUB_SHA,
+            runId: process.env.GITHUB_RUN_ID,
+            runAttempt: process.env.GITHUB_RUN_ATTEMPT,
+            recordedAt: new Date().toISOString(),
+            synthetic: true,
+            customerData: false,
+            credentialReused: true,
+            shipmentIdSha256: hash(result.shipmentId),
+            publicPdfUrlSha256: hash(result.publicPdfUrl),
+            pdfSha256: result.pdfSha256
+          };
+          fs.writeFileSync(
+            '.artifacts/deca-fixture/acceptance-evidence.json',
+            `${JSON.stringify(evidence, null, 2)}\n`,
+            { mode: 0o600 }
+          );
+
+          const handoff = {
+            schemaVersion: 1,
+            shipmentId: result.shipmentId,
+            publicPdfUrl: result.publicPdfUrl,
+            pdfSha256: result.pdfSha256
+          };
+          fs.writeFileSync(
+            '.artifacts/deca-fixture/operator-handoff.json',
+            `${JSON.stringify(handoff, null, 2)}\n`,
+            { mode: 0o600 }
+          );
+          NODE
+
+          sha256sum .artifacts/deca-fixture/acceptance-evidence.json \
+            > .artifacts/deca-fixture/acceptance-evidence.json.sha256
+          chmod 600 .artifacts/deca-fixture/acceptance-evidence.json.sha256
+
+      - name: Upload sanitized retained fixture evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: kairoseth-cargo-fixture-evidence-${{ github.run_id }}
+          path: |
+            .artifacts/deca-fixture/acceptance-evidence.json
+            .artifacts/deca-fixture/acceptance-evidence.json.sha256
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+      - name: Upload short-lived operator handoff
+        uses: actions/upload-artifact@v4
+        with:
+          name: kairoseth-cargo-fixture-handoff-${{ github.run_id }}
+          path: .artifacts/deca-fixture/operator-handoff.json
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+      - name: Remove transient secrets and raw fixture output
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          rm -f "$RUNNER_TEMP/kairoseth-cargo-acceptance-api-key"
+          rm -f .artifacts/deca-fixture/raw-result.json
+          rm -f .artifacts/deca-fixture/operator-handoff.json
