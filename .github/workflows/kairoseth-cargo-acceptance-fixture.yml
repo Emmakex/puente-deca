@@ -83,6 +83,7 @@ jobs:
           const path = process.env.RAW_RESPONSE_PATH;
           let safeStatus = 'unavailable';
           let safeCheck = 'unavailable';
+          let safeReason = 'unavailable';
           try {
             const parsed = JSON.parse(fs.readFileSync(path, 'utf8'));
             if (typeof parsed?.status === 'string' && /^[a-z0-9_-]{1,64}$/i.test(parsed.status)) {
@@ -91,10 +92,13 @@ jobs:
             if (typeof parsed?.check === 'string' && /^[a-z0-9_-]{1,128}$/i.test(parsed.check)) {
               safeCheck = parsed.check;
             }
+            if (typeof parsed?.reason === 'string' && /^[a-z0-9_-]{1,64}$/i.test(parsed.reason)) {
+              safeReason = parsed.reason;
+            }
           } catch {
             // Intentionally do not print the raw body: edge responses may contain unrelated details.
           }
-          console.error(`Sanitized response: status=${safeStatus} check=${safeCheck}`);
+          console.error(`Sanitized response: status=${safeStatus} check=${safeCheck} reason=${safeReason}`);
           NODE
             exit 1
           fi
