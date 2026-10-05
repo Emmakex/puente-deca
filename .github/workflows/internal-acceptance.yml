@@ -1,0 +1,143 @@
+name: DeCA Internal Acceptance
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deca-internal-acceptance
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  mongo-gridfs:
+    name: MongoDB and GridFS internal acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      NODE_ENV: production
+      PUBLIC_BASE_URL: https://kairoseth.com/deca
+      MONGODB_URI: mongodb://127.0.0.1:27017/kairoseth?replicaSet=rs0
+      MONGODB_DB_NAME: kairoseth
+      PERSISTENCE_DRIVER: mongodb
+      ARTIFACT_DRIVER: gridfs
+      DECA_GRIDFS_BUCKET: deca_pdf
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Start isolated MongoDB replica set
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --detach --name pdeca-mongo --publish 27017:27017 mongo:7.0 --replSet rs0 --bind_ip_all
+          ready=0
+          for attempt in $(seq 1 60); do
+            if docker exec pdeca-mongo mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok' | grep -qx '1'; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          test "$ready" = "1"
+          docker exec pdeca-mongo mongosh --quiet --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27017"}]})'
+          primary=0
+          for attempt in $(seq 1 60); do
+            if docker exec pdeca-mongo mongosh --quiet --eval 'db.hello().isWritablePrimary' | grep -qx 'true'; then
+              primary=1
+              break
+            fi
+            sleep 1
+          done
+          test "$primary" = "1"
+
+      - name: Run internal MongoDB and GridFS acceptance
+        shell: bash
+        env:
+          KAIROSETH_SERVICE_SECRET: synthetic-internal-acceptance-value-not-a-production-secret
+        run: |
+          set -euo pipefail
+          mkdir -p .artifacts/internal
+          npm run --silent production:atlas-smoke | tee .artifacts/internal/atlas-gridfs.json
+          npm run --silent production:atlas-concurrency-smoke | tee .artifacts/internal/atlas-concurrency.json
+          node - <<'NODE'
+          const fs = require('node:fs');
+          for (const file of ['.artifacts/internal/atlas-gridfs.json', '.artifacts/internal/atlas-concurrency.json']) {
+            const value = JSON.parse(fs.readFileSync(file, 'utf8'));
+            if (value.status !== 'ok') throw new Error(`${file} is not green`);
+          }
+          NODE
+          sha256sum .artifacts/internal/*.json > .artifacts/internal/SHA256SUMS
+
+      - name: Upload internal MongoDB evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: deca-internal-mongodb-${{ github.sha }}
+          path: .artifacts/internal/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+      - name: Remove isolated MongoDB
+        if: ${{ always() }}
+        run: docker rm --force pdeca-mongo >/dev/null 2>&1 || true
+
+  connector-packages:
+    name: Connector packages PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ["8.1-cli", "8.2-cli", "8.3-cli"]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Build exact release connector ZIPs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .artifacts/connectors .artifacts/runtime
+          bash scripts/release/package-connectors.sh .artifacts/connectors
+          unzip -q .artifacts/connectors/puente-deca-woocommerce-0.1.0.zip -d .artifacts/runtime
+          unzip -q .artifacts/connectors/puentedeca-prestashop-0.1.0.zip -d .artifacts/runtime
+
+      - name: Execute packaged connector host contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            --volume "$PWD:/work" \
+            --workdir /work \
+            --env PDECA_WOO_PLUGIN_FILE=/work/.artifacts/runtime/puente-deca-woocommerce/puente-deca-woocommerce.php \
+            --env PDECA_PS_MODULE_FILE=/work/.artifacts/runtime/puentedeca/puentedeca.php \
+            php:${{ matrix.php }} \
+            bash scripts/ci/connector-bootstrap-smoke.sh \
+            | tee .artifacts/connectors/runtime-${{ matrix.php }}.log
+          (cd .artifacts/connectors && sha256sum --check SHA256SUMS)
+
+      - name: Upload connector internal evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: deca-internal-connectors-php-${{ matrix.php }}-${{ github.sha }}
+          path: |
+            .artifacts/connectors/SHA256SUMS
+            .artifacts/connectors/runtime-${{ matrix.php }}.log
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
