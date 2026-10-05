@@ -1,13 +1,17 @@
 import { readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 
-const [woo, presta] = await Promise.all([
+const [woo, presta, acceptance] = await Promise.all([
   readFile(
     "scripts/production/woocommerce-live-store-smoke.php",
     "utf8"
   ),
   readFile(
     "scripts/production/prestashop-live-store-smoke.php",
+    "utf8"
+  ),
+  readFile(
+    "scripts/production/connector-live-store-acceptance.mjs",
     "utf8"
   )
 ]);
@@ -103,6 +107,59 @@ for (
   }
 }
 
+for (const [pattern, message] of [
+  [
+    /--connector=woocommerce[\s\S]*--connector=prestashop|woocommerce[\s\S]*prestashop/,
+    "Live acceptance wrapper must support WooCommerce and PrestaShop only"
+  ],
+  [
+    /spawnSync\("php"/,
+    "Live acceptance wrapper must execute the guarded PHP smoke on the store host"
+  ],
+  [
+    /result\?\.readOnly !== true/,
+    "Live acceptance wrapper must reject non-read-only results"
+  ],
+  [
+    /result\?\.cargoReadCheck !== true/,
+    "Live acceptance wrapper must require the Cargo read check"
+  ],
+  [
+    /mapping\?\.requiredFactsPresent !== true/,
+    "Live acceptance wrapper must require complete mapped DeCA facts when an order is supplied"
+  ],
+  [
+    /rev-parse", "HEAD"/,
+    "Live acceptance evidence must bind to an exact repository commit"
+  ],
+  [
+    /createHash\("sha256"\)/,
+    "Live acceptance evidence must include a SHA-256 checksum"
+  ],
+  [
+    /mode: 0o600/,
+    "Live acceptance evidence must be written owner-only"
+  ],
+  [
+    /\.artifacts\/connector-live\//,
+    "Live acceptance evidence must use the dedicated artifact directory"
+  ]
+]) {
+  requirePattern(acceptance, pattern, message);
+}
+
+for (const forbidden of [
+  /JSON\.stringify\(process\.env/,
+  /console\.log\(process\.env/,
+  /stdout\.write\([\s\S]{0,80}process\.env/
+]) {
+  if (forbidden.test(acceptance)) {
+    throw new Error(
+      `Live acceptance wrapper must not serialize the host environment: ${forbidden}`
+    );
+  }
+}
+
 for (const path of [
   "scripts/production/woocommerce-live-store-smoke.php",
   "scripts/production/prestashop-live-store-smoke.php"
@@ -126,6 +183,17 @@ for (const path of [
   }
 }
 
+const nodeSyntax = spawnSync(
+  process.execPath,
+  ["--check", "scripts/production/connector-live-store-acceptance.mjs"],
+  { encoding: "utf8" }
+);
+if (nodeSyntax.status !== 0) {
+  throw new Error(
+    `Node syntax check failed for connector live acceptance: ${nodeSyntax.stderr || nodeSyntax.stdout}`
+  );
+}
+
 console.log(
-  "Connector live-store smoke contract OK (explicit roots, PHP syntax, read-only Cargo check, optional local mapping, no shipment/order mutation)"
+  "Connector live-store smoke contract OK (explicit roots, PHP syntax, read-only Cargo check, complete optional mapping, immutable sanitized evidence, no shipment/order mutation)"
 );
