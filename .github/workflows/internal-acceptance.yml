@@ -2,6 +2,9 @@ name: DeCA Internal Acceptance
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - test/deca-internal-acceptance
 
 concurrency:
   group: deca-internal-acceptance
@@ -27,8 +30,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: main
 
       - uses: actions/setup-node@v4
         with:
@@ -105,8 +106,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: main
 
       - name: Build exact release connector ZIPs
         shell: bash
