@@ -76,8 +76,28 @@ jobs:
             [ "$attempt" -eq 4 ] || sleep 2
           done
 
-          test "$curl_status" -eq 0
-          test "$status" = "200"
+          if [ "$curl_status" -ne 0 ] || [ "$status" != "200" ]; then
+            echo "::error::Kairoseth fixture request failed (curl=${curl_status}, HTTP=${status:-n/a})."
+            RAW_RESPONSE_PATH="$raw" node <<'NODE'
+          const fs = require('node:fs');
+          const path = process.env.RAW_RESPONSE_PATH;
+          let safeStatus = 'unavailable';
+          let safeCheck = 'unavailable';
+          try {
+            const parsed = JSON.parse(fs.readFileSync(path, 'utf8'));
+            if (typeof parsed?.status === 'string' && /^[a-z0-9_-]{1,64}$/i.test(parsed.status)) {
+              safeStatus = parsed.status;
+            }
+            if (typeof parsed?.check === 'string' && /^[a-z0-9_-]{1,128}$/i.test(parsed.check)) {
+              safeCheck = parsed.check;
+            }
+          } catch {
+            // Intentionally do not print the raw body: edge responses may contain unrelated details.
+          }
+          console.error(`Sanitized response: status=${safeStatus} check=${safeCheck}`);
+          NODE
+            exit 1
+          fi
 
           node <<'NODE'
           const fs = require('node:fs');
