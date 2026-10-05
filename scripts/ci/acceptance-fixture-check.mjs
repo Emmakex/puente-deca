@@ -110,6 +110,8 @@ for (const required of [
   "public-pdf-url.txt",
   "Kairoseth fixture request failed (curl=",
   "Sanitized response: status=",
+  "reason=${safeReason}",
+  "let safeReason = 'unavailable'",
   "RAW_RESPONSE_PATH=\"$raw\" node",
   "Intentionally do not print the raw body",
 ]) {
