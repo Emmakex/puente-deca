@@ -2,9 +2,6 @@ name: DeCA Internal Full-Stack Connectors
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - test/deca-full-stack-connectors
 
 concurrency:
   group: deca-internal-full-stack-connectors
