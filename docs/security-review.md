@@ -6,7 +6,7 @@ The current Puente DeCA codebase has completed a static application-security rev
 
 No critical static blocker was identified in the reviewed authentication, tenant-scoping, connector-secret, document-integrity, retention or production-configuration paths.
 
-This is **not** a substitute for live infrastructure validation or an external penetration test.
+This is **not** a substitute for controlled infrastructure validation or the focused internal penetration/security test required before broad rollout.
 
 ## Reviewed controls
 
@@ -96,6 +96,12 @@ CI uses cached `npm ci`.
 
 WooCommerce and PrestaShop ZIPs are built deterministically and checked byte-for-byte in CI.
 
+## Internal acceptance evidence
+
+The controlled `DeCA Internal Acceptance` matrix now exercises the existing Atlas-compatible transaction/index/GridFS and concurrency smokes against an isolated MongoDB replica set, and the exact packaged WooCommerce/PrestaShop release ZIPs against PHP 8.1, 8.2 and 8.3. The acceptance uses synthetic fixtures only and retains checksummed evidence.
+
+This internal integration evidence complements, but does not replace, the remaining Kairoseth-owned infrastructure acceptance below.
+
 ## Security CI guard
 
 `npm run check:security` validates key invariants including:
@@ -112,23 +118,25 @@ WooCommerce and PrestaShop ZIPs are built deterministically and checked byte-for
 - empty secret placeholders in `.env.example`;
 - obvious secret logging regressions.
 
-## Remaining live security gates
+## Remaining internal security gates
 
-These require the real production/staging infrastructure and are intentionally not marked complete by static review:
+These require the intended Kairoseth-owned production/staging infrastructure or a controlled full-stack test runtime and are intentionally not marked complete by static/internal integration review:
 
 1. verify the Atlas service identity has least-privilege access;
 2. verify network access rules/IP/private connectivity for Atlas;
-3. execute transaction/index/GridFS smoke tests against the actual cluster;
-4. execute backup + isolated restore drill;
+3. execute transaction/index/GridFS smokes against the intended Kairoseth-owned Atlas cluster;
+4. execute backup + isolated restore drill against the controlled DR target;
 5. validate Hostinger/CDN/WAF volumetric limits for the public QR route; Kairoseth application-level concurrency protection is already merged and covered by Production Smoke;
 6. verify public QR route cannot leak engine/service headers;
-7. run WooCommerce live-store smoke;
-8. run PrestaShop 1.7.8 and current 8.x compatibility smoke;
+7. run full-stack WooCommerce acceptance on a Kairoseth-controlled test store;
+8. run PrestaShop 1.7.8.x and current 8.x full-stack acceptance on Kairoseth-controlled test stores;
 9. execute cross-organization isolation tests through deployed Kairoseth;
-10. perform a focused external penetration test before broad customer rollout.
+10. perform a focused internal penetration/security test before broad customer rollout.
+
+An independent external audit can be commissioned later for commercial or assurance purposes, but it is not a prerequisite for the internally agreed DeCA 100% milestone.
 
 ## Residual product hardening
 
 Production Unicode embedding is now implemented through an adaptive renderer: Latin-1 documents keep the lightweight native path, while extended text uses embedded Noto Sans/Fontsource script subsets. Characters outside the embedded font coverage still fail closed rather than being transliterated or corrupted.
 
-The remaining release blockers are the live infrastructure/security gates above, not the PDF character-encoding path.
+The remaining release blockers are the Kairoseth-owned infrastructure/full-stack/security gates above, not the PDF character-encoding path.
