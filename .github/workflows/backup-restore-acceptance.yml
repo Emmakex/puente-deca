@@ -26,7 +26,6 @@ jobs:
     env:
       MONGODB_DB_NAME: kairoseth
       RESTORE_DR_PRESERVE: "0"
-      BACKUP_OUTPUT_DIR: ${{ runner.temp }}/puente-deca-backups
 
     steps:
       - uses: actions/checkout@v4
@@ -75,6 +74,7 @@ jobs:
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
           RESTORE_MONGODB_URI: ${{ secrets.RESTORE_MONGODB_URI }}
+          BACKUP_OUTPUT_DIR: ${{ runner.temp }}/puente-deca-backups
         run: |
           set -euo pipefail
           mkdir -p .artifacts/deca-dr
@@ -116,6 +116,8 @@ jobs:
       - name: Remove backup archive from runner
         if: ${{ always() }}
         shell: bash
+        env:
+          BACKUP_OUTPUT_DIR: ${{ runner.temp }}/puente-deca-backups
         run: |
           rm -rf "$BACKUP_OUTPUT_DIR"
           rm -f .artifacts/deca-dr/result.json
