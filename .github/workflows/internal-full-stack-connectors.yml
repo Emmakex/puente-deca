@@ -1,0 +1,300 @@
+name: DeCA Internal Full-Stack Connectors
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - test/deca-full-stack-connectors
+
+concurrency:
+  group: deca-internal-full-stack-connectors
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  woocommerce:
+    name: WooCommerce WP ${{ matrix.wordpress }} / WC ${{ matrix.woocommerce }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - wordpress: "6.5.5"
+            woocommerce: "8.2.2"
+          - wordpress: "7.1.2"
+            woocommerce: "11.1.2"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build exact release connector ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .artifacts/connectors .artifacts/wordpress
+          bash scripts/release/package-connectors.sh "$PWD/.artifacts/connectors"
+          (cd .artifacts/connectors && sha256sum --check SHA256SUMS)
+
+      - name: Start isolated WordPress database
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker network create pdeca-woo
+          docker run --detach \
+            --name pdeca-woo-db \
+            --network pdeca-woo \
+            --env MARIADB_DATABASE=wordpress \
+            --env MARIADB_USER=wordpress \
+            --env MARIADB_PASSWORD=wordpress \
+            --env MARIADB_ROOT_PASSWORD=internal-root-only \
+            mariadb:10.11
+          ready=0
+          for attempt in $(seq 1 60); do
+            if docker exec pdeca-woo-db mariadb-admin ping -uroot -pinternal-root-only --silent >/dev/null 2>&1; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          test "$ready" = "1"
+
+      - name: Install real WordPress, WooCommerce and packaged connector
+        shell: bash
+        run: |
+          set -euo pipefail
+          wp() {
+            docker run --rm \
+              --network pdeca-woo \
+              --user 0:0 \
+              --volume "$PWD/.artifacts/wordpress:/var/www/html" \
+              --volume "$PWD:/repo:ro" \
+              wordpress:cli-php8.2 "$@"
+          }
+          wp core download --version='${{ matrix.wordpress }}' --force
+          wp config create \
+            --dbname=wordpress \
+            --dbuser=wordpress \
+            --dbpass=wordpress \
+            --dbhost=pdeca-woo-db \
+            --skip-check
+          wp core install \
+            --url=http://localhost:18080 \
+            --title='Kairoseth Cargo Internal Woo QA' \
+            --admin_user=internalqa \
+            --admin_password='internal-qa-password-only' \
+            --admin_email=qa@example.invalid \
+            --skip-email
+          wp plugin install woocommerce \
+            --version='${{ matrix.woocommerce }}' \
+            --activate
+          wp plugin install \
+            /repo/.artifacts/connectors/puente-deca-woocommerce-0.1.0.zip \
+            --activate
+          wp plugin status woocommerce
+          wp plugin status puente-deca-woocommerce
+
+      - name: Execute synthetic order mapping in real WooCommerce runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            --network pdeca-woo \
+            --user 0:0 \
+            --volume "$PWD/.artifacts/wordpress:/var/www/html" \
+            --volume "$PWD:/repo:ro" \
+            wordpress:cli-php8.2 \
+            eval-file /repo/scripts/ci/php/woocommerce-full-stack-smoke.php \
+            | tee .artifacts/connectors/woocommerce-full-stack.json
+          grep -F '"status":"ok"' .artifacts/connectors/woocommerce-full-stack.json
+
+      - name: Boot HTTP WordPress runtime with the same controlled store
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --detach \
+            --name pdeca-woo-web \
+            --network pdeca-woo \
+            --publish 18080:80 \
+            --env WORDPRESS_DB_HOST=pdeca-woo-db \
+            --env WORDPRESS_DB_NAME=wordpress \
+            --env WORDPRESS_DB_USER=wordpress \
+            --env WORDPRESS_DB_PASSWORD=wordpress \
+            --volume "$PWD/.artifacts/wordpress:/var/www/html" \
+            wordpress:php8.2-apache
+          healthy=0
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --show-error http://127.0.0.1:18080/ >/dev/null 2>&1; then
+              healthy=1
+              break
+            fi
+            sleep 1
+          done
+          test "$healthy" = "1"
+          printf '%s\n' \
+            'wordpress=${{ matrix.wordpress }}' \
+            'woocommerce=${{ matrix.woocommerce }}' \
+            'httpRuntime=ok' \
+            > .artifacts/connectors/woocommerce-stack.txt
+          sha256sum \
+            .artifacts/connectors/woocommerce-full-stack.json \
+            .artifacts/connectors/woocommerce-stack.txt \
+            > .artifacts/connectors/woocommerce-stack.sha256
+
+      - name: Upload internal WooCommerce full-stack evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: deca-internal-woo-wp-${{ matrix.wordpress }}-wc-${{ matrix.woocommerce }}-${{ github.sha }}
+          path: |
+            .artifacts/connectors/woocommerce-full-stack.json
+            .artifacts/connectors/woocommerce-stack.txt
+            .artifacts/connectors/woocommerce-stack.sha256
+            .artifacts/connectors/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+      - name: Remove isolated WooCommerce runtime
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          docker rm --force pdeca-woo-web >/dev/null 2>&1 || true
+          docker rm --force pdeca-woo-db >/dev/null 2>&1 || true
+          docker network rm pdeca-woo >/dev/null 2>&1 || true
+
+  prestashop:
+    name: PrestaShop ${{ matrix.prestashop }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - prestashop: "1.7.8.11"
+            image: "prestashop/prestashop-flashlight:1.7.8.11"
+          - prestashop: "8.2.7"
+            image: "prestashop/prestashop-flashlight:8.2.7-nginx"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build exact release module ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .artifacts/connectors .artifacts/ps-modules
+          bash scripts/release/package-connectors.sh "$PWD/.artifacts/connectors"
+          (cd .artifacts/connectors && sha256sum --check SHA256SUMS)
+          cp \
+            .artifacts/connectors/puentedeca-prestashop-0.1.0.zip \
+            .artifacts/ps-modules/
+
+      - name: Start isolated PrestaShop database and real store
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker network create pdeca-presta
+          docker run --detach \
+            --name pdeca-presta-db \
+            --network pdeca-presta \
+            --env MARIADB_DATABASE=prestashop \
+            --env MARIADB_USER=prestashop \
+            --env MARIADB_PASSWORD=prestashop \
+            --env MARIADB_ROOT_PASSWORD=internal-root-only \
+            mariadb:10.6
+          ready=0
+          for attempt in $(seq 1 60); do
+            if docker exec pdeca-presta-db mariadb-admin ping -uroot -pinternal-root-only --silent >/dev/null 2>&1; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          test "$ready" = "1"
+
+          docker run --detach \
+            --name pdeca-presta \
+            --network pdeca-presta \
+            --publish 18081:80 \
+            --env PS_DOMAIN=localhost:18081 \
+            --env MYSQL_HOST=pdeca-presta-db \
+            --env MYSQL_DATABASE=prestashop \
+            --env MYSQL_USER=prestashop \
+            --env MYSQL_PASSWORD=prestashop \
+            --env INSTALL_MODULES_DIR=/ps-modules \
+            --env ON_INSTALL_MODULES_FAILURE=fail \
+            --volume "$PWD/.artifacts/ps-modules:/ps-modules:ro" \
+            --volume "$PWD:/repo:ro" \
+            '${{ matrix.image }}'
+
+          installed=0
+          for attempt in $(seq 1 90); do
+            if docker exec pdeca-presta php -r '
+              $f="/var/www/html/config/config.inc.php";
+              if (!is_file($f)) { exit(2); }
+              require $f;
+              exit(Module::isInstalled("puentedeca") ? 0 : 3);
+            ' >/dev/null 2>&1; then
+              installed=1
+              break
+            fi
+            if ! docker inspect --format '{{.State.Running}}' pdeca-presta | grep -qx true; then
+              docker logs pdeca-presta
+              exit 1
+            fi
+            sleep 2
+          done
+          test "$installed" = "1"
+
+      - name: Execute synthetic mapping in real PrestaShop runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker exec \
+            --env PDECA_PRESTASHOP_ROOT=/var/www/html \
+            pdeca-presta \
+            php /repo/scripts/ci/php/prestashop-full-stack-smoke.php \
+            | tee .artifacts/connectors/prestashop-full-stack.json
+          grep -F '"status":"ok"' .artifacts/connectors/prestashop-full-stack.json
+
+          healthy=0
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --show-error http://127.0.0.1:18081/ >/dev/null 2>&1; then
+              healthy=1
+              break
+            fi
+            sleep 1
+          done
+          test "$healthy" = "1"
+
+          printf '%s\n' \
+            'prestashop=${{ matrix.prestashop }}' \
+            'httpRuntime=ok' \
+            > .artifacts/connectors/prestashop-stack.txt
+          sha256sum \
+            .artifacts/connectors/prestashop-full-stack.json \
+            .artifacts/connectors/prestashop-stack.txt \
+            > .artifacts/connectors/prestashop-stack.sha256
+
+      - name: Upload internal PrestaShop full-stack evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: deca-internal-prestashop-${{ matrix.prestashop }}-${{ github.sha }}
+          path: |
+            .artifacts/connectors/prestashop-full-stack.json
+            .artifacts/connectors/prestashop-stack.txt
+            .artifacts/connectors/prestashop-stack.sha256
+            .artifacts/connectors/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+      - name: Remove isolated PrestaShop runtime
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          docker rm --force pdeca-presta >/dev/null 2>&1 || true
+          docker rm --force pdeca-presta-db >/dev/null 2>&1 || true
+          docker network rm pdeca-presta >/dev/null 2>&1 || true
