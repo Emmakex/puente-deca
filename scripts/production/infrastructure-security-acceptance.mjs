@@ -6,6 +6,7 @@ const REQUIRED_CONTROLS = [
   "atlasLeastPrivilege",
   "atlasNetworkAccess",
   "runtimeSecretScope",
+  "deployedTenantIsolation",
   "deploymentReadinessRollback",
   "hostingerWafConfiguration",
 ];
