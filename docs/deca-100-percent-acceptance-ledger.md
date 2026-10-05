@@ -43,6 +43,25 @@ Customer systems and customer data are not required to close any gate. Fixtures,
 | Infrastructure security acceptance | OPEN | Review Atlas network/least-privilege, deployment isolation/secrets and Hostinger edge controls with retained evidence |
 | Final evidence freeze | OPEN | All rows above GREEN; pin final DeCA commit/release manifest and retained acceptance references |
 
+## Mapping to the fail-closed `deca-100` manifest
+
+The final validator at `scripts/production/final-infrastructure-acceptance.mjs` deliberately accepts only eight upstream evidence gates. The more detailed rows above roll up as follows:
+
+| Final manifest key | Ledger evidence that must be green |
+| --- | --- |
+| `atlasCore` | Atlas transaction/index/concurrency + intended Atlas GridFS lifecycle/reconciliation |
+| `drRestore` | Backup → isolated DR restore |
+| `kairosethEngine` | Synthetic fixture + Kairoseth engine deployment + public DeCA route/PDF integrity |
+| `hostingerEdge` | Safe Hostinger public edge technical acceptance |
+| `infrastructureSecurity` | Hostinger provider CDN/WAF configuration + Atlas/network/deployment/secret/isolation review |
+| `wooCommerceLive` | WooCommerce controlled live-store read acceptance |
+| `prestaShop178Live` | PrestaShop 1.7.8.x controlled live-store read acceptance |
+| `prestaShop8Live` | PrestaShop 8.x controlled live-store read acceptance |
+
+Each final-manifest gate requires `status: "pass"` plus a retained evidence SHA-256, repository, commit, auditable run/evidence ID and UTC timestamp. The validator rejects extra fields such as raw URLs, opaque tokens, MongoDB URIs, API keys and provider credentials.
+
+The ledger may therefore show several detailed rows before a single final-manifest key becomes eligible. No final key may be marked `pass` until every detailed row mapped to it is green.
+
 ## Hostinger edge rule
 
 The Hostinger gate is intentionally split in two:
@@ -58,7 +77,7 @@ DeCA may be declared `100%` only when:
 
 1. every final Kairoseth-controlled live gate is `GREEN`;
 2. each green gate has retained evidence bound to the intended repository commit/environment;
-3. no bypass/skip was used;
+3. the eight-gate final `deca-100` manifest validates successfully without bypasses or extra secret-bearing fields;
 4. the final release manifest, connector checksums and SBOM match the accepted commit;
 5. eCMR/eFTI work has not been used to substitute or hide an unfinished DeCA gate.
 
