@@ -181,9 +181,11 @@ jobs:
           - prestashop: "1.7.8.11"
             image: "prestashop/prestashop-flashlight:1.7.8.11"
             database: "mysql:5.7"
+            native_auth: "false"
           - prestashop: "8.2.7"
             image: "prestashop/prestashop-flashlight:8.2.7-nginx"
             database: "mysql:8.0"
+            native_auth: "true"
 
     steps:
       - uses: actions/checkout@v4
@@ -229,6 +231,12 @@ jobs:
             sleep 1
           done
           test "$ready" = "1"
+
+          if [ '${{ matrix.native_auth }}' = 'true' ]; then
+            docker exec pdeca-presta-db \
+              mysql -uroot -pinternal-root-only \
+              --execute="ALTER USER 'prestashop'@'%' IDENTIFIED WITH mysql_native_password BY 'prestashop'; FLUSH PRIVILEGES;"
+          fi
 
           docker run --detach \
             --name pdeca-presta \
