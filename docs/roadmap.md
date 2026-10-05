@@ -103,10 +103,10 @@ Characters outside the embedded font set continue to fail closed rather than bei
 - [x] Exact packaged WooCommerce/PrestaShop ZIP internal acceptance on PHP 8.1, 8.2 and 8.3 using synthetic host contracts, with retained evidence.
 - [x] Release-candidate evidence bundle with deterministic CycloneDX SBOM and SHA-256 release manifest.
 - [x] WooCommerce executable PHP host-contract bootstrap smoke (HPOS/hooks/encryption/connection/payload).
-- [ ] WooCommerce full-stack compatibility acceptance on a Kairoseth-controlled WordPress/WooCommerce test store using synthetic orders.
+- [x] WooCommerce full-stack compatibility acceptance on Kairoseth-controlled WordPress/WooCommerce test stores using synthetic orders (WP 6.5.5/WC 8.2.2 and WP 7.1.2/WC 11.1.2).
 - [x] PrestaShop deterministic release ZIP packaging with SHA-256 manifest.
 - [x] PrestaShop executable PHP host-contract bootstrap matrix for 1.7.8.0 and 8.1.2.
-- [ ] PrestaShop full-stack compatibility acceptance on Kairoseth-controlled 1.7.8.x and 8.x test stores using synthetic orders.
+- [x] PrestaShop full-stack compatibility acceptance on Kairoseth-controlled 1.7.8.x and 8.x test stores using synthetic orders (1.7.8.11 and 8.2.7).
 - [x] MongoDB Atlas metadata store aligned with Kairoseth Platform.
 - [ ] Kairoseth-owned production Atlas transaction/index/concurrency smoke acceptance.
 - [ ] GridFS backup/restore acceptance on the intended controlled DR target.
@@ -132,7 +132,7 @@ Characters outside the embedded font set continue to fail closed rather than bei
 - [x] Static application-security review with CI regression guard.
 - [ ] Internal infrastructure security acceptance and focused internal penetration/security test.
 
-**Phase 6 internal engineering status:** complete for the agreed DeCA product scope. The isolated internal acceptance matrix is green for MongoDB/GridFS/concurrency and the exact packaged WooCommerce/PrestaShop connector artifacts on PHP 8.1–8.3. Remaining unchecked Phase 6 items require Kairoseth-owned full-stack stores, Atlas/Hostinger/DR execution or internal security evidence; customer systems and customer data are not required.
+**Phase 6 internal engineering status:** complete for the agreed DeCA product scope. Internal acceptance is green for MongoDB/GridFS/concurrency, exact packaged WooCommerce/PrestaShop connector artifacts on PHP 8.1–8.3, WooCommerce full-stack stores, and PrestaShop 1.7.8.x/8.x full-stack stores. Remaining unchecked Phase 6 items require only Kairoseth-owned Atlas/Hostinger/DR/deployment/security execution and retained evidence; customer systems and customer data are not required.
 
 ## Phase 7 — Transport Compliance Engine
 

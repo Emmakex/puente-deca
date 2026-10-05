@@ -44,15 +44,20 @@ This layer includes:
 
 ### 4. Internal connector full-stack acceptance
 
-WooCommerce and PrestaShop final compatibility gates must use Kairoseth-controlled test stores. The exact release ZIP is installed into the controlled runtime, test orders contain synthetic data, and the resulting evidence is retained.
+WooCommerce and PrestaShop final compatibility gates use Kairoseth-controlled ephemeral test stores. The exact release ZIP is installed into the controlled runtime, test orders contain synthetic data, the HTTP runtime is booted, and checksummed evidence is retained.
 
-The target matrix is:
+The controlled full-stack matrix is green for:
 
-- WordPress >= 6.5 + WooCommerce >= 8.2;
-- PrestaShop 1.7.8.x;
-- PrestaShop 8.x.
+- WordPress 6.5.5 + WooCommerce 8.2.2;
+- WordPress 7.1.2 + WooCommerce 11.1.2;
+- PrestaShop 1.7.8.11;
+- PrestaShop 8.2.7.
 
-No customer store is required.
+The WooCommerce cases verify exact ZIP installation/activation, encrypted connector-secret roundtrip, synthetic product/order creation, payload mapping, HTTP startup, evidence upload and cleanup.
+
+The PrestaShop cases verify exact ZIP extraction, native PrestaShop CLI module installation, active-module state, encrypted connector-secret roundtrip, synthetic seeded-order mapping, HTTP runtime, evidence upload and cleanup.
+
+No customer store is required. The reusable workflow `DeCA Internal Full-Stack Connectors` remains manual-only (`workflow_dispatch`) after the controlled validation run.
 
 ### 5. Internal security acceptance
 
