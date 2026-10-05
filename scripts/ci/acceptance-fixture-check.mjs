@@ -31,7 +31,7 @@ if (
   "node scripts/production/provision-kairoseth-cargo-acceptance.mjs"
 ) {
   throw new Error(
-    "Acceptance fixture provisioner must remain exposed through the documented npm command",
+    "Acceptance fixture operator fallback must remain exposed through the documented npm command",
   );
 }
 
@@ -42,7 +42,7 @@ for (const variable of [
 ]) {
   requireText(
     variable,
-    `Acceptance fixture provisioner must require ${variable}`,
+    `Local acceptance fixture fallback must keep ${variable}`,
   );
 }
 
@@ -64,27 +64,11 @@ requireText(
 );
 requireText(
   "mode: 0o600",
-  "Acceptance API key must be written with owner-only permissions",
+  "Local fallback API key must be written with owner-only permissions",
 );
 requireText(
   "await chmod(apiKeyFile, 0o600)",
-  "Acceptance API key permissions must be enforced after writing",
-);
-requireText(
-  "credentialReused",
-  "Acceptance fixture must report credential reuse without printing the credential",
-);
-requireText(
-  "shipmentId: shipment.shipmentId",
-  "Acceptance fixture must report the synthetic shipment ID",
-);
-requireText(
-  "publicPdfUrl",
-  "Acceptance fixture must report the canonical public PDF URL",
-);
-requireText(
-  "pdfSha256",
-  "Acceptance fixture must report immutable PDF integrity metadata",
+  "Local fallback API key permissions must be enforced after writing",
 );
 
 const stdoutSection = source.slice(
@@ -93,13 +77,13 @@ const stdoutSection = source.slice(
 
 if (/\bapiKey\s*[,}]/.test(stdoutSection)) {
   throw new Error(
-    "Acceptance fixture must never print the dedicated API key",
+    "Local acceptance fixture fallback must never print the dedicated API key",
   );
 }
 
 if (/\bserviceSecret\s*[,}]/.test(stdoutSection)) {
   throw new Error(
-    "Acceptance fixture must never print the service secret",
+    "Local acceptance fixture fallback must never print the service secret",
   );
 }
 
@@ -108,20 +92,40 @@ for (const required of [
   "environment: deca-production",
   "ref: main",
   "cancel-in-progress: false",
-  "KAIROSETH_CARGO_ACCEPTANCE_API_KEY: ${{ secrets.KAIROSETH_CARGO_ACCEPTANCE_API_KEY }}",
-  "PUENTE_DECA_SERVICE_URL: ${{ secrets.PUENTE_DECA_SERVICE_URL }}",
-  "PUENTE_DECA_SERVICE_SECRET: ${{ secrets.PUENTE_DECA_SERVICE_SECRET }}",
-  "credentialReused !== true",
-  "customerData: false",
+  "OPERATIONS_HEALTH_SECRET: ${{ secrets.OPERATIONS_HEALTH_SECRET }}",
+  "https://kairoseth.com/api/operations/deca/acceptance-fixture",
+  "x-kairoseth-acceptance-confirm: synthetic-production-fixture",
+  "Authorization: Bearer $OPERATIONS_HEALTH_SECRET",
+  "result?.synthetic !== true",
+  "result?.customerData !== false",
+  "source: 'deployed-kairoseth-runtime-bridge'",
+  "head -c 5",
+  '"%PDF-"',
+  "5000000",
+  "sha256sum",
   "retention-days: 90",
   "retention-days: 1",
   "operator-handoff.json",
   "raw-result.json",
+  "public-pdf-url.txt",
 ]) {
   requireWorkflowText(
     required,
     `Acceptance fixture workflow contract is missing: ${required}`,
   );
+}
+
+for (const forbidden of [
+  "KAIROSETH_CARGO_ACCEPTANCE_API_KEY",
+  "PUENTE_DECA_SERVICE_URL",
+  "PUENTE_DECA_SERVICE_SECRET",
+  "kairoseth-cargo-acceptance-api-key",
+]) {
+  if (workflow.includes(forbidden)) {
+    throw new Error(
+      `Acceptance fixture workflow must not depend on direct engine/API-key material: ${forbidden}`,
+    );
+  }
 }
 
 if (/on:\s*\n\s*(push|pull_request):/m.test(workflow)) {
@@ -131,21 +135,21 @@ if (/on:\s*\n\s*(push|pull_request):/m.test(workflow)) {
 }
 
 if (!workflow.includes(
-  "npm run --silent production:kairoseth-cargo-acceptance-fixture \\\n            > .artifacts/deca-fixture/raw-result.json",
+  'rm -f .artifacts/deca-fixture/raw-result.json',
 )) {
   throw new Error(
-    "Acceptance fixture workflow must redirect raw provisioner output away from logs",
+    "Acceptance fixture workflow must remove the raw protected response",
   );
 }
 
 if (!workflow.includes(
-  "rm -f \"$RUNNER_TEMP/kairoseth-cargo-acceptance-api-key\"",
+  'rm -f "$RUNNER_TEMP/kairoseth-cargo-acceptance.pdf"',
 )) {
   throw new Error(
-    "Acceptance fixture workflow must remove the transient API-key file",
+    "Acceptance fixture workflow must remove the transient PDF copy",
   );
 }
 
 console.log(
-  "Acceptance fixture contract OK (synthetic, idempotent, manual protected workflow, reusable secret, sanitized retained evidence)",
+  "Acceptance fixture contract OK (synthetic, idempotent, Kairoseth-runtime bridged, manual protected workflow, sanitized retained evidence)",
 );
