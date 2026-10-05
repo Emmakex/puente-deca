@@ -1,0 +1,51 @@
+name: DeCA Kairoseth Bridge Readiness
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/kairoseth-bridge-readiness.yml"
+      - "scripts/production/check-kairoseth-bridge-readiness.sh"
+      - "test/kairoseth-bridge-readiness.test.mjs"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: puente-deca-kairoseth-bridge-readiness
+  cancel-in-progress: true
+
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: deca-production
+    env:
+      KAIROSETH_PUBLIC_URL: https://kairoseth.com
+
+    steps:
+      - name: Checkout protected main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Assert protected main execution
+        if: ${{ github.event_name == 'push' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_SHA" = "$(git rev-parse HEAD)"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Check deployed Kairoseth bridge readiness
+        shell: bash
+        env:
+          OPERATIONS_HEALTH_SECRET: ${{ secrets.OPERATIONS_HEALTH_SECRET }}
+        run: bash scripts/production/check-kairoseth-bridge-readiness.sh
