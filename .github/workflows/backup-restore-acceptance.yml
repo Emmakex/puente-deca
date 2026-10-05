@@ -1,0 +1,117 @@
+name: DeCA Backup Restore Acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Confirm isolated production backup/restore drill
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: puente-deca-production-backup-restore
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  drill:
+    if: ${{ inputs.confirm == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: deca-production
+
+    env:
+      MONGODB_URI: ${{ secrets.MONGODB_URI }}
+      MONGODB_DB_NAME: kairoseth
+      RESTORE_MONGODB_URI: ${{ secrets.RESTORE_MONGODB_URI }}
+      RESTORE_DR_PRESERVE: "0"
+      BACKUP_OUTPUT_DIR: ${{ runner.temp }}/puente-deca-backups
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Assert protected main execution
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_SHA" = "$(git rev-parse HEAD)"
+          test -n "$MONGODB_URI"
+          test -n "$RESTORE_MONGODB_URI"
+
+      - name: Install MongoDB Database Tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          . /etc/os-release
+          curl --fail --silent --show-error --location \
+            https://pgp.mongodb.com/server-8.0.asc \
+            | gpg --dearmor \
+            | sudo tee /usr/share/keyrings/mongodb-server-8.0.gpg >/dev/null
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg] https://repo.mongodb.org/apt/ubuntu ${VERSION_CODENAME}/mongodb-org/8.0 multiverse" \
+            | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list >/dev/null
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends mongodb-database-tools
+          mongodump --version
+          mongorestore --version
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Run isolated backup and restore acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .artifacts/deca-dr
+          npm run production:backup-restore-drill \
+            > .artifacts/deca-dr/result.json
+          node -e '
+            const fs = require("node:fs");
+            const result = JSON.parse(fs.readFileSync(".artifacts/deca-dr/result.json", "utf8"));
+            const evidence = {
+              schemaVersion: 1,
+              check: "puente-deca-backup-restore-production-acceptance",
+              repository: process.env.GITHUB_REPOSITORY,
+              commit: process.env.GITHUB_SHA,
+              runId: process.env.GITHUB_RUN_ID,
+              runAttempt: process.env.GITHUB_RUN_ATTEMPT,
+              recordedAt: new Date().toISOString(),
+              result
+            };
+            fs.writeFileSync(
+              ".artifacts/deca-dr/acceptance-evidence.json",
+              `${JSON.stringify(evidence, null, 2)}\n`,
+              { mode: 0o600 }
+            );
+          '
+          sha256sum .artifacts/deca-dr/acceptance-evidence.json \
+            > .artifacts/deca-dr/acceptance-evidence.json.sha256
+
+      - name: Upload sanitized DR acceptance evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: puente-deca-dr-acceptance-${{ github.run_id }}
+          path: |
+            .artifacts/deca-dr/acceptance-evidence.json
+            .artifacts/deca-dr/acceptance-evidence.json.sha256
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+      - name: Remove backup archive from runner
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          rm -rf "$BACKUP_OUTPUT_DIR"
+          rm -f .artifacts/deca-dr/result.json
