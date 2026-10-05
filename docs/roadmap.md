@@ -53,7 +53,8 @@ Characters outside the embedded font set continue to fail closed rather than bei
 - [x] MongoDB Atlas production adapter aligned with Kairoseth Platform.
 - [x] Automated Atlas/GridFS live smoke command with rollback and cleanup.
 - [x] Automated Atlas concurrency smoke for idempotent shipment creation and document-version lineage with scoped cleanup.
-- [ ] Live MongoDB Atlas transaction/index/concurrency smoke acceptance (fail-closed checks implemented; pending execution against the intended Atlas environment).
+- [x] Internal isolated MongoDB replica-set acceptance for transaction rollback, required indexes, GridFS upload/read/SHA-256/delete, idempotency concurrency and document-version lineage, with retained evidence.
+- [ ] Kairoseth-owned MongoDB Atlas transaction/index/concurrency smoke acceptance (fail-closed checks implemented; pending execution against the intended Atlas environment).
 
 ## Phase 4 — Operational API
 
@@ -87,7 +88,7 @@ Characters outside the embedded font set continue to fail closed rather than bei
 - [x] Puente DeCA workspace inside `/app/organizations/:slug/products/puente-deca`.
 - [x] Kairoseth public proxy route implemented at `https://kairoseth.com/deca/d/<token>.pdf` with canonical `.pdf` suffix handling.
 - [x] Credential-free live public-PDF smoke command for TLS/path/PDF/SHA-256/privacy-header acceptance.
-- [ ] Live production public-route wiring/acceptance.
+- [ ] Kairoseth-owned production public-route wiring/acceptance with a synthetic controlled DeCA document.
 - [x] Disable standalone DeCA laboratory/bootstrap surface in production; Kairoseth/connector operational routes remain authoritative.
 - [x] Organization-scoped shipment listing for the Kairoseth workspace.
 
@@ -99,25 +100,27 @@ Characters outside the embedded font set continue to fail closed rather than bei
 - [x] WooCommerce deterministic release ZIP packaging with SHA-256 manifest.
 - [x] Dedicated reproducible connector release workflow with uploaded ZIP/checksum bundle.
 - [x] Extracted release-ZIP PHP runtime bootstrap acceptance for WooCommerce and PrestaShop.
+- [x] Exact packaged WooCommerce/PrestaShop ZIP internal acceptance on PHP 8.1, 8.2 and 8.3 using synthetic host contracts, with retained evidence.
 - [x] Release-candidate evidence bundle with deterministic CycloneDX SBOM and SHA-256 release manifest.
 - [x] WooCommerce executable PHP host-contract bootstrap smoke (HPOS/hooks/encryption/connection/payload).
-- [ ] WooCommerce live-store smoke test (read-only live-store automation implemented; pending execution inside an approved store).
+- [ ] WooCommerce full-stack compatibility acceptance on a Kairoseth-controlled WordPress/WooCommerce test store using synthetic orders.
 - [x] PrestaShop deterministic release ZIP packaging with SHA-256 manifest.
 - [x] PrestaShop executable PHP host-contract bootstrap matrix for 1.7.8.0 and 8.1.2.
-- [ ] PrestaShop real 1.7.8.x/8.x compatibility matrix (read-only live-store automation implemented; pending execution on approved 1.7.8.x and 8.x stores).
+- [ ] PrestaShop full-stack compatibility acceptance on Kairoseth-controlled 1.7.8.x and 8.x test stores using synthetic orders.
 - [x] MongoDB Atlas metadata store aligned with Kairoseth Platform.
-- [ ] Production Atlas transaction/index/concurrency smoke acceptance.
-- [ ] GridFS backup/restore acceptance.
+- [ ] Kairoseth-owned production Atlas transaction/index/concurrency smoke acceptance.
+- [ ] GridFS backup/restore acceptance on the intended controlled DR target.
 - [x] MongoDB Atlas GridFS PDF artifact storage aligned with Kairoseth Platform.
 - [x] Artifact reconciliation tooling for premature loss, post-retention loss, orphans and incomplete purges.
-- [ ] Live GridFS upload/read/delete and orphan-reconciliation smoke acceptance.
+- [x] Internal isolated GridFS upload/read/SHA-256/delete lifecycle acceptance.
+- [ ] Kairoseth-owned GridFS lifecycle and orphan-reconciliation acceptance against the intended Atlas environment.
 - [x] MongoDB Atlas + GridFS backup/restore runbook.
 - [x] Guarded logical backup + isolated DR restore automation with SHA-256, metadata↔GridFS reconciliation, per-artifact link verification and failure-path DR cleanup.
-- [ ] Live backup/restore drill against a staging/DR Atlas target (automation complete; pending execution with the intended DR Atlas target).
+- [ ] Backup/restore drill against a Kairoseth-controlled staging/DR Atlas target (automation complete; pending intended DR credentials/environment).
 - [x] Per-organization/per-credential authenticated API rate limiting with 429 + Retry-After.
 - [x] Kairoseth application-level public PDF concurrency guard (default 16 / max 64 per process) with 503 + Retry-After and no IP coupling.
 - [x] Kairoseth DeCA public-route changes are covered by the Hostinger Production Smoke path.
-- [ ] Hostinger CDN/WAF edge-level volumetric protection for public QR and unauthenticated abuse.
+- [ ] Internal Hostinger CDN/WAF edge-level volumetric protection acceptance for public QR and unauthenticated abuse.
 - [x] Separate liveness/readiness probes plus protected low-cardinality Prometheus process metrics.
 - [x] Credentialed live Kairoseth→Puente DeCA protected-health smoke command.
 - [x] Production preflight and deployment/runback acceptance runbook.
@@ -125,11 +128,11 @@ Characters outside the embedded font set continue to fail closed rather than bei
 - [x] Local Kairoseth↔engine E2E contract: tenant-scoped shipment → DeCA → public PDF → SHA-256 → cross-organization isolation.
 - [x] Production container contract: exact Node runtime, locked production deps, non-root user, minimal runtime copy and `/ready` healthcheck.
 - [x] Dedicated container build/smoke workflow with read-only root filesystem and dropped capabilities.
-- [ ] Live deployment acceptance on the chosen internal service runtime (Kairoseth read-only production acceptance workflow implemented; pending controlled production execution).
+- [ ] Internal deployment acceptance on the chosen Kairoseth-owned service runtime (read-only production acceptance workflow implemented; pending controlled execution).
 - [x] Static application-security review with CI regression guard.
-- [ ] Live infrastructure security acceptance and focused external penetration test.
+- [ ] Internal infrastructure security acceptance and focused internal penetration/security test.
 
-**Phase 6 internal engineering status:** complete for the agreed DeCA product scope. Remaining unchecked Phase 6 items are live/external acceptance executions or infrastructure/security evidence; the repository now exposes automation for the Kairoseth engine gate, WooCommerce live smoke, PrestaShop live smoke and backup/restore drill.
+**Phase 6 internal engineering status:** complete for the agreed DeCA product scope. The isolated internal acceptance matrix is green for MongoDB/GridFS/concurrency and the exact packaged WooCommerce/PrestaShop connector artifacts on PHP 8.1–8.3. Remaining unchecked Phase 6 items require Kairoseth-owned full-stack stores, Atlas/Hostinger/DR execution or internal security evidence; customer systems and customer data are not required.
 
 ## Phase 7 — Transport Compliance Engine
 
