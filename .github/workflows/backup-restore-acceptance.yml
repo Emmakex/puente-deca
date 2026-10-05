@@ -24,9 +24,7 @@ jobs:
     environment: deca-production
 
     env:
-      MONGODB_URI: ${{ secrets.MONGODB_URI }}
       MONGODB_DB_NAME: kairoseth
-      RESTORE_MONGODB_URI: ${{ secrets.RESTORE_MONGODB_URI }}
       RESTORE_DR_PRESERVE: "0"
       BACKUP_OUTPUT_DIR: ${{ runner.temp }}/puente-deca-backups
 
@@ -43,6 +41,9 @@ jobs:
 
       - name: Assert protected main execution
         shell: bash
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          RESTORE_MONGODB_URI: ${{ secrets.RESTORE_MONGODB_URI }}
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = "refs/heads/main"
@@ -71,6 +72,9 @@ jobs:
 
       - name: Run isolated backup and restore acceptance
         shell: bash
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          RESTORE_MONGODB_URI: ${{ secrets.RESTORE_MONGODB_URI }}
         run: |
           set -euo pipefail
           mkdir -p .artifacts/deca-dr
