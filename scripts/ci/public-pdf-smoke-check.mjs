@@ -63,7 +63,7 @@ requirePattern(
   "Public smoke must validate noindex"
 );
 requirePattern(
-  /default-src\\s\+?'none'|default-src\\s\+'none'/i,
+  /PUBLIC_PDF_CSP_INVALID/,
   "Public smoke must validate a locked-down CSP"
 );
 requirePattern(
