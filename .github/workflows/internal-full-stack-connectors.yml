@@ -71,7 +71,7 @@ jobs:
               --user 0:0 \
               --volume "$PWD/.artifacts/wordpress:/var/www/html" \
               --volume "$PWD:/repo:ro" \
-              wordpress:cli-php8.2 wp "$@"
+              wordpress:cli-php8.2 wp --allow-root "$@"
           }
           wp core download --version='${{ matrix.wordpress }}' --force
           wp config create \
@@ -106,7 +106,7 @@ jobs:
             --volume "$PWD/.artifacts/wordpress:/var/www/html" \
             --volume "$PWD:/repo:ro" \
             wordpress:cli-php8.2 \
-            wp eval-file /repo/scripts/ci/php/woocommerce-full-stack-smoke.php \
+            wp --allow-root eval-file /repo/scripts/ci/php/woocommerce-full-stack-smoke.php \
             | tee .artifacts/connectors/woocommerce-full-stack.json
           grep -F '"status":"ok"' .artifacts/connectors/woocommerce-full-stack.json
 
