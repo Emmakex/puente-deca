@@ -108,6 +108,10 @@ for (const required of [
   "operator-handoff.json",
   "raw-result.json",
   "public-pdf-url.txt",
+  "Kairoseth fixture request failed (curl=",
+  "Sanitized response: status=",
+  "RAW_RESPONSE_PATH=\"$raw\" node",
+  "Intentionally do not print the raw body",
 ]) {
   requireWorkflowText(
     required,
@@ -120,10 +124,12 @@ for (const forbidden of [
   "PUENTE_DECA_SERVICE_URL",
   "PUENTE_DECA_SERVICE_SECRET",
   "kairoseth-cargo-acceptance-api-key",
+  'cat "$raw"',
+  'head -c 400 "$raw"',
 ]) {
   if (workflow.includes(forbidden)) {
     throw new Error(
-      `Acceptance fixture workflow must not depend on direct engine/API-key material: ${forbidden}`,
+      `Acceptance fixture workflow must not depend on or expose protected material: ${forbidden}`,
     );
   }
 }
@@ -151,5 +157,5 @@ if (!workflow.includes(
 }
 
 console.log(
-  "Acceptance fixture contract OK (synthetic, idempotent, Kairoseth-runtime bridged, manual protected workflow, sanitized retained evidence)",
+  "Acceptance fixture contract OK (synthetic, idempotent, Kairoseth-runtime bridged, manual protected workflow, sanitized retained evidence and diagnostics)",
 );
