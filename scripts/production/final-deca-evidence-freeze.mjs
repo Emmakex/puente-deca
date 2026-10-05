@@ -4,6 +4,17 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
 
+const REQUIRED_GATES = [
+  "atlasCore",
+  "drRestore",
+  "kairosethEngine",
+  "hostingerEdge",
+  "infrastructureSecurity",
+  "wooCommerceLive",
+  "prestaShop178Live",
+  "prestaShop8Live",
+];
+
 const sha256 = (bytes) =>
   `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
 
@@ -62,10 +73,18 @@ export const validateFinalFreezeInputs = ({
   if (infrastructureAcceptance.allRequiredGatesPassed !== true) {
     fail("all required infrastructure gates must have passed");
   }
-  if (!infrastructureAcceptance.gates || Object.keys(infrastructureAcceptance.gates).length !== 8) {
-    fail("infrastructure acceptance must contain exactly eight gates");
+  if (!infrastructureAcceptance.gates || typeof infrastructureAcceptance.gates !== "object") {
+    fail("infrastructure acceptance gates are invalid");
   }
-  for (const [name, gate] of Object.entries(infrastructureAcceptance.gates)) {
+
+  const gateNames = Object.keys(infrastructureAcceptance.gates).sort();
+  const expectedGateNames = [...REQUIRED_GATES].sort();
+  if (JSON.stringify(gateNames) !== JSON.stringify(expectedGateNames)) {
+    fail("infrastructure acceptance must contain the exact eight DeCA gates");
+  }
+
+  for (const name of REQUIRED_GATES) {
+    const gate = infrastructureAcceptance.gates[name];
     if (gate?.status !== "pass") fail(`${name} must be pass`);
     if (!/^sha256:[a-f0-9]{64}$/.test(gate?.evidenceSha256 ?? "")) {
       fail(`${name} evidence hash is invalid`);
