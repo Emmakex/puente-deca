@@ -59,15 +59,15 @@ Sensitive source material may remain in the approved provider/platform console. 
 
 ## Validation
 
-Run:
+Run the fail-closed validator directly:
 
 ```bash
-npm run production:infrastructure-security-acceptance -- \
+node scripts/production/infrastructure-security-acceptance.mjs \
   /secure/path/infrastructure-security-manifest.json \
   /secure/path/infrastructure-security-evidence.json
 ```
 
-The optional validated output is mode `0600` and contains only the exact secret-free schema.
+The optional validated output is mode `0600` and contains only the exact secret-free schema. The validator is covered by the normal `node --test` suite, so no separate CI lane or package-script dependency is required.
 
 A successful validation produces the evidence file whose SHA-256 may populate the final manifest's `infrastructureSecurity` gate. It does not automatically make Atlas core, DR, Hostinger edge, or connector-store gates pass; those remain separate evidence rows.
 
