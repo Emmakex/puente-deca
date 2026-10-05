@@ -72,6 +72,26 @@ try {
     );
   }
 
+  const forbiddenHeaders = new Set([
+    "set-cookie",
+    "x-powered-by",
+    "x-deca-document-id",
+    "x-deca-version"
+  ]);
+
+  for (const [name] of response.headers) {
+    const normalizedName = name.toLowerCase();
+    if (
+      forbiddenHeaders.has(normalizedName) ||
+      normalizedName.startsWith("x-kairoseth-")
+    ) {
+      throw Object.assign(
+        new Error("public route exposed an internal header"),
+        { code: "PUBLIC_PDF_INTERNAL_HEADER_LEAK" }
+      );
+    }
+  }
+
   const contentType =
     response.headers
       .get("content-type")
@@ -154,6 +174,10 @@ try {
     response.headers.get(
       "x-robots-tag"
     ) ?? "";
+  const contentSecurityPolicy =
+    response.headers.get(
+      "content-security-policy"
+    ) ?? "";
 
   if (!/no-store/i.test(cacheControl)) {
     throw Object.assign(
@@ -189,6 +213,20 @@ try {
     );
   }
 
+  if (
+    !/default-src\s+'none'/i.test(
+      contentSecurityPolicy
+    ) ||
+    !/frame-ancestors\s+'none'/i.test(
+      contentSecurityPolicy
+    )
+  ) {
+    throw Object.assign(
+      new Error("public PDF CSP is missing or unsafe"),
+      { code: "PUBLIC_PDF_CSP_INVALID" }
+    );
+  }
+
   process.stdout.write(
     `${JSON.stringify(
       {
@@ -203,7 +241,9 @@ try {
         noStore: true,
         noSniff: true,
         noReferrer: true,
-        noIndex: true
+        noIndex: true,
+        cspLockedDown: true,
+        noInternalHeaders: true
       },
       null,
       2
