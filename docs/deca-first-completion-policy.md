@@ -30,6 +30,14 @@ Until DeCA reaches 100%, new product development must stay inside the DeCA scope
 
 Do **not** add new eCMR or eFTI product functionality while any DeCA completion gate remains open.
 
+## Internal testing rule
+
+All DeCA testing and acceptance is performed internally by the Kairoseth team using synthetic fixtures, controlled runtimes and retained evidence.
+
+Customer production data, customer stores and third-party test operators are not required to close the agreed DeCA roadmap. Production-class checks may run against Kairoseth-owned Hostinger/MongoDB infrastructure, but the fixtures and execution remain internal.
+
+See `docs/internal-acceptance-policy.md`.
+
 ## eCMR status
 
 The eCMR work already implemented is preserved in the repository as a **frozen future module**. It is not part of the current DeCA completion target and must not block DeCA release.
@@ -57,31 +65,31 @@ DeCA is considered complete only when both conditions are true:
 
 The repository already has the agreed DeCA product capabilities implemented and protected by CI: contract/validation, document engine, API, persistence, connector packages, Kairoseth integration, production hardening and automated acceptance tooling.
 
-### 2. All remaining DeCA production gates are closed with evidence
+### 2. All remaining DeCA acceptance gates are closed with evidence
 
 Current closure gates are the unchecked DeCA items in `docs/roadmap.md`, principally:
 
-- live MongoDB Atlas transaction/index/concurrency acceptance;
-- live Kairoseth public DeCA route acceptance;
-- WooCommerce live-store smoke;
-- PrestaShop 1.7.8.x and 8.x live compatibility smoke;
-- live GridFS lifecycle/reconciliation acceptance;
-- staging/DR Atlas backup/restore drill;
+- MongoDB transaction/index/concurrency acceptance in the internal integration runtime and the intended Kairoseth-owned Atlas environment;
+- Kairoseth public DeCA route acceptance with a synthetic controlled document;
+- WooCommerce compatibility acceptance on a Kairoseth-controlled test store;
+- PrestaShop 1.7.8.x and 8.x compatibility acceptance on Kairoseth-controlled test stores;
+- GridFS lifecycle/reconciliation acceptance;
+- backup/isolated-restore drill against a controlled DR target;
 - Hostinger CDN/WAF edge protection acceptance;
-- live internal-service deployment acceptance;
-- live infrastructure security review;
-- focused external penetration test.
+- internal-service deployment acceptance;
+- internal infrastructure security review;
+- focused internal penetration/security test.
 
-A gate is not closed merely because automation exists. It closes when the intended production/staging environment has executed the acceptance and the evidence is retained.
+A gate is not closed merely because automation exists. It closes when the intended internal environment has executed the acceptance and the evidence is retained.
 
 ## Development rule
 
 Every future status/continuation decision for this repository must ask, in this order:
 
-1. Is there an open DeCA product or production-acceptance gate?
-2. Can it be advanced now with the existing Kairoseth/Hostinger/MongoDB infrastructure?
+1. Is there an open DeCA product or acceptance gate?
+2. Can it be advanced now with the existing Kairoseth/Hostinger/MongoDB infrastructure or an isolated internal test runtime?
 3. If yes, advance it before touching eCMR or eFTI.
-4. If it requires an external credential/environment/provider not currently available, record it as a live gate and move to the next DeCA gate that can be advanced.
+4. If it requires a Kairoseth-owned production credential/environment not currently available, record it as an operational gate and move to the next DeCA gate that can be advanced internally.
 
 ## Product architecture after DeCA completion
 
