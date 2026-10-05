@@ -2,7 +2,7 @@
 
 This is the Kairoseth-owned infrastructure-security evidence gate for the DeCA 100% milestone.
 
-It does not probe customer systems and does not store provider credentials. The gate is completed only after the following five controls have been inspected on the intended Kairoseth-owned infrastructure and each control has retained evidence with a SHA-256 digest.
+It does **not** probe customer systems and does not store provider credentials. The gate is completed only after the following six controls have been inspected on the intended Kairoseth-owned infrastructure and each control has retained evidence with a SHA-256 digest.
 
 ## Required controls
 
@@ -21,6 +21,12 @@ The manifest stores only the retained evidence hash/reference, never IP allowlis
 ### `runtimeSecretScope`
 
 Evidence must show that production service/API/health credentials are held in the intended secret-management surface, are not committed to the repository, and are exposed only to runtime/workflow steps that require them.
+
+### `deployedTenantIsolation`
+
+Evidence must show, with controlled synthetic organizations A/B, that the **deployed Kairoseth production-class route** keeps shipment/private DeCA access scoped to the authenticated organization and rejects a cross-organization direct-object request.
+
+This is separate from the already-green internal E2E/security suites: the evidence must come from the intended deployed Kairoseth boundary. It must use Kairoseth-controlled synthetic fixtures only and must not include customer data in the retained manifest.
 
 ### `deploymentReadinessRollback`
 
@@ -55,7 +61,7 @@ node scripts/production/infrastructure-security-acceptance.mjs \
   /secure/path/deca-infrastructure-security-evidence.json
 ```
 
-The optional validated output is written with mode `0600`.
+The optional validated output is written with mode `0600`, and the normal test suite verifies that the validated output does not contain obvious secret material.
 
 A single missing/pending control makes the whole gate fail closed. The SHA-256 of the validated output is the evidence supplied to the `infrastructureSecurity` entry in `final-infrastructure-acceptance.mjs`.
 
