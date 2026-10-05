@@ -214,14 +214,26 @@ jobs:
         run: |
           set -euo pipefail
           docker network create pdeca-presta
-          docker run --detach \
-            --name pdeca-presta-db \
-            --network pdeca-presta \
-            --env MYSQL_DATABASE=prestashop \
-            --env MYSQL_USER=prestashop \
-            --env MYSQL_PASSWORD=prestashop \
-            --env MYSQL_ROOT_PASSWORD=internal-root-only \
-            '${{ matrix.database }}'
+          if [ '${{ matrix.native_auth }}' = 'true' ]; then
+            docker run --detach \
+              --name pdeca-presta-db \
+              --network pdeca-presta \
+              --env MYSQL_DATABASE=prestashop \
+              --env MYSQL_USER=prestashop \
+              --env MYSQL_PASSWORD=prestashop \
+              --env MYSQL_ROOT_PASSWORD=internal-root-only \
+              '${{ matrix.database }}' \
+              --default-authentication-plugin=mysql_native_password
+          else
+            docker run --detach \
+              --name pdeca-presta-db \
+              --network pdeca-presta \
+              --env MYSQL_DATABASE=prestashop \
+              --env MYSQL_USER=prestashop \
+              --env MYSQL_PASSWORD=prestashop \
+              --env MYSQL_ROOT_PASSWORD=internal-root-only \
+              '${{ matrix.database }}'
+          fi
           ready=0
           for attempt in $(seq 1 60); do
             if docker exec pdeca-presta-db mysqladmin ping -uroot -pinternal-root-only --silent >/dev/null 2>&1; then
@@ -231,12 +243,6 @@ jobs:
             sleep 1
           done
           test "$ready" = "1"
-
-          if [ '${{ matrix.native_auth }}' = 'true' ]; then
-            docker exec pdeca-presta-db \
-              mysql -uroot -pinternal-root-only \
-              --execute="ALTER USER 'prestashop'@'%' IDENTIFIED WITH mysql_native_password BY 'prestashop'; FLUSH PRIVILEGES;"
-          fi
 
           docker run --detach \
             --name pdeca-presta \
