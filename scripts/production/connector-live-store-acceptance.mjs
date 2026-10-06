@@ -5,6 +5,7 @@ import {
 import {
   chmod,
   mkdir,
+  readFile,
   writeFile
 } from "node:fs/promises";
 import {
@@ -38,7 +39,11 @@ const configs = {
     rootEnv:
       "PDECA_WP_ROOT",
     orderEnv:
-      "PDECA_WOO_SMOKE_ORDER_ID"
+      "PDECA_WOO_SMOKE_ORDER_ID",
+    sourceVersionFile:
+      "connectors/woocommerce/puente-deca-woocommerce.php",
+    sourceVersionPattern:
+      /define\(\s*'PDECA_WOO_VERSION'\s*,\s*'([^']+)'\s*\)/
   },
   prestashop: {
     script:
@@ -48,7 +53,11 @@ const configs = {
     rootEnv:
       "PDECA_PRESTASHOP_ROOT",
     orderEnv:
-      "PDECA_PRESTASHOP_SMOKE_ORDER_ID"
+      "PDECA_PRESTASHOP_SMOKE_ORDER_ID",
+    sourceVersionFile:
+      "connectors/prestashop/puentedeca.php",
+    sourceVersionPattern:
+      /const\s+VERSION\s*=\s*'([^']+)'\s*;/
   }
 };
 
@@ -85,6 +94,49 @@ const requireCompletionText = (
 
   return normalized;
 };
+
+const acceptedConnectorVersion =
+  async (config) => {
+    let source;
+
+    try {
+      source = await readFile(
+        config.sourceVersionFile,
+        "utf8"
+      );
+    } catch {
+      throw Object.assign(
+        new Error(
+          "Accepted connector source is unavailable in the checkout"
+        ),
+        {
+          code:
+            "ACCEPTED_CONNECTOR_SOURCE_UNAVAILABLE"
+        }
+      );
+    }
+
+    const match = source.match(
+      config.sourceVersionPattern
+    );
+    const version =
+      String(match?.[1] ?? "")
+        .trim();
+
+    if (!version) {
+      throw Object.assign(
+        new Error(
+          "Accepted connector version cannot be derived from the checkout"
+        ),
+        {
+          code:
+            "ACCEPTED_CONNECTOR_VERSION_UNAVAILABLE"
+        }
+      );
+    }
+
+    return version;
+  };
 
 const resolvePlatformVariant = (
   selectedConnector,
@@ -218,11 +270,8 @@ try {
     }
 
     expectedConnectorVersion =
-      requireCompletionText(
-        process.env
-          .PDECA_EXPECTED_CONNECTOR_VERSION,
-        "EXPECTED_CONNECTOR_VERSION_REQUIRED",
-        "PDECA_EXPECTED_CONNECTOR_VERSION is required for completion acceptance"
+      await acceptedConnectorVersion(
+        config
       );
   }
 
@@ -374,7 +423,7 @@ try {
   ) {
     throw Object.assign(
       new Error(
-        "Installed connector version does not match the expected accepted release"
+        "Installed connector version does not match the connector release declared by this exact checkout"
       ),
       {
         code:
@@ -519,6 +568,7 @@ try {
       commit,
       completionGate,
       completionEligible,
+      expectedConnectorVersion,
       evidenceId:
         evidence.evidenceId,
       evidenceSha256:
