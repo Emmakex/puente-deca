@@ -117,8 +117,8 @@ const main = () => {
             backup.bytes,
           sha256:
             backup.sha256,
-          namespace:
-            backup.namespace
+          namespaces:
+            backup.namespaces
         },
         restore: {
           database:
