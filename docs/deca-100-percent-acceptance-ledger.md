@@ -29,19 +29,29 @@ Customer systems and customer data are not required to close any gate. Fixtures,
 
 | Gate | Status | Closure requirement |
 | --- | --- | --- |
-| Synthetic Cargo acceptance fixture | READY | Provision/reuse dedicated QA credential + shipment + DeCA; retain shipment ID, public URL and SHA-256 without customer data |
-| Kairoseth → Puente DeCA engine deployment acceptance | READY | Manual protected read-only production gate green with retained sanitized evidence |
-| Public DeCA route / PDF integrity | READY | Same controlled fixture proves canonical route, privacy headers and immutable PDF SHA-256 |
+| Synthetic Cargo acceptance fixture | GREEN | Protected synthetic production fixture accepted in engine/edge runs; no customer data retained |
+| Kairoseth → Puente DeCA engine deployment acceptance | GREEN | Protected production diagnostic: health, API, shipment, PDF headers and repeated hash green |
+| Public DeCA route / PDF integrity | GREEN | Controlled fixture proves canonical route, privacy headers, fail-closed CSP and immutable repeated PDF SHA-256 |
 | MongoDB Atlas transaction/index/concurrency | READY | Run existing fail-closed Atlas acceptance against intended Kairoseth Atlas environment |
 | GridFS lifecycle + orphan reconciliation on intended Atlas | READY | Live controlled round-trip/reconciliation returns zero accepted anomalies |
 | Backup → isolated DR restore | READY | Run guarded backup/restore drill against Kairoseth-controlled DR target; verify metadata↔GridFS hashes and cleanup |
 | WooCommerce live-store read acceptance | READY | Run host-local read-only evidence wrapper on a Kairoseth-controlled WooCommerce acceptance store |
 | PrestaShop 1.7.8.x live-store read acceptance | READY | Run host-local read-only evidence wrapper on a Kairoseth-controlled 1.7.8.x acceptance store |
 | PrestaShop 8.x live-store read acceptance | READY | Run host-local read-only evidence wrapper on a Kairoseth-controlled 8.x acceptance store |
-| Hostinger public edge technical acceptance | READY | Manual safe low-volume edge gate: TLS/CDN, PDF hash/privacy, replay, token tamper and traversal with retained evidence |
+| Hostinger public edge technical acceptance | GREEN | Safe low-volume external edge gate proves PDF 200, immutable repeated hash and fail-closed CSP |
 | Hostinger CDN/WAF provider configuration evidence | OPEN | Kairoseth-controlled confirmation that intended production CDN/WAF/abuse protections are enabled; no disruptive DDoS/stress test required |
 | Infrastructure security acceptance | OPEN | Review Atlas network/least-privilege, deployment isolation/secrets and Hostinger edge controls with retained evidence |
 | Final evidence freeze | OPEN | All rows above GREEN; pin final DeCA commit/release manifest and retained acceptance references |
+
+## Production closure evidence — 2026-10-06
+
+The production engine/edge rows above were promoted to `GREEN` only after the following protected, client-visible checks passed:
+
+- Kairoseth deployed revision observed by the acceptance runs: `1f0cb171d5b9c8d1e861ac49d5f53da6b968ab94`.
+- `DeCA Kairoseth Cargo CSP Edge Acceptance`, run `37441821303`, attempt 5: `http=200`, `csp_count=1`, `default_none=1`, `frame_none=1`, `upgrade_insecure=0`, `same_policy=1`, `hcdn_observed=0`, classification `fail_closed_policy_present`; sanitized evidence artifact retained by the workflow.
+- `DeCA Kairoseth Cargo Engine Phase Diagnostic`, run `37415774217`, attempt 5: health, API list, shipment read, PDF status/magic/size/privacy headers/CSP, repeated PDF SHA-256 and synthetic credential revocation all passed.
+
+The Hostinger production application is served through Passenger/LiteSpeed. The effective `public_html/.htaccess` contains a route-scoped DeCA CSP override for `/deca/d/*.pdf`. Hostinger may regenerate that file during Node.js redeploys, so the Kairoseth deployed-revision gate must also verify the client-visible DeCA CSP after each relevant deployment. A repository-only or local `.htaccess` representation is not sufficient evidence.
 
 ## Mapping to the fail-closed `deca-100` manifest
 
