@@ -20,6 +20,9 @@ import {
 import {
   spawnSync
 } from "node:child_process";
+import {
+  decaBackupNamespaces
+} from "./deca-backup-scope.mjs";
 
 const requireText = (
   value,
@@ -123,6 +126,11 @@ const main = async () => {
     throw error;
   }
 
+  const namespaces =
+    decaBackupNamespaces(
+      databaseName
+    );
+
   const outputDirectory =
     resolve(
       process.env
@@ -202,7 +210,10 @@ const main = async () => {
         `--config=${configPath}`,
         `--archive=${archivePath}`,
         "--gzip",
-        `--nsInclude=${databaseName}.deca_*`
+        ...namespaces.map(
+          (namespace) =>
+            `--nsInclude=${namespace}`
+        )
       ]
     );
   } finally {
@@ -241,13 +252,12 @@ const main = async () => {
   );
 
   const metadata = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     product:
       "Kairoseth Puente DeCA",
     sourceDatabase:
       databaseName,
-    namespace:
-      `${databaseName}.deca_*`,
+    namespaces,
     createdAt:
       new Date().toISOString(),
     archive:
@@ -286,8 +296,8 @@ const main = async () => {
           archiveStat.size,
         sha256:
           `sha256:${checksum}`,
-        namespace:
-          metadata.namespace
+        namespaces:
+          metadata.namespaces
       },
       null,
       2
