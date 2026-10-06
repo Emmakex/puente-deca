@@ -36,19 +36,32 @@ const sha256 = (bytes) =>
 
 const gateNameFor = (
   connector,
-  platformVariant
+  platformVariant,
+  result
 ) => {
   if (
     connector === "woocommerce" &&
-    platformVariant === "woocommerce"
+    platformVariant === "woocommerce" &&
+    result?.check ===
+      "woocommerce-live-store-smoke"
   ) {
     return "wooCommerceLive";
   }
 
+  const prestaVersion =
+    String(
+      result?.prestashopVersion ?? ""
+    );
+
   if (
     connector === "prestashop" &&
     platformVariant ===
-      "prestashop-1.7.8.x"
+      "prestashop-1.7.8.x" &&
+    result?.check ===
+      "prestashop-live-store-smoke" &&
+    /^1\.7\.8(?:\.|$)/.test(
+      prestaVersion
+    )
   ) {
     return "prestaShop178Live";
   }
@@ -56,14 +69,17 @@ const gateNameFor = (
   if (
     connector === "prestashop" &&
     platformVariant ===
-      "prestashop-8.x"
+      "prestashop-8.x" &&
+    result?.check ===
+      "prestashop-live-store-smoke" &&
+    /^8\./.test(prestaVersion)
   ) {
     return "prestaShop8Live";
   }
 
   fail(
     "LIVE_EVIDENCE_VARIANT_INVALID",
-    "Evidence does not map to a supported final live-store gate"
+    "Evidence platform variant is inconsistent with the live runtime"
   );
 };
 
@@ -219,7 +235,8 @@ try {
   const gateName =
     gateNameFor(
       evidence.connector,
-      evidence.platformVariant
+      evidence.platformVariant,
+      result
     );
 
   const gate = {
