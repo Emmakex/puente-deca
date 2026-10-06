@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: Confirm synthetic production acceptance fixture refresh
+        description: Confirm synthetic production acceptance fixture and engine proof
         required: true
         default: false
         type: boolean
@@ -42,7 +42,7 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Refresh isolated fixture through deployed Kairoseth bridge
+      - name: Provision isolated fixture and ephemeral API credential
         shell: bash
         env:
           OPERATIONS_HEALTH_SECRET: ${{ secrets.OPERATIONS_HEALTH_SECRET }}
@@ -96,7 +96,7 @@ jobs:
               safeReason = parsed.reason;
             }
           } catch {
-            // Intentionally do not print the raw body: edge responses may contain unrelated details.
+            // Intentionally never print the raw response.
           }
           console.error(`Sanitized response: status=${safeStatus} check=${safeCheck} reason=${safeReason}`);
           NODE
@@ -110,109 +110,241 @@ jobs:
             result?.status !== 'ok' ||
             result?.check !== 'kairoseth-cargo-acceptance-fixture' ||
             result?.synthetic !== true ||
-            result?.customerData !== false
+            result?.customerData !== false ||
+            result?.organizationId !== 'kairoseth-cargo-production-acceptance'
           ) {
-            throw new Error('Kairoseth fixture response is not green and synthetic');
+            throw new Error('Kairoseth fixture response is not green, isolated and synthetic');
           }
-          if (typeof result?.shipmentId !== 'string' || result.shipmentId.length < 8) {
+          if (typeof result?.shipmentId !== 'string' || !/^[A-Za-z0-9_-]{8,160}$/.test(result.shipmentId)) {
             throw new Error('Synthetic shipment ID is invalid');
           }
           if (!/^https:\/\/kairoseth\.com\/deca\/d\/[A-Za-z0-9_-]{16,128}\.pdf$/.test(result?.publicPdfUrl ?? '')) {
             throw new Error('Synthetic public PDF URL is not canonical');
           }
-          fs.writeFileSync(
-            '.artifacts/deca-fixture/public-pdf-url.txt',
-            `${result.publicPdfUrl}\n`,
-            { mode: 0o600 }
-          );
+          if (typeof result?.credential?.credentialId !== 'string' || !/^[A-Za-z0-9_-]{8,160}$/.test(result.credential.credentialId)) {
+            throw new Error('Ephemeral credential ID is invalid');
+          }
+          if (typeof result?.credential?.apiKey !== 'string' || result.credential.apiKey.length < 32) {
+            throw new Error('Ephemeral API key is invalid');
+          }
+          const expiresAt = Date.parse(result?.credential?.expiresAt ?? '');
+          const remaining = expiresAt - Date.now();
+          if (!Number.isFinite(expiresAt) || remaining <= 0 || remaining > 20 * 60 * 1000) {
+            throw new Error('Ephemeral credential TTL is invalid');
+          }
+
+          const files = {
+            'shipment-id.txt': result.shipmentId,
+            'public-pdf-url.txt': result.publicPdfUrl,
+            'credential-id.txt': result.credential.credentialId,
+            'api-key.txt': result.credential.apiKey,
+          };
+          for (const [name, value] of Object.entries(files)) {
+            fs.writeFileSync(`.artifacts/deca-fixture/${name}`, `${value}\n`, { mode: 0o600 });
+          }
           NODE
 
-      - name: Verify public PDF and freeze fixture evidence
+      - name: Accept deployed engine, API and immutable public PDF
+        shell: bash
+        env:
+          OPERATIONS_HEALTH_SECRET: ${{ secrets.OPERATIONS_HEALTH_SECRET }}
+        run: |
+          set -euo pipefail
+          test ${#OPERATIONS_HEALTH_SECRET} -ge 32
+
+          endpoint="https://kairoseth.com/api/operations/deca/acceptance-fixture"
+          base="https://kairoseth.com"
+          work=".artifacts/deca-fixture"
+          shipment_id="$(tr -d '\r\n' < "$work/shipment-id.txt")"
+          public_pdf_url="$(tr -d '\r\n' < "$work/public-pdf-url.txt")"
+          credential_id="$(tr -d '\r\n' < "$work/credential-id.txt")"
+          api_key="$(tr -d '\r\n' < "$work/api-key.txt")"
+          user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+          echo "::add-mask::$api_key"
+          revoked=0
+
+          revoke_credential() {
+            if [ "$revoked" -eq 1 ]; then
+              return 0
+            fi
+            local body="$RUNNER_TEMP/deca-credential-revoke.json"
+            local status=""
+            status="$(curl -4 --silent --show-error --request DELETE \
+              --connect-timeout 8 --max-time 20 \
+              --header "Authorization: Bearer $OPERATIONS_HEALTH_SECRET" \
+              --header "x-kairoseth-acceptance-confirm: synthetic-production-credential-revoke" \
+              --header "x-kairoseth-acceptance-credential-id: $credential_id" \
+              --header "Accept: application/json" \
+              --header "User-Agent: $user_agent" \
+              --output "$body" --write-out '%{http_code}' \
+              "$endpoint")"
+            if [ "$status" != "200" ] || ! node -e '
+              const fs = require("node:fs");
+              const body = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+              process.exit(body?.status === "ok" && body?.revoked === true ? 0 : 1);
+            ' "$body"; then
+              echo "::error::Ephemeral Cargo acceptance credential revocation failed."
+              return 1
+            fi
+            revoked=1
+            touch "$work/credential-revoked.marker"
+            return 0
+          }
+
+          trap 'revoke_credential >/dev/null 2>&1 || true' EXIT
+
+          health_body="$RUNNER_TEMP/deca-engine-health.json"
+          health_status="$(curl -4 --silent --show-error \
+            --connect-timeout 8 --max-time 20 \
+            --header "Authorization: Bearer $OPERATIONS_HEALTH_SECRET" \
+            --header "Accept: application/json" \
+            --header "User-Agent: $user_agent" \
+            --output "$health_body" --write-out '%{http_code}' \
+            "$base/api/health/puente-deca")"
+          test "$health_status" = "200"
+          node -e '
+            const fs = require("node:fs");
+            const body = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            process.exit(body?.status === "ok" && body?.service === "puente-deca-health" && body?.engine === "ready" ? 0 : 1);
+          ' "$health_body"
+
+          list_body="$RUNNER_TEMP/deca-shipments.json"
+          list_status="$(curl -4 --silent --show-error \
+            --connect-timeout 8 --max-time 20 \
+            --header "Authorization: Bearer $api_key" \
+            --header "Accept: application/json" \
+            --header "User-Agent: $user_agent" \
+            --output "$list_body" --write-out '%{http_code}' \
+            "$base/api/deca/v1/shipments?limit=1")"
+          test "$list_status" = "200"
+          node -e '
+            const fs = require("node:fs");
+            const body = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            process.exit(Array.isArray(body?.items) && typeof body?.total === "number" ? 0 : 1);
+          ' "$list_body"
+
+          shipment_body="$RUNNER_TEMP/deca-shipment.json"
+          shipment_status="$(curl -4 --silent --show-error \
+            --connect-timeout 8 --max-time 20 \
+            --header "Authorization: Bearer $api_key" \
+            --header "Accept: application/json" \
+            --header "User-Agent: $user_agent" \
+            --output "$shipment_body" --write-out '%{http_code}' \
+            "$base/api/deca/v1/shipments/$shipment_id")"
+          test "$shipment_status" = "200"
+          SHIPMENT_ID="$shipment_id" node -e '
+            const fs = require("node:fs");
+            const body = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            const ok = body?.shipmentId === process.env.SHIPMENT_ID
+              && body?.organizationId === "kairoseth-cargo-production-acceptance"
+              && body?.externalReference === "KAIROSETH-CARGO-PRODUCTION-ACCEPTANCE-V1"
+              && Array.isArray(body?.documentVersionIds);
+            process.exit(ok ? 0 : 1);
+          ' "$shipment_body"
+
+          pdf_headers="$RUNNER_TEMP/deca-headers.txt"
+          pdf_one="$RUNNER_TEMP/deca-acceptance-one.pdf"
+          pdf_status="$(curl -4 --silent --show-error \
+            --connect-timeout 8 --max-time 25 --max-redirs 0 \
+            --header "Accept: application/pdf" \
+            --header "User-Agent: $user_agent" \
+            --dump-header "$pdf_headers" \
+            --output "$pdf_one" --write-out '%{http_code}' \
+            "$public_pdf_url")"
+          test "$pdf_status" = "200"
+          test "$(head -c 5 "$pdf_one")" = "%PDF-"
+          pdf_size="$(stat -c '%s' "$pdf_one")"
+          test "$pdf_size" -gt 0
+          test "$pdf_size" -le 5000000
+
+          normalized_headers="$RUNNER_TEMP/deca-headers-normalized.txt"
+          tr -d '\r' < "$pdf_headers" > "$normalized_headers"
+          grep -Eiq '^content-type: *application/pdf([; ]|$)' "$normalized_headers"
+          grep -Eiq '^cache-control:.*private.*no-store' "$normalized_headers"
+          grep -Eiq '^x-content-type-options: *nosniff' "$normalized_headers"
+          grep -Eiq '^referrer-policy: *no-referrer' "$normalized_headers"
+          grep -Eiq '^x-robots-tag:.*noindex.*nofollow.*noarchive' "$normalized_headers"
+          grep -Eiq '^content-security-policy:.*default-src .none..*frame-ancestors .none.' "$normalized_headers"
+          if grep -Eiq '^(set-cookie|x-powered-by|x-deca-[^:]*|x-kairoseth-[^:]*):' "$normalized_headers"; then
+            echo "::error::Controlled public DeCA leaked a forbidden public header."
+            exit 1
+          fi
+
+          sha_one="sha256:$(sha256sum "$pdf_one" | awk '{print $1}')"
+          pdf_two="$RUNNER_TEMP/deca-acceptance-two.pdf"
+          repeat_status="$(curl -4 --silent --show-error \
+            --connect-timeout 8 --max-time 25 --max-redirs 0 \
+            --header "Accept: application/pdf" \
+            --header "User-Agent: $user_agent" \
+            --output "$pdf_two" --write-out '%{http_code}' \
+            "$public_pdf_url")"
+          test "$repeat_status" = "200"
+          sha_two="sha256:$(sha256sum "$pdf_two" | awk '{print $1}')"
+          test "$sha_one" = "$sha_two"
+          printf '%s\n' "$sha_one" > "$work/pdf-sha256.txt"
+          chmod 600 "$work/pdf-sha256.txt"
+
+          revoke_credential
+          trap - EXIT
+
+          echo "PASS DECA KAIROSETH ENGINE: protected health, ephemeral API, synthetic shipment and immutable public PDF are green."
+
+      - name: Freeze sanitized engine acceptance evidence
         shell: bash
         run: |
           set -euo pipefail
-          public_pdf_url="$(tr -d '\r\n' < .artifacts/deca-fixture/public-pdf-url.txt)"
-          pdf_file="$RUNNER_TEMP/kairoseth-cargo-acceptance.pdf"
-          user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
-          status=""
-          curl_status=0
-
-          for attempt in 1 2 3 4; do
-            set +e
-            status="$(curl -4 --silent --show-error \
-              --connect-timeout 8 --max-time 25 \
-              --header "Accept: application/pdf" \
-              --header "User-Agent: $user_agent" \
-              --output "$pdf_file" --write-out '%{http_code}' \
-              "$public_pdf_url")"
-            curl_status=$?
-            set -e
-
-            if [ "$curl_status" -eq 0 ] && [ "$status" = "200" ]; then
-              break
-            fi
-            [ "$attempt" -eq 4 ] || sleep 2
-          done
-
-          test "$curl_status" -eq 0
-          test "$status" = "200"
-          test "$(head -c 5 "$pdf_file")" = "%PDF-"
-          pdf_size="$(stat -c '%s' "$pdf_file")"
-          test "$pdf_size" -gt 0
-          test "$pdf_size" -le 5000000
-          export PDF_SHA256="sha256:$(sha256sum "$pdf_file" | awk '{print $1}')"
+          work=".artifacts/deca-fixture"
+          test -f "$work/credential-revoked.marker"
+          export SHIPMENT_ID="$(tr -d '\r\n' < "$work/shipment-id.txt")"
+          export PUBLIC_PDF_URL="$(tr -d '\r\n' < "$work/public-pdf-url.txt")"
+          export PDF_SHA256="$(tr -d '\r\n' < "$work/pdf-sha256.txt")"
 
           node <<'NODE'
           const fs = require('node:fs');
           const crypto = require('node:crypto');
-          const result = JSON.parse(fs.readFileSync('.artifacts/deca-fixture/raw-result.json', 'utf8'));
           const hash = (value) => `sha256:${crypto.createHash('sha256').update(value).digest('hex')}`;
           if (!/^sha256:[a-f0-9]{64}$/.test(process.env.PDF_SHA256 ?? '')) {
             throw new Error('Synthetic PDF SHA-256 is invalid');
           }
-
           const evidence = {
-            schemaVersion: 1,
-            check: 'kairoseth-cargo-acceptance-fixture',
+            schemaVersion: 2,
+            check: 'kairoseth-cargo-engine-production-acceptance',
             repository: process.env.GITHUB_REPOSITORY,
             commit: process.env.GITHUB_SHA,
             runId: process.env.GITHUB_RUN_ID,
             runAttempt: process.env.GITHUB_RUN_ATTEMPT,
             recordedAt: new Date().toISOString(),
+            environment: 'https://kairoseth.com',
             synthetic: true,
             customerData: false,
-            source: 'deployed-kairoseth-runtime-bridge',
-            shipmentIdSha256: hash(result.shipmentId),
-            publicPdfUrlSha256: hash(result.publicPdfUrl),
-            pdfSha256: process.env.PDF_SHA256
+            source: 'deployed-kairoseth-in-process-runtime',
+            credentialEphemeral: true,
+            credentialTtlMinutes: 15,
+            credentialRevoked: true,
+            shipmentIdSha256: hash(process.env.SHIPMENT_ID),
+            publicPdfUrlSha256: hash(process.env.PUBLIC_PDF_URL),
+            pdfSha256: process.env.PDF_SHA256,
+            protectedEngineHealth: 'passed',
+            connectorApiRead: 'passed',
+            controlledShipmentRead: 'passed',
+            publicHeaderPrivacy: 'passed',
+            repeatedPdfHash: 'passed',
+            productionBusinessDataMutations: false
           };
           fs.writeFileSync(
             '.artifacts/deca-fixture/acceptance-evidence.json',
             `${JSON.stringify(evidence, null, 2)}\n`,
             { mode: 0o600 }
           );
-
-          const handoff = {
-            schemaVersion: 1,
-            shipmentId: result.shipmentId,
-            publicPdfUrl: result.publicPdfUrl,
-            pdfSha256: process.env.PDF_SHA256
-          };
-          fs.writeFileSync(
-            '.artifacts/deca-fixture/operator-handoff.json',
-            `${JSON.stringify(handoff, null, 2)}\n`,
-            { mode: 0o600 }
-          );
           NODE
 
-          sha256sum .artifacts/deca-fixture/acceptance-evidence.json \
-            > .artifacts/deca-fixture/acceptance-evidence.json.sha256
-          chmod 600 .artifacts/deca-fixture/acceptance-evidence.json.sha256
+          sha256sum "$work/acceptance-evidence.json" > "$work/acceptance-evidence.json.sha256"
+          chmod 600 "$work/acceptance-evidence.json.sha256"
 
-      - name: Upload sanitized retained fixture evidence
+      - name: Upload sanitized retained engine evidence
         uses: actions/upload-artifact@v4
         with:
-          name: kairoseth-cargo-fixture-evidence-${{ github.run_id }}
+          name: kairoseth-cargo-engine-acceptance-${{ github.run_id }}
           path: |
             .artifacts/deca-fixture/acceptance-evidence.json
             .artifacts/deca-fixture/acceptance-evidence.json.sha256
@@ -220,20 +352,59 @@ jobs:
           retention-days: 90
           compression-level: 0
 
-      - name: Upload short-lived operator handoff
-        uses: actions/upload-artifact@v4
-        with:
-          name: kairoseth-cargo-fixture-handoff-${{ github.run_id }}
-          path: .artifacts/deca-fixture/operator-handoff.json
-          if-no-files-found: error
-          retention-days: 1
-          compression-level: 0
-
-      - name: Remove transient fixture material
+      - name: Ensure ephemeral credential is revoked and remove transient material
         if: ${{ always() }}
         shell: bash
+        env:
+          OPERATIONS_HEALTH_SECRET: ${{ secrets.OPERATIONS_HEALTH_SECRET }}
         run: |
-          rm -f .artifacts/deca-fixture/raw-result.json
-          rm -f .artifacts/deca-fixture/public-pdf-url.txt
-          rm -f .artifacts/deca-fixture/operator-handoff.json
-          rm -f "$RUNNER_TEMP/kairoseth-cargo-acceptance.pdf"
+          set -euo pipefail
+          work=".artifacts/deca-fixture"
+          endpoint="https://kairoseth.com/api/operations/deca/acceptance-fixture"
+          user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+          cleanup_failed=0
+
+          if [ -f "$work/credential-id.txt" ] && [ ! -f "$work/credential-revoked.marker" ]; then
+            credential_id="$(tr -d '\r\n' < "$work/credential-id.txt")"
+            body="$RUNNER_TEMP/deca-credential-final-revoke.json"
+            status="$(curl -4 --silent --show-error --request DELETE \
+              --connect-timeout 8 --max-time 20 \
+              --header "Authorization: Bearer $OPERATIONS_HEALTH_SECRET" \
+              --header "x-kairoseth-acceptance-confirm: synthetic-production-credential-revoke" \
+              --header "x-kairoseth-acceptance-credential-id: $credential_id" \
+              --header "Accept: application/json" \
+              --header "User-Agent: $user_agent" \
+              --output "$body" --write-out '%{http_code}' \
+              "$endpoint")" || cleanup_failed=1
+            if [ "$cleanup_failed" -eq 0 ]; then
+              if [ "$status" != "200" ] || ! node -e '
+                const fs = require("node:fs");
+                const body = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+                process.exit(body?.status === "ok" && body?.revoked === true ? 0 : 1);
+              ' "$body"; then
+                cleanup_failed=1
+              fi
+            fi
+          fi
+
+          rm -f "$work/raw-result.json"
+          rm -f "$work/shipment-id.txt"
+          rm -f "$work/public-pdf-url.txt"
+          rm -f "$work/credential-id.txt"
+          rm -f "$work/api-key.txt"
+          rm -f "$work/pdf-sha256.txt"
+          rm -f "$work/credential-revoked.marker"
+          rm -f "$RUNNER_TEMP/deca-credential-revoke.json"
+          rm -f "$RUNNER_TEMP/deca-credential-final-revoke.json"
+          rm -f "$RUNNER_TEMP/deca-engine-health.json"
+          rm -f "$RUNNER_TEMP/deca-shipments.json"
+          rm -f "$RUNNER_TEMP/deca-shipment.json"
+          rm -f "$RUNNER_TEMP/deca-headers.txt"
+          rm -f "$RUNNER_TEMP/deca-headers-normalized.txt"
+          rm -f "$RUNNER_TEMP/deca-acceptance-one.pdf"
+          rm -f "$RUNNER_TEMP/deca-acceptance-two.pdf"
+
+          if [ "$cleanup_failed" -ne 0 ]; then
+            echo "::error::Final ephemeral Cargo acceptance credential cleanup failed."
+            exit 1
+          fi
