@@ -48,35 +48,65 @@ for (const anomaly of [
 
 requirePattern(
   /manualGatesRemaining/,
-  "Go-live result must disclose remaining manual acceptance gates"
+  "Go-live result must disclose remaining live acceptance gates"
 );
 
 requirePattern(
   /manualGateStatus/,
-  "Go-live result must expose structured external-gate status"
+  "Go-live result must expose structured live-gate status"
 );
 
 for (const automationCommand of [
-  "production:woocommerce-live-smoke",
-  "production:prestashop-live-smoke",
-  "production:backup-restore-drill"
+  "production:woocommerce-live-acceptance",
+  "production:prestashop-live-acceptance",
+  "production:backup-restore-drill",
+  "production:infrastructure-security-evidence-compose",
+  "production:infrastructure-security-evidence-promote",
+  "final-infrastructure-acceptance.mjs"
 ]) {
   if (!source.includes(automationCommand)) {
     throw new Error(
-      `Go-live external-gate status is missing ${automationCommand}`
+      `Go-live live-gate status is missing ${automationCommand}`
     );
   }
 }
 
-requirePattern(
-  /Kairoseth Cargo Engine Production Acceptance/,
-  "Go-live must name the private Kairoseth engine acceptance workflow"
-);
+for (const protectedWorkflow of [
+  "DeCA Atlas Core Acceptance",
+  "DeCA Backup Restore Acceptance",
+  "Kairoseth Cargo Deployed Tenant Isolation",
+  "Kairoseth DeCA Deployment Readiness Rollback"
+]) {
+  if (!source.includes(protectedWorkflow)) {
+    throw new Error(
+      `Go-live must name protected workflow: ${protectedWorkflow}`
+    );
+  }
+}
+
+for (const expectedGate of [
+  "atlas-core-live-acceptance",
+  "backup-restore-drill",
+  "woocommerce-live-store-read-acceptance",
+  "prestashop-1.7.8-live-store-read-acceptance",
+  "prestashop-8-live-store-read-acceptance",
+  "deployed-tenant-isolation",
+  "deployment-readiness-rollback",
+  "hostinger-waf-provider-configuration",
+  "atlas-runtime-security-inspection",
+  "infrastructure-security-compose-promote",
+  "deca-100-final-freeze"
+]) {
+  if (!source.includes(`"${expectedGate}"`)) {
+    throw new Error(
+      `Go-live must disclose remaining ledger gate ${expectedGate}`
+    );
+  }
+}
 
 for (const externallyOwnedGate of [
-  "edge-volumetric-protection",
-  "live-infrastructure-security-review",
-  "focused-external-penetration-test"
+  "hostinger-waf-provider-configuration",
+  "atlas-runtime-security-inspection"
 ]) {
   if (
     !new RegExp(
@@ -84,19 +114,31 @@ for (const externallyOwnedGate of [
     ).test(source)
   ) {
     throw new Error(
-      `Go-live must mark ${externallyOwnedGate} as externally owned`
+      `Go-live must mark ${externallyOwnedGate} as externally owned evidence`
+    );
+  }
+}
+
+for (const staleGate of [
+  "kairoseth-engine-production-acceptance",
+  "edge-volumetric-protection",
+  "focused-external-penetration-test"
+]) {
+  if (source.includes(staleGate)) {
+    throw new Error(
+      `Go-live must not report already-closed or obsolete gate ${staleGate}`
     );
   }
 }
 
 requirePattern(
-  /kairoseth-engine-production-acceptance/,
-  "Go-live must disclose the external Kairoseth engine production acceptance gate"
+  /no volumetric production test/,
+  "Go-live must preserve the non-disruptive Hostinger provider-evidence boundary"
 );
 
 requirePattern(
   /productionReady:[\s\S]*manualGatesRemaining[\s\S]*length === 0/,
-  "Automated acceptance must not claim production-ready while manual gates remain"
+  "Automated acceptance must not claim production-ready while live gates remain"
 );
 
 requirePattern(
@@ -130,5 +172,5 @@ if (
 }
 
 console.log(
-  "Go-live orchestration contract OK (all automated gates, zero reconciliation anomalies, structured external-gate status, no bypasses)"
+  "Go-live orchestration contract OK (automated core, ledger-aligned live gates, zero reconciliation anomalies, no bypasses)"
 );
