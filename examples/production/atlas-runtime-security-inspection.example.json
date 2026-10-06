@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "check": "deca-atlas-runtime-security-inspection",
+  "recordedAt": "2026-10-06T20:00:00Z",
+  "scope": "kairoseth-production",
+  "referenceId": "atlas-runtime-security-20261006",
+  "roleEvidenceSha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "networkEvidenceSha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "runtimeSecretEvidenceSha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "controls": {
+    "atlasLeastPrivilege": {
+      "database": "kairoseth",
+      "databaseRole": "readWrite",
+      "databaseScopeOnly": true,
+      "dataReadWriteRequired": true,
+      "indexManagementRequired": true,
+      "transactionsRequired": true,
+      "gridFsRequired": true,
+      "additionalDatabaseRoles": false,
+      "clusterAdmin": false,
+      "userAdmin": false,
+      "projectAdmin": false,
+      "rootRole": false
+    },
+    "atlasNetworkAccess": {
+      "connectivityMode": "ip-access-list",
+      "intendedRuntimeOnly": true,
+      "wildcardIngress": false,
+      "publicAnySource": false,
+      "smallestPracticalBoundaryReviewed": true,
+      "tlsRequired": true,
+      "temporaryHumanAccessExpires": true
+    },
+    "runtimeSecretScope": {
+      "runtimeModel": "hostinger-in-process-node",
+      "hostingerEnvironmentReviewed": true,
+      "githubEnvironment": "deca-production",
+      "githubEnvironmentReviewed": true,
+      "mongodbUriServerOnly": true,
+      "operationsHealthSecretServerOnly": true,
+      "standaloneAcceptanceSecretStepScoped": true,
+      "productionBridgeSecretRequired": false,
+      "repositorySecretValuesCommitted": false,
+      "browserSecretExposure": false,
+      "jobWideSecretInjection": false
+    }
+  },
+  "providerEvidenceContainsSecrets": false,
+  "customerDataRetained": false
+}
