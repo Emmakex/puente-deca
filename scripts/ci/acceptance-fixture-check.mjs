@@ -95,25 +95,40 @@ for (const required of [
   "OPERATIONS_HEALTH_SECRET: ${{ secrets.OPERATIONS_HEALTH_SECRET }}",
   "https://kairoseth.com/api/operations/deca/acceptance-fixture",
   "x-kairoseth-acceptance-confirm: synthetic-production-fixture",
+  "x-kairoseth-acceptance-confirm: synthetic-production-credential-revoke",
+  "x-kairoseth-acceptance-credential-id: $credential_id",
   "Authorization: Bearer $OPERATIONS_HEALTH_SECRET",
   "result?.synthetic !== true",
   "result?.customerData !== false",
-  "source: 'deployed-kairoseth-runtime-bridge'",
+  "result?.organizationId !== 'kairoseth-cargo-production-acceptance'",
+  "result?.credential?.credentialId",
+  "result?.credential?.apiKey",
+  "result?.credential?.expiresAt",
+  "remaining > 20 * 60 * 1000",
+  'echo "::add-mask::$api_key"',
+  '"$base/api/health/puente-deca"',
+  '"$base/api/deca/v1/shipments?limit=1"',
+  '"$base/api/deca/v1/shipments/$shipment_id"',
+  "source: 'deployed-kairoseth-in-process-runtime'",
+  "credentialEphemeral: true",
+  "credentialTtlMinutes: 15",
+  "credentialRevoked: true",
+  "repeatedPdfHash: 'passed'",
   "head -c 5",
   '"%PDF-"',
   "5000000",
   "sha256sum",
   "retention-days: 90",
-  "retention-days: 1",
-  "operator-handoff.json",
+  "credential-revoked.marker",
+  "if: ${{ always() }}",
   "raw-result.json",
-  "public-pdf-url.txt",
+  "api-key.txt",
   "Kairoseth fixture request failed (curl=",
   "Sanitized response: status=",
   "reason=${safeReason}",
   "let safeReason = 'unavailable'",
   "RAW_RESPONSE_PATH=\"$raw\" node",
-  "Intentionally do not print the raw body",
+  "Intentionally never print the raw response",
 ]) {
   requireWorkflowText(
     required,
@@ -126,6 +141,8 @@ for (const forbidden of [
   "PUENTE_DECA_SERVICE_URL",
   "PUENTE_DECA_SERVICE_SECRET",
   "kairoseth-cargo-acceptance-api-key",
+  "operator-handoff.json",
+  "retention-days: 1",
   'cat "$raw"',
   'head -c 400 "$raw"',
 ]) {
@@ -142,22 +159,19 @@ if (/on:\s*\n\s*(push|pull_request):/m.test(workflow)) {
   );
 }
 
-if (!workflow.includes(
-  'rm -f .artifacts/deca-fixture/raw-result.json',
-)) {
-  throw new Error(
-    "Acceptance fixture workflow must remove the raw protected response",
-  );
-}
-
-if (!workflow.includes(
-  'rm -f "$RUNNER_TEMP/kairoseth-cargo-acceptance.pdf"',
-)) {
-  throw new Error(
-    "Acceptance fixture workflow must remove the transient PDF copy",
+for (const cleanup of [
+  'rm -f "$work/raw-result.json"',
+  'rm -f "$work/api-key.txt"',
+  'rm -f "$work/credential-id.txt"',
+  'rm -f "$RUNNER_TEMP/deca-acceptance-one.pdf"',
+  'rm -f "$RUNNER_TEMP/deca-acceptance-two.pdf"',
+]) {
+  requireWorkflowText(
+    cleanup,
+    `Acceptance fixture workflow must clean transient protected material: ${cleanup}`,
   );
 }
 
 console.log(
-  "Acceptance fixture contract OK (synthetic, idempotent, Kairoseth-runtime bridged, manual protected workflow, sanitized retained evidence and diagnostics)",
+  "Acceptance fixture contract OK (synthetic, idempotent, ephemeral credential, deployed Kairoseth engine/API/PDF proof, guaranteed revocation and sanitized retained evidence)",
 );
