@@ -116,7 +116,10 @@ const main = () => {
           sha256:
             backup.sha256,
           namespaces:
-            backup.namespaces
+            backup.namespaces,
+          sourceCollectionSetSha256:
+            backup
+              .sourceCollectionSetSha256
         },
         restore: {
           database:
