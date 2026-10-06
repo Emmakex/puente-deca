@@ -162,12 +162,16 @@ for (const [pattern, message] of [
     "Completion evidence must be restricted to a Kairoseth-controlled store"
   ],
   [
-    /PDECA_EXPECTED_CONNECTOR_VERSION/,
-    "Completion evidence must bind the installed connector to an expected release version"
+    /sourceVersionFile/,
+    "Completion evidence must derive the accepted connector version from the exact repository checkout"
+  ],
+  [
+    /acceptedConnectorVersion/,
+    "Completion evidence must parse the accepted connector version from source"
   ],
   [
     /CONNECTOR_VERSION_MISMATCH/,
-    "Completion evidence must fail when the installed connector version differs from the accepted release"
+    "Completion evidence must fail when the installed connector version differs from the checkout release"
   ],
   [
     /prestashop-1\.7\.8\.x/,
@@ -253,6 +257,14 @@ for (const [pattern, message] of [
     "Live evidence verifier must validate connector release binding"
   ],
   [
+    /woocommerce-live-store-smoke/,
+    "Live evidence verifier must bind WooCommerce gate classification to WooCommerce runtime evidence"
+  ],
+  [
+    /prestashop-live-store-smoke/,
+    "Live evidence verifier must bind PrestaShop gate classification to PrestaShop runtime evidence"
+  ],
+  [
     /wooCommerceLive/,
     "Live evidence verifier must map WooCommerce evidence to the final gate"
   ],
@@ -324,5 +336,5 @@ for (const path of [
 }
 
 console.log(
-  "Connector live-store smoke contract OK (read-only Cargo check, synthetic Kairoseth-controlled completion mapping, expected connector version binding, PrestaShop line classification, immutable sanitized evidence, final-manifest gate verifier, no shipment/order mutation)"
+  "Connector live-store smoke contract OK (read-only Cargo check, synthetic Kairoseth-controlled completion mapping, checkout-derived connector version binding, PrestaShop line classification, immutable sanitized evidence, final-manifest gate verifier, no shipment/order mutation)"
 );
