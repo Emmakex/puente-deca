@@ -38,77 +38,123 @@ const automatedSteps = [
 const manualGateStatus = [
   {
     id:
-      "kairoseth-engine-production-acceptance",
+      "atlas-core-live-acceptance",
     automation:
       "ready",
     workflow:
-      "Kairoseth Cargo Engine Production Acceptance",
+      "DeCA Atlas Core Acceptance",
     command: null,
     evidence:
-      "PASS from the private kairoseth-platform read-only production workflow"
-  },
-  {
-    id:
-      "woocommerce-live-store-smoke",
-    automation:
-      "ready",
-    workflow: null,
-    command:
-      "PDECA_WP_ROOT=<store-root> npm run production:woocommerce-live-smoke",
-    evidence:
-      "status=ok from an approved live WooCommerce host"
-  },
-  {
-    id:
-      "prestashop-1.7.8-and-8.x-smoke",
-    automation:
-      "ready",
-    workflow: null,
-    command:
-      "PDECA_PRESTASHOP_ROOT=<store-root> npm run production:prestashop-live-smoke",
-    evidence:
-      "status=ok on approved PrestaShop 1.7.8.x and 8.x hosts"
+      "retained intended-Atlas transaction/index/concurrency plus GridFS lifecycle/reconciliation pass evidence"
   },
   {
     id:
       "backup-restore-drill",
     automation:
       "ready",
-    workflow: null,
+    workflow:
+      "DeCA Backup Restore Acceptance",
     command:
       "npm run production:backup-restore-drill",
     evidence:
-      "status=ok against the intended staging/DR Atlas target"
+      "retained pass evidence from the intended Kairoseth-controlled isolated DR target"
   },
   {
     id:
-      "edge-volumetric-protection",
+      "woocommerce-live-store-read-acceptance",
+    automation:
+      "ready",
+    workflow: null,
+    command:
+      "PDECA_WP_ROOT=<store-root> npm run production:woocommerce-live-acceptance",
+    evidence:
+      "retained read-only pass evidence from the Kairoseth-controlled WooCommerce acceptance store"
+  },
+  {
+    id:
+      "prestashop-1.7.8-live-store-read-acceptance",
+    automation:
+      "ready",
+    workflow: null,
+    command:
+      "PDECA_PRESTASHOP_ROOT=<1.7.8-store-root> npm run production:prestashop-live-acceptance",
+    evidence:
+      "retained read-only pass evidence from the Kairoseth-controlled PrestaShop 1.7.8.x acceptance store"
+  },
+  {
+    id:
+      "prestashop-8-live-store-read-acceptance",
+    automation:
+      "ready",
+    workflow: null,
+    command:
+      "PDECA_PRESTASHOP_ROOT=<8.x-store-root> npm run production:prestashop-live-acceptance",
+    evidence:
+      "retained read-only pass evidence from the Kairoseth-controlled PrestaShop 8.x acceptance store"
+  },
+  {
+    id:
+      "deployed-tenant-isolation",
+    automation:
+      "ready",
+    workflow:
+      "Kairoseth Cargo Deployed Tenant Isolation",
+    command: null,
+    evidence:
+      "protected production-boundary synthetic two-organization isolation evidence accepted by the Puente verifier"
+  },
+  {
+    id:
+      "deployment-readiness-rollback",
+    automation:
+      "ready",
+    workflow:
+      "Kairoseth DeCA Deployment Readiness Rollback",
+    command: null,
+    evidence:
+      "protected readiness plus non-destructive exact-tree rollback rehearsal evidence accepted by the Puente verifier"
+  },
+  {
+    id:
+      "hostinger-waf-provider-configuration",
     automation:
       "external",
     workflow: null,
     command: null,
     evidence:
-      "Hostinger/CDN/WAF configuration plus edge-level acceptance evidence"
+      "sanitized Hostinger provider/CDN/WAF/DDoS configuration evidence SHA-bound to the protected edge artifact; no volumetric production test"
   },
   {
     id:
-      "live-infrastructure-security-review",
+      "atlas-runtime-security-inspection",
     automation:
       "external",
     workflow: null,
     command: null,
     evidence:
-      "approved live infrastructure security review"
+      "sanitized Atlas least-privilege/network plus Hostinger/GitHub runtime-secret-scope evidence accepted by the Puente verifier"
   },
   {
     id:
-      "focused-external-penetration-test",
+      "infrastructure-security-compose-promote",
     automation:
-      "external",
+      "ready",
     workflow: null,
-    command: null,
+    command:
+      "npm run production:infrastructure-security-evidence-compose -- <retained-evidence-args> && npm run production:infrastructure-security-evidence-promote -- <validated-bundle>",
     evidence:
-      "approved focused external penetration-test report"
+      "exact six-control infrastructureSecurity gate bound to retained SHA-256 evidence and the Puente DeCA Git checkout"
+  },
+  {
+    id:
+      "deca-100-final-freeze",
+    automation:
+      "ready",
+    workflow: null,
+    command:
+      "node scripts/production/final-infrastructure-acceptance.mjs <deca-100-manifest> <validated-output>",
+    evidence:
+      "all eight final gates pass, final release manifest/connectors/SBOM match the accepted commit, and evidence references are frozen"
   }
 ];
 
