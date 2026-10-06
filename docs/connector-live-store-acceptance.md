@@ -9,7 +9,7 @@ Customer orders are not required for DeCA completion. Final acceptance must use 
 There are two intentionally different modes:
 
 1. **Diagnostic smoke** proves runtime/bootstrap/credential/read connectivity and can optionally map an existing order. It is useful during setup but is not sufficient for `deca-100`.
-2. **Completion acceptance** additionally requires a synthetic Kairoseth-controlled order, complete DeCA mapping and an installed connector version that exactly matches the expected accepted release. Only this mode can emit `completionEligible: true`.
+2. **Completion acceptance** additionally requires a synthetic Kairoseth-controlled order, complete DeCA mapping and an installed connector version that exactly matches the connector version declared by the exact repository checkout. Only this mode can emit `completionEligible: true`.
 
 Both modes remain read-only.
 
@@ -35,14 +35,13 @@ Optional read-only mapping can still be exercised with `PDECA_WOO_SMOKE_ORDER_ID
 
 ## WooCommerce completion acceptance
 
-Use a dedicated synthetic order in the Kairoseth-controlled WooCommerce acceptance store:
+Use a dedicated synthetic order in the Kairoseth-controlled WooCommerce acceptance store and an exact checkout of the release being accepted:
 
 ```bash
 PDECA_WP_ROOT=/absolute/path/to/wordpress \
 PDECA_WOO_SMOKE_ORDER_ID=<synthetic-order-id> \
 PDECA_ACCEPTANCE_DATA_CLASS=synthetic \
 PDECA_ACCEPTANCE_ENVIRONMENT=kairoseth-controlled \
-PDECA_EXPECTED_CONNECTOR_VERSION=<accepted-version> \
 npm run production:woocommerce-live-acceptance
 ```
 
@@ -53,7 +52,9 @@ Acceptance fails closed unless:
 - every mandatory DeCA source fact is present;
 - the data class is explicitly `synthetic`;
 - the environment class is explicitly `kairoseth-controlled`;
-- the installed connector version exactly equals `PDECA_EXPECTED_CONNECTOR_VERSION`.
+- the installed connector version exactly equals `PDECA_WOO_VERSION` declared by `connectors/woocommerce/puente-deca-woocommerce.php` in that exact checkout.
+
+The operator does not type an expected connector version. The acceptance wrapper derives it from the checked-out release, so the version binding cannot be weakened by supplying a convenient environment value.
 
 The evidence does not serialize the order ID, customer values, store filesystem root, connector secret or host environment.
 
@@ -70,16 +71,17 @@ It verifies the live PrestaShop/module runtime, HTTPS connector configuration, e
 
 ## PrestaShop completion acceptance
 
-Run separately on the controlled 1.7.8.x and 8.x acceptance stores:
+Run separately on the controlled 1.7.8.x and 8.x acceptance stores, using the same exact repository checkout whose module release is being accepted:
 
 ```bash
 PDECA_PRESTASHOP_ROOT=/absolute/path/to/prestashop \
 PDECA_PRESTASHOP_SMOKE_ORDER_ID=<synthetic-order-id> \
 PDECA_ACCEPTANCE_DATA_CLASS=synthetic \
 PDECA_ACCEPTANCE_ENVIRONMENT=kairoseth-controlled \
-PDECA_EXPECTED_CONNECTOR_VERSION=<accepted-version> \
 npm run production:prestashop-live-acceptance
 ```
+
+The expected module version is derived from `PuenteDeca::VERSION` in `connectors/prestashop/puentedeca.php` and must equal the module version loaded by the store.
 
 Completion evidence is automatically classified from the actual runtime as exactly one of:
 
@@ -108,7 +110,7 @@ Both files use owner-only permissions (`0600`). Schema version 2 contains:
 - `readOnly: true`;
 - `completionGate` and `completionEligible` status;
 - synthetic/Kairoseth-controlled declarations when in completion mode;
-- expected connector version and sanitized runtime result;
+- expected connector version derived from the exact checkout plus the sanitized runtime result;
 - order mapping booleans and missing fact **names only**;
 - no order ID or source field values.
 
@@ -182,7 +184,7 @@ Both PHP scripts are guarded in CI against shipment/document/order mutation meth
 - read-only result validation;
 - synthetic/Kairoseth-controlled completion declarations;
 - mandatory completion-order mapping;
-- expected connector-version binding;
+- connector-version binding derived from the exact checkout;
 - exact Git commit binding;
 - SHA-256 evidence verification;
 - owner-only artifact permissions;
