@@ -8,6 +8,8 @@ npm run production:atlas-concurrency-smoke
 
 Run it only with the same production-style environment validated by `npm run production:preflight`.
 
+This gate is deliberately **DeCA-only**. eCMR and other regulatory tracks remain frozen until the DeCA acceptance ledger reaches 100%, so their persistence/concurrency behavior is not part of this closure gate.
+
 ## What it verifies
 
 The smoke uses one random organization namespace and the real MongoDB adapter.
@@ -25,32 +27,17 @@ Acceptance requires:
 - exactly one idempotency row;
 - exactly one `shipment.created` audit event.
 
-### Document-version race
+### DeCA document-version race
 
-Two different document IDs attempt to create version 1 for the same shipment at the same time.
+Two different DeCA document IDs attempt to create version 1 for the same shipment at the same time.
 
 Acceptance requires:
 
-- exactly one document version to win;
+- exactly one DeCA document version to win;
 - the competing write to fail with the documented concurrency/lineage contract;
 - exactly one persisted document version;
 - exactly one `document.version.created` audit event;
 - the shipment lineage to contain exactly the winning document ID.
-
-### Regulatory-version head race
-
-After persisting the original eCMR version, two different amendments derived from the same accepted head attempt to become version 2 concurrently.
-
-Acceptance requires:
-
-- exactly one amendment to become the accepted version 2;
-- the competing append to fail with `REGULATORY_VERSION_CONFLICT` or `REGULATORY_VERSION_HEAD_CONFLICT`;
-- exactly two regulatory records total: original v1 + winning v2;
-- exactly two `regulatory.version.created` audit events;
-- the stored lineage to remain contiguous `[1, 2]`;
-- the latest stored version ID to equal the winning append.
-
-This proves the MongoDB uniqueness + transaction/current-head contract prevents divergent accepted eCMR histories.
 
 ## Data hygiene
 
@@ -60,9 +47,9 @@ All smoke records are scoped to a random organization ID beginning with:
 __pdeca_concurrency_
 ```
 
-Cleanup deletes only records carrying that exact organization ID from the Puente DeCA namespaced collections.
+Cleanup deletes only records carrying that exact organization ID from the DeCA service collections used by this smoke.
 
-Before reporting success, the command re-counts every service collection and requires zero residual records.
+Before reporting success, the command re-counts every scoped service collection and requires zero residual records.
 
 Cleanup is also attempted after a failed smoke.
 
@@ -82,15 +69,14 @@ The command never prints:
 {
   "status": "ok",
   "check": "atlas-concurrency-smoke",
+  "scope": "deca-only",
   "database": "kairoseth",
   "idempotencyConcurrency": true,
   "idempotencyConverged": true,
   "documentVersionConcurrency": true,
   "documentLineageConsistent": true,
-  "regulatoryVersionConcurrency": true,
-  "regulatoryLineageConsistent": true,
   "cleanupVerified": true
 }
 ```
 
-A green result is live evidence for the concurrent idempotency, document-version and regulatory-head persistence gates. It does not by itself authorize production launch.
+A green result is live evidence for the DeCA shipment-idempotency and document-version concurrency gates. It does not authorize eCMR work and does not by itself authorize production launch.
