@@ -65,6 +65,7 @@
     "production:prestashop-live-acceptance": "node scripts/production/connector-live-store-acceptance.mjs --connector=prestashop --completion-gate",
     "production:connector-live-evidence-verify": "node scripts/production/connector-live-evidence-verify.mjs",
     "production:infrastructure-security-acceptance": "node scripts/production/infrastructure-security-acceptance.mjs",
+    "production:infrastructure-security-evidence-compose": "node scripts/production/infrastructure-security-evidence-compose.mjs",
     "production:infrastructure-security-evidence-promote": "node scripts/production/infrastructure-security-evidence-promote.mjs",
     "check:shipment-backfill": "node scripts/ci/shipment-backfill-check.mjs",
     "production:shipment-backfill": "node scripts/production/backfill-shipment-aggregates.mjs",
