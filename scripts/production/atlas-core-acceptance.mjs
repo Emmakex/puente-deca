@@ -1,0 +1,258 @@
+import {
+  spawnSync
+} from "node:child_process";
+
+const npmCommand =
+  process.platform === "win32"
+    ? "npm.cmd"
+    : "npm";
+
+const runScript = (
+  script,
+  id
+) => {
+  const result = spawnSync(
+    npmCommand,
+    [
+      "run",
+      "--silent",
+      script
+    ],
+    {
+      encoding: "utf8",
+      env: process.env,
+      maxBuffer:
+        4 * 1024 * 1024
+    }
+  );
+
+  if (result.status !== 0) {
+    const error = new Error(
+      `Atlas core acceptance step failed: ${id}`
+    );
+    error.code =
+      "ATLAS_CORE_STEP_FAILED";
+    error.step = id;
+    throw error;
+  }
+
+  try {
+    return JSON.parse(
+      result.stdout.trim()
+    );
+  } catch {
+    const error = new Error(
+      `Atlas core acceptance step did not return valid JSON: ${id}`
+    );
+    error.code =
+      "ATLAS_CORE_INVALID_OUTPUT";
+    error.step = id;
+    throw error;
+  }
+};
+
+const anomalyKeys = [
+  "missingBeforeRetention",
+  "missingAfterRetention",
+  "orphanedArtifacts",
+  "purgedArtifactsStillPresent"
+];
+
+const main = () => {
+  const preflight =
+    runScript(
+      "production:preflight",
+      "production-preflight"
+    );
+
+  if (preflight?.valid !== true) {
+    const error = new Error(
+      "Production preflight is not valid"
+    );
+    error.code =
+      "ATLAS_CORE_PREFLIGHT_INVALID";
+    error.step =
+      "production-preflight";
+    throw error;
+  }
+
+  const atlasGridFs =
+    runScript(
+      "production:atlas-smoke",
+      "atlas-gridfs"
+    );
+
+  if (
+    atlasGridFs?.status !== "ok" ||
+    atlasGridFs?.check !==
+      "atlas-gridfs-smoke"
+  ) {
+    const error = new Error(
+      "Atlas/GridFS smoke is not green"
+    );
+    error.code =
+      "ATLAS_CORE_GRIDFS_INVALID";
+    error.step = "atlas-gridfs";
+    throw error;
+  }
+
+  const atlasConcurrency =
+    runScript(
+      "production:atlas-concurrency-smoke",
+      "atlas-concurrency"
+    );
+
+  if (
+    atlasConcurrency?.status !== "ok" ||
+    atlasConcurrency?.check !==
+      "atlas-concurrency-smoke" ||
+    atlasConcurrency?.scope !==
+      "deca-only"
+  ) {
+    const error = new Error(
+      "DeCA Atlas concurrency smoke is not green"
+    );
+    error.code =
+      "ATLAS_CORE_CONCURRENCY_INVALID";
+    error.step =
+      "atlas-concurrency";
+    throw error;
+  }
+
+  const reconciliation =
+    runScript(
+      "artifacts:reconcile",
+      "artifact-reconciliation"
+    );
+
+  const counts =
+    reconciliation?.counts;
+
+  if (
+    !counts ||
+    typeof counts !== "object"
+  ) {
+    const error = new Error(
+      "Artifact reconciliation did not return counts"
+    );
+    error.code =
+      "ATLAS_CORE_RECONCILIATION_INVALID";
+    error.step =
+      "artifact-reconciliation";
+    throw error;
+  }
+
+  const anomalies =
+    Object.fromEntries(
+      anomalyKeys
+        .map((key) => [
+          key,
+          Number(counts[key] ?? 0)
+        ])
+        .filter(
+          ([, value]) =>
+            !Number.isFinite(value) ||
+            value !== 0
+        )
+    );
+
+  if (
+    Object.keys(anomalies)
+      .length > 0
+  ) {
+    const error = new Error(
+      "Artifact reconciliation contains Atlas core blockers"
+    );
+    error.code =
+      "ATLAS_CORE_RECONCILIATION_BLOCKED";
+    error.step =
+      "artifact-reconciliation";
+    error.anomalies = anomalies;
+    throw error;
+  }
+
+  process.stdout.write(
+    `${JSON.stringify(
+      {
+        status: "ok",
+        check:
+          "deca-atlas-core-acceptance",
+        scope: "deca-only",
+        database:
+          atlasGridFs.database,
+        artifactBucket:
+          atlasGridFs.artifactBucket,
+        steps: {
+          preflight: true,
+          atlasGridFs: true,
+          atlasConcurrency: true,
+          artifactReconciliation: true
+        },
+        evidence: {
+          metadataPing:
+            atlasGridFs.metadataPing === true,
+          artifactPing:
+            atlasGridFs.artifactPing === true,
+          indexContract:
+            atlasGridFs.indexContract === true,
+          transactionRollback:
+            atlasGridFs.transactionRollback === true,
+          gridfsRoundTrip:
+            atlasGridFs.gridfsRoundTrip === true,
+          gridfsCleanup:
+            atlasGridFs.gridfsCleanup === true,
+          idempotencyConcurrency:
+            atlasConcurrency.idempotencyConcurrency === true,
+          idempotencyConverged:
+            atlasConcurrency.idempotencyConverged === true,
+          documentVersionConcurrency:
+            atlasConcurrency.documentVersionConcurrency === true,
+          documentLineageConsistent:
+            atlasConcurrency.documentLineageConsistent === true,
+          cleanupVerified:
+            atlasConcurrency.cleanupVerified === true
+        },
+        reconciliation: {
+          references:
+            Number(counts.references ?? 0),
+          storedArtifacts:
+            Number(counts.storedArtifacts ?? 0),
+          purgeRecords:
+            Number(counts.purgeRecords ?? 0),
+          missingBeforeRetention: 0,
+          missingAfterRetention: 0,
+          orphanedArtifacts: 0,
+          purgedArtifactsStillPresent: 0
+        }
+      },
+      null,
+      2
+    )}\n`
+  );
+};
+
+try {
+  main();
+} catch (error) {
+  process.stderr.write(
+    `${JSON.stringify({
+      status: "error",
+      check:
+        "deca-atlas-core-acceptance",
+      code:
+        typeof error?.code === "string"
+          ? error.code
+          : "ATLAS_CORE_ACCEPTANCE_FAILED",
+      step:
+        typeof error?.step === "string"
+          ? error.step
+          : null,
+      anomalies:
+        error?.anomalies &&
+        typeof error.anomalies === "object"
+          ? error.anomalies
+          : undefined
+    })}\n`
+  );
+  process.exitCode = 1;
+}
