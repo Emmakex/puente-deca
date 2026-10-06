@@ -1,0 +1,21 @@
+import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import test from "node:test";
+import { verifyAtlasRuntimeSecurityEvidence as verify } from "../scripts/production/atlas-runtime-security-evidence-verify.mjs";
+
+const hash=(b)=>`sha256:${createHash("sha256").update(b).digest("hex")}`;
+const blobs={role:Buffer.from("sanitized Atlas role evidence\n"),network:Buffer.from("sanitized Atlas network evidence\n"),runtime:Buffer.from("sanitized runtime secret-scope evidence\n")};
+const inspection=()=>({schemaVersion:1,check:"deca-atlas-runtime-security-inspection",recordedAt:"2026-10-06T20:00:00Z",scope:"kairoseth-production",referenceId:"atlas-runtime-security-20261006",roleEvidenceSha256:hash(blobs.role),networkEvidenceSha256:hash(blobs.network),runtimeSecretEvidenceSha256:hash(blobs.runtime),controls:{atlasLeastPrivilege:{database:"kairoseth",databaseRole:"readWrite",databaseScopeOnly:true,dataReadWriteRequired:true,indexManagementRequired:true,transactionsRequired:true,gridFsRequired:true,additionalDatabaseRoles:false,clusterAdmin:false,userAdmin:false,projectAdmin:false,rootRole:false},atlasNetworkAccess:{connectivityMode:"ip-access-list",intendedRuntimeOnly:true,wildcardIngress:false,publicAnySource:false,smallestPracticalBoundaryReviewed:true,tlsRequired:true,temporaryHumanAccessExpires:true},runtimeSecretScope:{runtimeModel:"hostinger-in-process-node",hostingerEnvironmentReviewed:true,githubEnvironment:"deca-production",githubEnvironmentReviewed:true,mongodbUriServerOnly:true,operationsHealthSecretServerOnly:true,standaloneAcceptanceSecretStepScoped:true,productionBridgeSecretRequired:false,repositorySecretValuesCommitted:false,browserSecretExposure:false,jobWideSecretInjection:false}},providerEvidenceContainsSecrets:false,customerDataRetained:false});
+async function fixture(mutator=()=>{}){const dir=await mkdtemp(path.join(os.tmpdir(),"deca-atlas-sec-"));const f={dir,inspectionPath:path.join(dir,"inspection.json"),roleEvidencePath:path.join(dir,"role.txt"),networkEvidencePath:path.join(dir,"network.txt"),runtimeSecretEvidencePath:path.join(dir,"runtime.txt")};await Promise.all([writeFile(f.roleEvidencePath,blobs.role),writeFile(f.networkEvidencePath,blobs.network),writeFile(f.runtimeSecretEvidencePath,blobs.runtime)]);const value=inspection();mutator(value);await writeFile(f.inspectionPath,JSON.stringify(value));return f;}
+async function scenario(mutator,code){const f=await fixture(mutator);try{await assert.rejects(verify(f),(e)=>e?.code===code);}finally{await rm(f.dir,{recursive:true,force:true});}}
+test("promotes exact Atlas/runtime controls",async()=>{const f=await fixture();try{const r=await verify(f);assert.equal(r.status,"ok");assert.deepEqual(Object.keys(r.controls).sort(),["atlasLeastPrivilege","atlasNetworkAccess","runtimeSecretScope"]);for(const c of Object.values(r.controls)){assert.deepEqual(Object.keys(c).sort(),["evidenceSha256","recordedAt","referenceId","status"]);assert.equal(c.status,"pass");}}finally{await rm(f.dir,{recursive:true,force:true});}});
+test("rejects Atlas admin role",()=>scenario((v)=>{v.controls.atlasLeastPrivilege.userAdmin=true;},"ATLAS_LEAST_PRIVILEGE_INVALID"));
+test("rejects wildcard Atlas ingress",()=>scenario((v)=>{v.controls.atlasNetworkAccess.wildcardIngress=true;},"ATLAS_NETWORK_ACCESS_INVALID"));
+test("rejects job-wide secret injection",()=>scenario((v)=>{v.controls.runtimeSecretScope.jobWideSecretInjection=true;},"RUNTIME_SECRET_SCOPE_INVALID"));
+test("rejects production bridge secret",()=>scenario((v)=>{v.controls.runtimeSecretScope.productionBridgeSecretRequired=true;},"RUNTIME_SECRET_SCOPE_INVALID"));
+test("rejects tampered retained evidence",async()=>{const f=await fixture();try{await writeFile(f.networkEvidencePath,"tampered\n");await assert.rejects(verify(f),(e)=>e?.code==="ATLAS_RUNTIME_EVIDENCE_HASH_MISMATCH");}finally{await rm(f.dir,{recursive:true,force:true});}});
+test("rejects address material in manifest",()=>scenario((v)=>{v.address="203.0.113.10/32";},"ATLAS_RUNTIME_EVIDENCE_SECRET_MATERIAL"));
+test("rejects extra manifest fields",()=>scenario((v)=>{v.note="unexpected";},"ATLAS_RUNTIME_EVIDENCE_SHAPE_INVALID"));
