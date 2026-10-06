@@ -315,27 +315,41 @@ requirePattern(
 );
 requirePattern(
   workflow,
-  /acceptance-evidence\.json/,
-  "DR workflow must retain sanitized acceptance evidence"
-);
-requirePattern(
-  workflow,
-  /acceptance-evidence\.json\.sha256/,
-  "DR workflow must retain the evidence SHA-256"
-);
-requirePattern(
-  workflow,
   /rm -rf "\$BACKUP_OUTPUT_DIR"/,
   "DR workflow must remove backup archives from the hosted runner"
 );
 
+const uploadStep =
+  workflow
+    .split(
+      "- name: Upload sanitized DR acceptance evidence"
+    )[1]
+    ?.split("\n      - name:")[0] ??
+  "";
+
+requirePattern(
+  uploadStep,
+  /uses:\s*actions\/upload-artifact@v4/,
+  "DR workflow must use the dedicated sanitized evidence upload step"
+);
+requirePattern(
+  uploadStep,
+  /acceptance-evidence\.json/,
+  "DR evidence upload must include acceptance-evidence.json"
+);
+requirePattern(
+  uploadStep,
+  /acceptance-evidence\.json\.sha256/,
+  "DR evidence upload must include the evidence SHA-256"
+);
+
 if (
-  /upload-artifact[\s\S]*BACKUP_OUTPUT_DIR/.test(
-    workflow
+  /BACKUP_OUTPUT_DIR|puente-deca-backups|archive\.gz/i.test(
+    uploadStep
   )
 ) {
   throw new Error(
-    "DR workflow must never upload the sensitive backup archive directory"
+    "DR evidence upload step must never include the sensitive backup archive directory"
   );
 }
 
