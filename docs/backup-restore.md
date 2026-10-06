@@ -1,6 +1,8 @@
 # MongoDB Atlas + GridFS backup and restore runbook
 
-Puente DeCA production data lives in the same MongoDB Atlas stack as Kairoseth Platform, isolated under DeCA namespaces.
+Puente DeCA production data lives in the same MongoDB Atlas stack as Kairoseth Platform, isolated under explicit DeCA core namespaces.
+
+This runbook deliberately excludes frozen eCMR/eFTI collections from the DeCA completion gate. A collection sharing the `deca_` prefix is not automatically part of this backup scope.
 
 ## Data that must travel together
 
@@ -23,6 +25,14 @@ deca_pdf.files
 deca_pdf.chunks
 ```
 
+The canonical allowlist is defined in:
+
+```text
+scripts/production/deca-backup-scope.mjs
+```
+
+Backup and restore both consume that same allowlist so the two sides cannot silently drift apart.
+
 A restore is incomplete if document metadata is restored without the GridFS bucket, or vice versa.
 
 ## Preferred recovery path
@@ -31,65 +41,79 @@ Where the Atlas cluster tier and project configuration provide managed backups /
 
 Use logical `mongodump` / `mongorestore` as a portable secondary backup and as the repeatable restore-drill path.
 
-MongoDB recommends using the latest stable MongoDB Database Tools for dump/restore operations and validating version/feature compatibility between source and restore target.
-
 ## Logical backup drill
 
-Use a dedicated backup credential and never write the connection string into source control.
-
-Example:
+Use the guarded production wrapper:
 
 ```bash
-export MONGODB_URI='mongodb+srv://...'
-export MONGODB_DB_NAME='kairoseth'
-
-mongodump \
-  --uri="$MONGODB_URI" \
-  --archive="puente-deca-$(date +%Y%m%d-%H%M%S).archive" \
-  --gzip \
-  --nsInclude="$MONGODB_DB_NAME.deca_*"
+MONGODB_URI='<source Atlas URI>' \
+MONGODB_DB_NAME='kairoseth' \
+npm run production:backup
 ```
 
-The namespace pattern includes both DeCA metadata collections and the `deca_pdf.files/chunks` GridFS collections.
+The wrapper:
 
-For a consistency-focused logical drill, place Puente DeCA in a write-maintenance window for the duration of the dump. Do not treat an online logical dump as a substitute for Atlas point-in-time recovery.
+- writes the MongoDB URI only to a temporary `0600` Database Tools config file;
+- never passes credentials through `--uri` or `--password` process arguments;
+- dumps only the explicit DeCA core namespace allowlist;
+- creates one compressed archive;
+- computes SHA-256;
+- writes sanitized metadata containing the exact included namespace list;
+- removes the temporary credential config.
+
+Do not replace the allowlist with `kairoseth.deca_*`: frozen or future adjacent namespaces must not become part of DeCA acceptance implicitly.
+
+For a consistency-focused logical drill, place Puente DeCA in a write-maintenance window for the duration of the dump when operationally appropriate. Do not treat an online logical dump as a substitute for Atlas point-in-time recovery.
 
 ## Restore drill
 
-Always restore into an isolated staging/DR target first.
+Always restore into an isolated staging/DR target. The target database must match:
 
-```bash
-export RESTORE_URI='mongodb+srv://...'
-
-mongorestore \
-  --uri="$RESTORE_URI" \
-  --archive="puente-deca-YYYYMMDD-HHMMSS.archive" \
-  --gzip \
-  --nsInclude="kairoseth.deca_*"
+```text
+kairoseth_deca_dr_*
 ```
 
-After restore, the automated `production:restore-drill` now performs the metadata/GridFS reconciliation and verifies every stored PDF byte-for-byte against both GridFS metadata and `deca_document_versions.artifact` evidence.
+The production database name `kairoseth` is explicitly rejected.
 
-For an inspection/preserved DR run, additionally:
+Use:
 
-1. connect the Puente DeCA service to the restored database;
-2. confirm reconciliation remains at zero anomalies;
-3. verify at least one public QR path end-to-end;
-4. verify connector credentials are still hashed and revocation state is preserved;
-5. verify audit and purge records;
-6. only then approve the restore procedure.
+```bash
+RESTORE_MONGODB_URI='<DR/staging Atlas URI>' \
+RESTORE_DB_NAME='kairoseth_deca_dr_test' \
+BACKUP_ARCHIVE='<archive path>' \
+BACKUP_EXPECTED_SHA256='sha256:<64 hex>' \
+npm run production:restore-drill
+```
+
+The restore wrapper verifies the archive checksum before import, restores only the shared DeCA allowlist, remaps it into the isolated target, performs metadata/GridFS reconciliation and verifies every restored PDF byte-for-byte against GridFS metadata and `deca_document_versions.artifact` evidence.
+
+By default the isolated database is deleted after the drill. `RESTORE_DR_PRESERVE=1` is allowed only for an already-isolated `kairoseth_deca_dr_*` target when deliberate inspection is required.
+
+## One-command live acceptance
+
+The protected live path is:
+
+```bash
+npm run production:backup-restore-drill
+```
+
+It performs source backup → exact SHA-bound restore → full integrity/reconciliation checks → isolated DR cleanup and emits one machine-readable result.
+
+The GitHub workflow `DeCA Backup Restore Acceptance` retains only sanitized acceptance evidence. Backup archives remain sensitive operational material and are deleted from the hosted runner after the workflow.
 
 ## Recovery test cases
 
-The recurring recovery drill must include:
+The recurring recovery drill must cover:
 
 - most recent shipment + PDF;
-- multi-version shipment lineage;
+- multi-version DeCA document lineage;
 - a revoked connector credential;
 - an artifact still inside legal retention;
 - a document already purged after retention;
 - GridFS PDF integrity verification;
-- reconciliation returning zero premature losses.
+- metadata↔GridFS link verification;
+- reconciliation returning zero anomalies;
+- isolated target cleanup.
 
 ## Production safeguards
 
@@ -97,5 +121,7 @@ The recurring recovery drill must include:
 - keep backup encryption and retention under the organization's backup policy;
 - protect archive files as sensitive operational data;
 - do not restore production dumps to developer laptops;
-- record restore drill date, operator, source backup, target and result;
-- perform the drill after any material schema/GridFS change.
+- never use a wildcard namespace as the DeCA completion boundary;
+- never use eCMR/eFTI data to satisfy the DeCA DR gate;
+- record restore drill date, source evidence SHA, target class and result;
+- perform the drill after any material DeCA schema/GridFS change.
