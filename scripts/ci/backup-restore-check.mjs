@@ -1,6 +1,11 @@
 import { readFile } from "node:fs/promises";
 
-const [backup, restore, acceptance] =
+const [
+  backup,
+  restore,
+  acceptance,
+  scope
+] =
   await Promise.all([
     readFile(
       "scripts/production/backup-deca.mjs",
@@ -12,6 +17,10 @@ const [backup, restore, acceptance] =
     ),
     readFile(
       "scripts/production/backup-restore-acceptance.mjs",
+      "utf8"
+    ),
+    readFile(
+      "scripts/production/deca-backup-scope.mjs",
       "utf8"
     )
   ]);
@@ -25,6 +34,36 @@ const requirePattern = (
     throw new Error(message);
   }
 };
+
+for (
+  const requiredCollection of [
+    "deca_organizations",
+    "deca_api_credentials",
+    "deca_shipments",
+    "deca_document_versions",
+    "deca_idempotency",
+    "deca_audit_events",
+    "deca_artifact_purges",
+    "deca_pdf.files",
+    "deca_pdf.chunks"
+  ]
+) {
+  if (!scope.includes(`"${requiredCollection}"`)) {
+    throw new Error(
+      `DeCA DR scope is missing ${requiredCollection}`
+    );
+  }
+}
+
+if (
+  /ecmr|efti|regulatory/i.test(
+    scope
+  )
+) {
+  throw new Error(
+    "DeCA DR scope must not include frozen eCMR/eFTI or regulatory namespaces"
+  );
+}
 
 for (
   const [name, source] of [
@@ -44,6 +83,12 @@ for (
     `${name} must pass sensitive MongoDB URI through --config`
   );
 
+  requirePattern(
+    source,
+    /decaBackupNamespaces/,
+    `${name} must use the shared DeCA-only namespace allowlist`
+  );
+
   if (
     /--uri=|--password=/.test(
       source
@@ -51,6 +96,16 @@ for (
   ) {
     throw new Error(
       `${name} must not expose MongoDB credentials in process arguments`
+    );
+  }
+
+  if (
+    /--nsInclude=.*deca_\*/.test(
+      source
+    )
+  ) {
+    throw new Error(
+      `${name} must not use a wildcard DeCA namespace scope`
     );
   }
 }
@@ -67,11 +122,6 @@ requirePattern(
 );
 requirePattern(
   backup,
-  /--nsInclude=.*deca_\*/,
-  "Backup must be restricted to DeCA namespaces"
-);
-requirePattern(
-  backup,
   /sha256File/,
   "Backup must compute archive SHA-256"
 );
@@ -79,6 +129,16 @@ requirePattern(
   backup,
   /\.metadata\.json/,
   "Backup must emit metadata evidence"
+);
+requirePattern(
+  backup,
+  /schemaVersion:\s*2/,
+  "Backup metadata must use the explicit namespace evidence schema"
+);
+requirePattern(
+  backup,
+  /namespaces/,
+  "Backup evidence must record the explicit namespace allowlist"
 );
 
 requirePattern(
@@ -118,23 +178,13 @@ requirePattern(
 );
 requirePattern(
   restore,
-  /deca_regulatory_versions/,
-  "Restore drill must require the immutable regulatory-version collection"
-);
-requirePattern(
-  restore,
-  /deca_ecmr_signer_keys/,
-  "Restore drill must require the eCMR signer-key registry collection"
+  /DECA_BACKUP_COLLECTIONS/,
+  "Restore verification must use the shared DeCA-only collection allowlist"
 );
 requirePattern(
   restore,
   /deca_pdf\.files/,
   "Restore must verify GridFS files"
-);
-requirePattern(
-  restore,
-  /deca_pdf\.chunks/,
-  "Restore must verify GridFS chunks"
 );
 requirePattern(
   restore,
@@ -224,6 +274,11 @@ requirePattern(
 );
 requirePattern(
   acceptance,
+  /namespaces:/,
+  "DR acceptance evidence must expose the exact DeCA namespace allowlist"
+);
+requirePattern(
+  acceptance,
   /allArtifactsVerified/,
   "DR acceptance evidence must report full GridFS verification"
 );
@@ -240,7 +295,7 @@ requirePattern(
 
 if (
   /SKIP_|BYPASS_|ALLOW_PRODUCTION_RESTORE|FORCE_RESTORE/i.test(
-    backup + restore + acceptance
+    backup + restore + acceptance + scope
   )
 ) {
   throw new Error(
@@ -249,5 +304,5 @@ if (
 }
 
 console.log(
-  "Backup/restore automation contract OK (0600 config, scoped archive, SHA-256, isolated namespace remap, metadata/GridFS reconciliation, all-artifact integrity, failure cleanup, one-command acceptance, no production-restore bypass)"
+  "Backup/restore automation contract OK (DeCA-only namespace allowlist, 0600 config, SHA-256, isolated namespace remap, metadata/GridFS reconciliation, all-artifact integrity, failure cleanup, no frozen eCMR/eFTI dependency, no production-restore bypass)"
 );
