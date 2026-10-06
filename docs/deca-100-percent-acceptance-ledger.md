@@ -8,7 +8,7 @@ It deliberately excludes eCMR and eFTI. Those tracks remain frozen until every D
 
 - `GREEN` — implemented and accepted with retained Kairoseth-controlled evidence.
 - `READY` — tooling/automation is complete, but the intended live Kairoseth-controlled execution has not yet produced retained evidence.
-- `OPEN` — an operational/provider evidence step is still required.
+- `OPEN` — an operational/provider evidence step is still required and its acceptance path is not yet complete.
 
 Customer systems and customer data are not required to close any gate. Fixtures, stores and infrastructure used for acceptance are Kairoseth-controlled and synthetic wherever application data is involved.
 
@@ -39,8 +39,8 @@ Customer systems and customer data are not required to close any gate. Fixtures,
 | PrestaShop 1.7.8.x live-store read acceptance | READY | Run host-local read-only evidence wrapper on a Kairoseth-controlled 1.7.8.x acceptance store |
 | PrestaShop 8.x live-store read acceptance | READY | Run host-local read-only evidence wrapper on a Kairoseth-controlled 8.x acceptance store |
 | Hostinger public edge technical acceptance | GREEN | Safe low-volume external edge gate proves PDF 200, immutable repeated hash and fail-closed CSP |
-| Hostinger CDN/WAF provider configuration evidence | OPEN | Kairoseth-controlled confirmation that intended production CDN/WAF/abuse protections are enabled; no disruptive DDoS/stress test required |
-| Infrastructure security acceptance | OPEN | Review Atlas network/least-privilege, deployment isolation/secrets and Hostinger edge controls with retained evidence |
+| Hostinger CDN/WAF provider configuration evidence | READY | Fail-closed verifier is complete; retain sanitized intended-production hPanel/provider evidence bound by SHA-256 to the protected Hostinger edge artifact; no disruptive DDoS/stress test |
+| Infrastructure security acceptance | READY | All six control evidence/verifier paths plus the automatic fail-closed composer are complete; collect intended Atlas/Hostinger/GitHub/protected-runtime evidence and compose/promote the exact retained bundle |
 | Final evidence freeze | OPEN | All rows above GREEN; pin final DeCA commit/release manifest and retained acceptance references |
 
 ## Production closure evidence — 2026-10-06
@@ -52,6 +52,19 @@ The production engine/edge rows above were promoted to `GREEN` only after the fo
 - `DeCA Kairoseth Cargo Engine Phase Diagnostic`, run `37415774217`, attempt 5: health, API list, shipment read, PDF status/magic/size/privacy headers/CSP, repeated PDF SHA-256 and synthetic credential revocation all passed.
 
 The Hostinger production application is served through Passenger/LiteSpeed. The effective `public_html/.htaccess` contains a route-scoped DeCA CSP override for `/deca/d/*.pdf`. Hostinger may regenerate that file during Node.js redeploys, so the Kairoseth deployed-revision gate must also verify the client-visible DeCA CSP after each relevant deployment. A repository-only or local `.htaccess` representation is not sufficient evidence.
+
+## Infrastructure-security tooling closure — 2026-10-06
+
+The six-control `infrastructureSecurity` evidence path is now complete at repository level without self-certifying any live/provider state:
+
+- deployed tenant-isolation protected producer + fail-closed Puente verifier;
+- deployed readiness/rollback protected producer + fail-closed Puente verifier;
+- Hostinger WAF/provider evidence verifier that keeps provider configuration evidence separate from the bounded technical edge smoke;
+- Atlas least-privilege, Atlas network-access and runtime-secret-scope evidence verifier;
+- automatic six-control composer that re-runs the source verifiers and passes the result through the canonical infrastructure-security validator before retention;
+- final infrastructure-security promoter that hashes the exact retained bundle and binds the rollup gate to the exact Puente DeCA Git checkout.
+
+These controls remain `READY` until their intended production/provider evidence exists and passes the corresponding verifier. Repository CI success alone must never promote them to `GREEN`.
 
 ## Mapping to the fail-closed `deca-100` manifest
 
