@@ -82,13 +82,13 @@ Characters outside the embedded font set continue to fail closed rather than bei
 
 - [x] Canonical product identity fixed as `extensions/puente-deca`.
 - [x] Kairoseth Platform declared authoritative for customer auth, organizations and product RBAC.
-- [x] Server-to-server Kairoseth → Puente DeCA organization context with dedicated shared-secret authentication.
+- [x] Kairoseth → Puente DeCA organization context enforced inside the existing Kairoseth Platform runtime; production requires no second service URL, port or shared bridge secret.
 - [x] Platform UX to issue/revoke organization-scoped connector credentials.
 - [x] Platform-only connector credential API: create/list/revoke with one-time secret reveal.
 - [x] Puente DeCA workspace inside `/app/organizations/:slug/products/puente-deca`.
 - [x] Kairoseth public proxy route implemented at `https://kairoseth.com/deca/d/<token>.pdf` with canonical `.pdf` suffix handling.
 - [x] Credential-free live public-PDF smoke command for TLS/path/PDF/SHA-256/privacy-header acceptance.
-- [ ] Kairoseth-owned production public-route wiring/acceptance with a synthetic controlled DeCA document.
+- [x] Kairoseth-owned production public-route wiring/acceptance with a synthetic controlled DeCA document and retained client-visible evidence.
 - [x] Disable standalone DeCA laboratory/bootstrap surface in production; Kairoseth/connector operational routes remain authoritative.
 - [x] Organization-scoped shipment listing for the Kairoseth workspace.
 
@@ -120,18 +120,20 @@ Characters outside the embedded font set continue to fail closed rather than bei
 - [x] Per-organization/per-credential authenticated API rate limiting with 429 + Retry-After.
 - [x] Kairoseth application-level public PDF concurrency guard (default 16 / max 64 per process) with 503 + Retry-After and no IP coupling.
 - [x] Kairoseth DeCA public-route changes are covered by the Hostinger Production Smoke path.
-- [ ] Internal Hostinger CDN/WAF edge-level volumetric protection acceptance for public QR and unauthenticated abuse.
+- [ ] Hostinger CDN/WAF provider-configuration acceptance (fail-closed verifier complete; pending sanitized intended-production hPanel/provider evidence bound to the protected edge artifact; no volumetric/DDoS stress test).
 - [x] Separate liveness/readiness probes plus protected low-cardinality Prometheus process metrics.
 - [x] Credentialed live Kairoseth→Puente DeCA protected-health smoke command.
-- [x] Production preflight and deployment/runback acceptance runbook.
+- [x] Production preflight and deployment/rollback acceptance runbook.
 - [x] One-command automated core go-live acceptance with no skip/bypass controls and explicit remaining manual gates.
 - [x] Local Kairoseth↔engine E2E contract: tenant-scoped shipment → DeCA → public PDF → SHA-256 → cross-organization isolation.
 - [x] Production container contract: exact Node runtime, locked production deps, non-root user, minimal runtime copy and `/ready` healthcheck.
 - [x] Dedicated container build/smoke workflow with read-only root filesystem and dropped capabilities.
-- [ ] Internal deployment acceptance on the chosen Kairoseth-owned service runtime (read-only production acceptance workflow implemented; pending controlled execution).
+- [ ] Deployment readiness/rollback acceptance on the actual Kairoseth Hostinger runtime (protected producer and Puente verifier complete; pending controlled execution and retained evidence).
 - [x] Static application-security review with CI regression guard.
 - [x] Focused internal penetration/security acceptance with synthetic fixtures: auth fail-closed, standalone-surface closure, connector privilege/revocation, tenant isolation, public-token tamper/traversal, oversized-body rejection, organization-scoped rate limiting and Kairoseth E2E isolation.
-- [ ] Kairoseth-owned infrastructure security acceptance for Atlas/network/deployment/Hostinger edge controls.
+- [x] Fail-closed evidence paths implemented for Atlas least privilege, Atlas network access, runtime secret scope, deployed tenant isolation, deployment readiness/rollback and Hostinger WAF/provider configuration.
+- [x] Automatic six-control infrastructure-security evidence composer + canonical validator/promoter chain.
+- [ ] Kairoseth-owned infrastructure security acceptance (all six evidence paths/composer complete; pending intended Atlas/Hostinger/GitHub/protected-runtime evidence and final promotion).
 
 **Phase 6 internal engineering status:** complete for the agreed DeCA product scope. Internal acceptance is green for MongoDB/GridFS/concurrency, exact packaged WooCommerce/PrestaShop connector artifacts on PHP 8.1–8.3, WooCommerce/PrestaShop full-stack stores, and the focused internal application-security/penetration gate. Remaining unchecked Phase 6 items require only Kairoseth-owned Atlas/Hostinger/DR/deployment/infrastructure-security execution and retained evidence; customer systems and customer data are not required.
 
