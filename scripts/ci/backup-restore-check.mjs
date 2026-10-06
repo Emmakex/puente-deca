@@ -88,12 +88,6 @@ for (
     `${name} must pass sensitive MongoDB URI through --config`
   );
 
-  requirePattern(
-    source,
-    /decaBackupNamespaces/,
-    `${name} must use the shared DeCA-only namespace allowlist`
-  );
-
   if (
     /--uri=|--password=/.test(
       source
@@ -103,18 +97,13 @@ for (
       `${name} must not expose MongoDB credentials in process arguments`
     );
   }
-
-  if (
-    /--nsInclude=.*deca_\*/.test(
-      source
-    )
-  ) {
-    throw new Error(
-      `${name} must not use a wildcard DeCA namespace scope`
-    );
-  }
 }
 
+requirePattern(
+  backup,
+  /DECA_BACKUP_COLLECTIONS/,
+  "Backup must consume the shared DeCA-only collection allowlist"
+);
 requirePattern(
   backup,
   /--archive=/,
@@ -124,6 +113,31 @@ requirePattern(
   backup,
   /"--gzip"/,
   "Backup archive must be compressed"
+);
+requirePattern(
+  backup,
+  /--db=\$\{databaseName\}/,
+  "Backup must scope mongodump to the kairoseth database"
+);
+requirePattern(
+  backup,
+  /--excludeCollection=\$\{collectionName\}/,
+  "Backup must exclude every source collection outside the DeCA allowlist"
+);
+requirePattern(
+  backup,
+  /listCollectionNames/,
+  "Backup must inspect the live source collection set"
+);
+requirePattern(
+  backup,
+  /BACKUP_COLLECTION_SET_CHANGED/,
+  "Backup must fail closed if the source collection set changes during the dump"
+);
+requirePattern(
+  backup,
+  /sourceCollectionSetSha256/,
+  "Backup evidence must bind the observed source collection set"
 );
 requirePattern(
   backup,
@@ -146,6 +160,21 @@ requirePattern(
   "Backup evidence must record the explicit namespace allowlist"
 );
 
+if (
+  /--nsInclude=/.test(
+    backup
+  )
+) {
+  throw new Error(
+    "mongodump must not use mongorestore-only --nsInclude"
+  );
+}
+
+requirePattern(
+  restore,
+  /decaBackupNamespaces/,
+  "Restore must use the shared DeCA-only namespace allowlist"
+);
 requirePattern(
   restore,
   /restoreDatabase ===[\s\S]*"kairoseth"/,
@@ -251,6 +280,16 @@ requirePattern(
   /dropDatabase\(\)/,
   "Restore drill must clean up the isolated DR database by default"
 );
+
+if (
+  /--nsInclude=.*deca_\*/.test(
+    restore
+  )
+) {
+  throw new Error(
+    "Restore must not use a wildcard DeCA namespace scope"
+  );
+}
 
 requirePattern(
   acceptance,
@@ -364,5 +403,5 @@ if (
 }
 
 console.log(
-  "Backup/restore automation contract OK (DeCA-only namespace allowlist, 0600 config, SHA-256, isolated namespace remap, metadata/GridFS reconciliation, all-artifact integrity, protected sanitized workflow evidence, failure cleanup, no frozen eCMR/eFTI dependency, no production-restore bypass)"
+  "Backup/restore automation contract OK (mongodump-compatible DeCA allowlist enforcement, stable source collection set, 0600 config, SHA-256, isolated namespace remap, metadata/GridFS reconciliation, protected sanitized workflow evidence, no frozen eCMR/eFTI dependency, no production-restore bypass)"
 );
