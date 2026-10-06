@@ -23,6 +23,30 @@ const fail = (
   throw error;
 };
 
+const exactKeys = (
+  value,
+  expected
+) => {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    Array.isArray(value)
+  ) {
+    return false;
+  }
+
+  const actual = Object.keys(value).sort();
+  const wanted = [...expected].sort();
+
+  return (
+    actual.length === wanted.length &&
+    actual.every(
+      (key, index) =>
+        key === wanted[index]
+    )
+  );
+};
+
 try {
   const input =
     process.argv[2] ||
@@ -53,12 +77,46 @@ try {
     );
   }
 
-  const validated =
-    validateInfrastructureSecurityAcceptance(
-      parsed
+  if (
+    !exactKeys(
+      parsed,
+      [
+        "schemaVersion",
+        "check",
+        "recordedAt",
+        "controls",
+        "status"
+      ]
+    ) ||
+    parsed.status !== "pass"
+  ) {
+    fail(
+      "INFRA_SECURITY_EVIDENCE_SHAPE_INVALID",
+      "Retained infrastructure-security evidence must be the exact validated pass bundle"
     );
+  }
+
+  const {
+    status: retainedStatus,
+    ...sourceManifest
+  } = parsed;
+
+  let validated;
+
+  try {
+    validated =
+      validateInfrastructureSecurityAcceptance(
+        sourceManifest
+      );
+  } catch {
+    fail(
+      "INFRA_SECURITY_EVIDENCE_NOT_GREEN",
+      "Infrastructure-security evidence no longer validates as a complete pass bundle"
+    );
+  }
 
   if (
+    retainedStatus !== "pass" ||
     validated.status !== "pass"
   ) {
     fail(
