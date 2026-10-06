@@ -1,0 +1,235 @@
+name: DeCA Kairoseth Cargo Engine Phase Diagnostic
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/kairoseth-cargo-engine-phase-diagnostic.yml
+  workflow_dispatch:
+
+concurrency:
+  group: puente-deca-kairoseth-cargo-engine-phase-diagnostic
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: deca-production
+
+    steps:
+      - name: Checkout protected main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Diagnose deployed Cargo engine phases safely
+        shell: bash
+        env:
+          OPERATIONS_HEALTH_SECRET: ${{ secrets.OPERATIONS_HEALTH_SECRET }}
+        run: |
+          set -euo pipefail
+          test ${#OPERATIONS_HEALTH_SECRET} -ge 32
+
+          base="https://kairoseth.com"
+          fixture_endpoint="$base/api/operations/deca/acceptance-fixture"
+          user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+          work="$RUNNER_TEMP/deca-engine-phase-diagnostic"
+          mkdir -p "$work"
+          chmod 700 "$work"
+          credential_id=""
+          api_key=""
+          revoked=0
+
+          fail_phase() {
+            local phase="$1"
+            local http_status="${2:-n/a}"
+            echo "::error::DECA engine acceptance phase=${phase} http=${http_status}"
+            exit 1
+          }
+
+          revoke_credential() {
+            if [ "$revoked" -eq 1 ] || [ -z "$credential_id" ]; then
+              return 0
+            fi
+            local revoke_body="$work/revoke.json"
+            local revoke_status=""
+            revoke_status="$(curl -4 --silent --show-error --request DELETE \
+              --connect-timeout 8 --max-time 20 \
+              --header "Authorization: Bearer $OPERATIONS_HEALTH_SECRET" \
+              --header "x-kairoseth-acceptance-confirm: synthetic-production-credential-revoke" \
+              --header "x-kairoseth-acceptance-credential-id: $credential_id" \
+              --header "Accept: application/json" \
+              --header "User-Agent: $user_agent" \
+              --output "$revoke_body" --write-out '%{http_code}' \
+              "$fixture_endpoint")" || return 1
+            if [ "$revoke_status" != "200" ]; then
+              return 1
+            fi
+            if ! node -e '
+              const fs = require("node:fs");
+              const body = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+              process.exit(body?.status === "ok" && body?.revoked === true ? 0 : 1);
+            ' "$revoke_body"; then
+              return 1
+            fi
+            revoked=1
+            return 0
+          }
+
+          cleanup() {
+            revoke_credential >/dev/null 2>&1 || true
+            rm -rf "$work"
+          }
+          trap cleanup EXIT
+
+          fixture_body="$work/fixture.json"
+          fixture_status="$(curl -4 --silent --show-error --request POST \
+            --connect-timeout 8 --max-time 25 \
+            --header "Authorization: Bearer $OPERATIONS_HEALTH_SECRET" \
+            --header "x-kairoseth-acceptance-confirm: synthetic-production-fixture" \
+            --header "Accept: application/json" \
+            --header "User-Agent: $user_agent" \
+            --output "$fixture_body" --write-out '%{http_code}' \
+            "$fixture_endpoint")" || fail_phase "fixture-transport" "n/a"
+          [ "$fixture_status" = "200" ] || fail_phase "fixture-http" "$fixture_status"
+
+          FIXTURE_BODY="$fixture_body" node <<'NODE'
+          const fs = require('node:fs');
+          const body = JSON.parse(fs.readFileSync(process.env.FIXTURE_BODY, 'utf8'));
+          const ok = body?.status === 'ok'
+            && body?.check === 'kairoseth-cargo-acceptance-fixture'
+            && body?.synthetic === true
+            && body?.customerData === false
+            && body?.organizationId === 'kairoseth-cargo-production-acceptance'
+            && typeof body?.shipmentId === 'string'
+            && /^[A-Za-z0-9_-]{8,160}$/.test(body.shipmentId)
+            && /^https:\/\/kairoseth\.com\/deca\/d\/[A-Za-z0-9_-]{16,128}\.pdf$/.test(body?.publicPdfUrl ?? '')
+            && typeof body?.credential?.credentialId === 'string'
+            && /^[A-Za-z0-9_-]{8,160}$/.test(body.credential.credentialId)
+            && typeof body?.credential?.apiKey === 'string'
+            && body.credential.apiKey.length >= 32;
+          process.exit(ok ? 0 : 1);
+          NODE
+          if [ "$?" -ne 0 ]; then
+            fail_phase "fixture-contract" "$fixture_status"
+          fi
+
+          node -e '
+            const fs = require("node:fs");
+            const body = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            fs.writeFileSync(process.argv[2], `${body.shipmentId}\n`, { mode: 0o600 });
+            fs.writeFileSync(process.argv[3], `${body.publicPdfUrl}\n`, { mode: 0o600 });
+            fs.writeFileSync(process.argv[4], `${body.credential.credentialId}\n`, { mode: 0o600 });
+            fs.writeFileSync(process.argv[5], `${body.credential.apiKey}\n`, { mode: 0o600 });
+          ' "$fixture_body" "$work/shipment.txt" "$work/pdf-url.txt" "$work/credential.txt" "$work/api-key.txt"
+
+          shipment_id="$(tr -d '\r\n' < "$work/shipment.txt")"
+          public_pdf_url="$(tr -d '\r\n' < "$work/pdf-url.txt")"
+          credential_id="$(tr -d '\r\n' < "$work/credential.txt")"
+          api_key="$(tr -d '\r\n' < "$work/api-key.txt")"
+          echo "::add-mask::$api_key"
+
+          health_body="$work/health.json"
+          health_status="$(curl -4 --silent --show-error \
+            --connect-timeout 8 --max-time 20 \
+            --header "Authorization: Bearer $OPERATIONS_HEALTH_SECRET" \
+            --header "Accept: application/json" \
+            --header "User-Agent: $user_agent" \
+            --output "$health_body" --write-out '%{http_code}' \
+            "$base/api/health/puente-deca")" || fail_phase "health-transport" "n/a"
+          [ "$health_status" = "200" ] || fail_phase "health-http" "$health_status"
+          if ! node -e '
+            const fs = require("node:fs");
+            const body = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            process.exit(body?.status === "ok" && body?.service === "puente-deca-health" && body?.engine === "ready" ? 0 : 1);
+          ' "$health_body"; then
+            fail_phase "health-contract" "$health_status"
+          fi
+
+          list_body="$work/list.json"
+          list_status="$(curl -4 --silent --show-error \
+            --connect-timeout 8 --max-time 20 \
+            --header "Authorization: Bearer $api_key" \
+            --header "Accept: application/json" \
+            --header "User-Agent: $user_agent" \
+            --output "$list_body" --write-out '%{http_code}' \
+            "$base/api/deca/v1/shipments?limit=1")" || fail_phase "list-transport" "n/a"
+          [ "$list_status" = "200" ] || fail_phase "list-http" "$list_status"
+          if ! node -e '
+            const fs = require("node:fs");
+            const body = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            process.exit(Array.isArray(body?.items) && typeof body?.total === "number" ? 0 : 1);
+          ' "$list_body"; then
+            fail_phase "list-contract" "$list_status"
+          fi
+
+          shipment_body="$work/shipment.json"
+          shipment_status="$(curl -4 --silent --show-error \
+            --connect-timeout 8 --max-time 20 \
+            --header "Authorization: Bearer $api_key" \
+            --header "Accept: application/json" \
+            --header "User-Agent: $user_agent" \
+            --output "$shipment_body" --write-out '%{http_code}' \
+            "$base/api/deca/v1/shipments/$shipment_id")" || fail_phase "shipment-transport" "n/a"
+          [ "$shipment_status" = "200" ] || fail_phase "shipment-http" "$shipment_status"
+          if ! SHIPMENT_ID="$shipment_id" node -e '
+            const fs = require("node:fs");
+            const body = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            const ok = body?.shipmentId === process.env.SHIPMENT_ID
+              && body?.organizationId === "kairoseth-cargo-production-acceptance"
+              && body?.externalReference === "KAIROSETH-CARGO-PRODUCTION-ACCEPTANCE-V1"
+              && Array.isArray(body?.documentVersionIds);
+            process.exit(ok ? 0 : 1);
+          ' "$shipment_body"; then
+            fail_phase "shipment-contract" "$shipment_status"
+          fi
+
+          pdf_headers="$work/pdf-headers.txt"
+          pdf_one="$work/one.pdf"
+          pdf_status="$(curl -4 --silent --show-error \
+            --connect-timeout 8 --max-time 25 --max-redirs 0 \
+            --header "Accept: application/pdf" \
+            --header "User-Agent: $user_agent" \
+            --dump-header "$pdf_headers" \
+            --output "$pdf_one" --write-out '%{http_code}' \
+            "$public_pdf_url")" || fail_phase "pdf-transport" "n/a"
+          [ "$pdf_status" = "200" ] || fail_phase "pdf-http" "$pdf_status"
+          [ "$(head -c 5 "$pdf_one")" = "%PDF-" ] || fail_phase "pdf-magic" "$pdf_status"
+          pdf_size="$(stat -c '%s' "$pdf_one")"
+          [ "$pdf_size" -gt 0 ] || fail_phase "pdf-empty" "$pdf_status"
+          [ "$pdf_size" -le 5000000 ] || fail_phase "pdf-size" "$pdf_status"
+
+          normalized="$work/pdf-headers-normalized.txt"
+          tr -d '\r' < "$pdf_headers" > "$normalized"
+          grep -Eiq '^content-type: *application/pdf([; ]|$)' "$normalized" || fail_phase "header-content-type" "$pdf_status"
+          grep -Eiq '^cache-control:.*private.*no-store' "$normalized" || fail_phase "header-cache-control" "$pdf_status"
+          grep -Eiq '^x-content-type-options: *nosniff' "$normalized" || fail_phase "header-nosniff" "$pdf_status"
+          grep -Eiq '^referrer-policy: *no-referrer' "$normalized" || fail_phase "header-referrer-policy" "$pdf_status"
+          grep -Eiq '^x-robots-tag:.*noindex.*nofollow.*noarchive' "$normalized" || fail_phase "header-robots" "$pdf_status"
+          grep -Eiq '^content-security-policy:.*default-src .none..*frame-ancestors .none.' "$normalized" || fail_phase "header-csp" "$pdf_status"
+          if grep -Eiq '^(set-cookie|x-powered-by|x-deca-[^:]*|x-kairoseth-[^:]*):' "$normalized"; then
+            fail_phase "header-forbidden" "$pdf_status"
+          fi
+
+          sha_one="$(sha256sum "$pdf_one" | awk '{print $1}')"
+          pdf_two="$work/two.pdf"
+          repeat_status="$(curl -4 --silent --show-error \
+            --connect-timeout 8 --max-time 25 --max-redirs 0 \
+            --header "Accept: application/pdf" \
+            --header "User-Agent: $user_agent" \
+            --output "$pdf_two" --write-out '%{http_code}' \
+            "$public_pdf_url")" || fail_phase "repeat-pdf-transport" "n/a"
+          [ "$repeat_status" = "200" ] || fail_phase "repeat-pdf-http" "$repeat_status"
+          sha_two="$(sha256sum "$pdf_two" | awk '{print $1}')"
+          [ "$sha_one" = "$sha_two" ] || fail_phase "repeat-pdf-hash" "$repeat_status"
+
+          revoke_credential || fail_phase "credential-revoke" "n/a"
+          trap - EXIT
+          rm -rf "$work"
+          echo "PASS DECA ENGINE PHASE DIAGNOSTIC: health, API, shipment, PDF headers and repeated hash are green."
