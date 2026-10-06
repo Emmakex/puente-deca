@@ -43,6 +43,53 @@ const manifest = () => ({
   }
 });
 
+const validateToFile = async (
+  directory
+) => {
+  const input =
+    join(directory, "input.json");
+  const validated =
+    join(directory, "validated.json");
+
+  await writeFile(
+    input,
+    `${JSON.stringify(
+      manifest(),
+      null,
+      2
+    )}\n`,
+    "utf8"
+  );
+
+  const acceptance = spawnSync(
+    process.execPath,
+    [
+      "scripts/production/infrastructure-security-acceptance.mjs",
+      input,
+      validated
+    ],
+    { encoding: "utf8" }
+  );
+
+  assert.equal(
+    acceptance.status,
+    0,
+    acceptance.stderr
+  );
+
+  return validated;
+};
+
+const promote = (path) =>
+  spawnSync(
+    process.execPath,
+    [
+      "scripts/production/infrastructure-security-evidence-promote.mjs",
+      path
+    ],
+    { encoding: "utf8" }
+  );
+
 test(
   "promotes validated infrastructure security evidence to the exact final gate shape",
   async () => {
@@ -55,39 +102,10 @@ test(
       );
 
     try {
-      const input =
-        join(directory, "input.json");
       const validated =
-        join(
-          directory,
-          "validated.json"
+        await validateToFile(
+          directory
         );
-
-      await writeFile(
-        input,
-        `${JSON.stringify(
-          manifest(),
-          null,
-          2
-        )}\n`,
-        "utf8"
-      );
-
-      const acceptance = spawnSync(
-        process.execPath,
-        [
-          "scripts/production/infrastructure-security-acceptance.mjs",
-          input,
-          validated
-        ],
-        { encoding: "utf8" }
-      );
-      assert.equal(
-        acceptance.status,
-        0,
-        acceptance.stderr
-      );
-
       const bytes =
         await readFile(validated);
       const digest =
@@ -95,14 +113,9 @@ test(
           .update(bytes)
           .digest("hex");
 
-      const promotion = spawnSync(
-        process.execPath,
-        [
-          "scripts/production/infrastructure-security-evidence-promote.mjs",
-          validated
-        ],
-        { encoding: "utf8" }
-      );
+      const promotion =
+        promote(validated);
+
       assert.equal(
         promotion.status,
         0,
@@ -117,29 +130,25 @@ test(
         output.gateName,
         "infrastructureSecurity"
       );
-      assert.equal(
-        output.gate.status,
-        "pass"
-      );
-      assert.equal(
-        output.gate.evidenceSha256,
-        `sha256:${digest}`
-      );
-      assert.equal(
-        output.gate.repository,
-        "Emmakex/puente-deca"
+      assert.deepEqual(
+        output.gate,
+        {
+          status: "pass",
+          evidenceSha256:
+            `sha256:${digest}`,
+          repository:
+            "Emmakex/puente-deca",
+          commit:
+            output.gate.commit,
+          runId:
+            `infra-security-${digest.slice(0, 32)}`,
+          recordedAt:
+            manifest().recordedAt
+        }
       );
       assert.match(
         output.gate.commit,
         /^[a-f0-9]{40}$/
-      );
-      assert.equal(
-        output.gate.runId,
-        `infra-security-${digest.slice(0, 32)}`
-      );
-      assert.equal(
-        output.gate.recordedAt,
-        manifest().recordedAt
       );
       assert.deepEqual(
         Object.keys(output.gate).sort(),
@@ -165,7 +174,7 @@ test(
 );
 
 test(
-  "refuses to promote incomplete infrastructure security evidence",
+  "refuses an unvalidated or incomplete infrastructure security bundle",
   async () => {
     const directory =
       await mkdtemp(
@@ -177,12 +186,8 @@ test(
 
     try {
       const path =
-        join(
-          directory,
-          "invalid.json"
-        );
-      const invalid =
-        manifest();
+        join(directory, "invalid.json");
+      const invalid = manifest();
       delete invalid.controls
         .hostingerWafConfiguration;
 
@@ -196,14 +201,7 @@ test(
         "utf8"
       );
 
-      const promotion = spawnSync(
-        process.execPath,
-        [
-          "scripts/production/infrastructure-security-evidence-promote.mjs",
-          path
-        ],
-        { encoding: "utf8" }
-      );
+      const promotion = promote(path);
 
       assert.notEqual(
         promotion.status,
@@ -211,7 +209,122 @@ test(
       );
       assert.match(
         promotion.stderr,
-        /INFRA_SECURITY_EVIDENCE_PROMOTION_FAILED/
+        /INFRA_SECURITY_EVIDENCE_SHAPE_INVALID/
+      );
+    } finally {
+      await rm(
+        directory,
+        {
+          recursive: true,
+          force: true
+        }
+      );
+    }
+  }
+);
+
+test(
+  "refuses extra fields added after infrastructure security validation",
+  async () => {
+    const directory =
+      await mkdtemp(
+        join(
+          tmpdir(),
+          "pdeca-infra-promotion-"
+        )
+      );
+
+    try {
+      const validated =
+        await validateToFile(
+          directory
+        );
+      const parsed = JSON.parse(
+        await readFile(
+          validated,
+          "utf8"
+        )
+      );
+      parsed.providerToken =
+        "must-never-be-promoted";
+
+      await writeFile(
+        validated,
+        `${JSON.stringify(
+          parsed,
+          null,
+          2
+        )}\n`,
+        "utf8"
+      );
+
+      const promotion =
+        promote(validated);
+
+      assert.notEqual(
+        promotion.status,
+        0
+      );
+      assert.match(
+        promotion.stderr,
+        /INFRA_SECURITY_EVIDENCE_SHAPE_INVALID/
+      );
+    } finally {
+      await rm(
+        directory,
+        {
+          recursive: true,
+          force: true
+        }
+      );
+    }
+  }
+);
+
+test(
+  "refuses retained evidence whose status is no longer pass",
+  async () => {
+    const directory =
+      await mkdtemp(
+        join(
+          tmpdir(),
+          "pdeca-infra-promotion-"
+        )
+      );
+
+    try {
+      const validated =
+        await validateToFile(
+          directory
+        );
+      const parsed = JSON.parse(
+        await readFile(
+          validated,
+          "utf8"
+        )
+      );
+      parsed.status = "pending";
+
+      await writeFile(
+        validated,
+        `${JSON.stringify(
+          parsed,
+          null,
+          2
+        )}\n`,
+        "utf8"
+      );
+
+      const promotion =
+        promote(validated);
+
+      assert.notEqual(
+        promotion.status,
+        0
+      );
+      assert.match(
+        promotion.stderr,
+        /INFRA_SECURITY_EVIDENCE_SHAPE_INVALID/
       );
     } finally {
       await rm(
