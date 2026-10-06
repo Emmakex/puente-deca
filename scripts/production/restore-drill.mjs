@@ -36,6 +36,10 @@ import {
   assertRestoreReconciliation,
   assertRestoredArtifactLink
 } from "./restore-integrity.mjs";
+import {
+  DECA_BACKUP_COLLECTIONS,
+  decaBackupNamespaces
+} from "./deca-backup-scope.mjs";
 
 const requireText = (
   value,
@@ -91,20 +95,6 @@ const sha256 = (bytes) =>
   createHash("sha256")
     .update(bytes)
     .digest("hex");
-
-const requiredMetadataCollections =
-  [
-    "deca_organizations",
-    "deca_api_credentials",
-    "deca_ecmr_signer_keys",
-    "deca_shipments",
-    "deca_document_versions",
-    "deca_regulatory_versions",
-    "deca_idempotency",
-    "deca_audit_events",
-    "deca_artifact_purges",
-    "deca_pdf.files"
-  ];
 
 const main = async () => {
   const restoreUri =
@@ -256,7 +246,12 @@ const main = async () => {
         "--gzip",
         "--stopOnError",
         "--drop",
-        "--nsInclude=kairoseth.deca_*",
+        ...decaBackupNamespaces(
+          "kairoseth"
+        ).map(
+          (namespace) =>
+            `--nsInclude=${namespace}`
+        ),
         "--nsFrom=kairoseth.*",
         `--nsTo=${restoreDatabase}.*`
       ]
@@ -316,7 +311,7 @@ const main = async () => {
       );
 
     const missingCollections =
-      requiredMetadataCollections
+      DECA_BACKUP_COLLECTIONS
         .filter(
           (name) =>
             !collectionNames.has(name)
@@ -327,25 +322,12 @@ const main = async () => {
       0
     ) {
       const error = new Error(
-        "Restored database is missing required collections"
+        "Restored database is missing required DeCA core collections"
       );
       error.code =
         "RESTORE_COLLECTIONS_MISSING";
       error.missingCollections =
         missingCollections;
-      throw error;
-    }
-
-    if (
-      !collectionNames.has(
-        "deca_pdf.chunks"
-      )
-    ) {
-      const error = new Error(
-        "Restored GridFS chunks collection is missing"
-      );
-      error.code =
-        "RESTORE_GRIDFS_CHUNKS_MISSING";
       throw error;
     }
 
@@ -533,7 +515,7 @@ const main = async () => {
 
     for (
       const collectionName of
-      requiredMetadataCollections
+      DECA_BACKUP_COLLECTIONS
     ) {
       counts[
         collectionName
@@ -544,15 +526,6 @@ const main = async () => {
           )
           .countDocuments();
     }
-
-    counts[
-      "deca_pdf.chunks"
-    ] =
-      await database
-        .collection(
-          "deca_pdf.chunks"
-        )
-        .countDocuments();
 
     if (!preserveDatabase) {
       try {
@@ -584,14 +557,11 @@ const main = async () => {
           archiveSha256:
             actualChecksum,
           collections:
-            [...collectionNames]
+            DECA_BACKUP_COLLECTIONS
               .filter(
                 (name) =>
-                  name.startsWith(
-                    "deca_"
-                  )
-              )
-              .sort(),
+                  collectionNames.has(name)
+              ),
           counts,
           allArtifactsVerified:
             true,
