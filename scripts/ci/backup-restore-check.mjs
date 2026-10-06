@@ -4,7 +4,8 @@ const [
   backup,
   restore,
   acceptance,
-  scope
+  scope,
+  workflow
 ] =
   await Promise.all([
     readFile(
@@ -21,6 +22,10 @@ const [
     ),
     readFile(
       "scripts/production/deca-backup-scope.mjs",
+      "utf8"
+    ),
+    readFile(
+      ".github/workflows/backup-restore-acceptance.yml",
       "utf8"
     )
   ]);
@@ -293,9 +298,50 @@ requirePattern(
   "DR acceptance evidence must include restored reconciliation counts"
 );
 
+requirePattern(
+  workflow,
+  /workflow_dispatch:/,
+  "DR workflow must remain explicitly dispatched"
+);
+requirePattern(
+  workflow,
+  /environment:\s*deca-production/,
+  "DR workflow must remain protected by the deca-production environment"
+);
+requirePattern(
+  workflow,
+  /ref:\s*main/,
+  "DR workflow must execute the protected main branch"
+);
+requirePattern(
+  workflow,
+  /acceptance-evidence\.json/,
+  "DR workflow must retain sanitized acceptance evidence"
+);
+requirePattern(
+  workflow,
+  /acceptance-evidence\.json\.sha256/,
+  "DR workflow must retain the evidence SHA-256"
+);
+requirePattern(
+  workflow,
+  /rm -rf "\$BACKUP_OUTPUT_DIR"/,
+  "DR workflow must remove backup archives from the hosted runner"
+);
+
+if (
+  /upload-artifact[\s\S]*BACKUP_OUTPUT_DIR/.test(
+    workflow
+  )
+) {
+  throw new Error(
+    "DR workflow must never upload the sensitive backup archive directory"
+  );
+}
+
 if (
   /SKIP_|BYPASS_|ALLOW_PRODUCTION_RESTORE|FORCE_RESTORE/i.test(
-    backup + restore + acceptance + scope
+    backup + restore + acceptance + scope + workflow
   )
 ) {
   throw new Error(
@@ -304,5 +350,5 @@ if (
 }
 
 console.log(
-  "Backup/restore automation contract OK (DeCA-only namespace allowlist, 0600 config, SHA-256, isolated namespace remap, metadata/GridFS reconciliation, all-artifact integrity, failure cleanup, no frozen eCMR/eFTI dependency, no production-restore bypass)"
+  "Backup/restore automation contract OK (DeCA-only namespace allowlist, 0600 config, SHA-256, isolated namespace remap, metadata/GridFS reconciliation, all-artifact integrity, protected sanitized workflow evidence, failure cleanup, no frozen eCMR/eFTI dependency, no production-restore bypass)"
 );
