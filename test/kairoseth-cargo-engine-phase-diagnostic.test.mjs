@@ -11,7 +11,7 @@ const workflow = fs.readFileSync(workflowPath, "utf8");
 test("engine phase diagnostic remains production-scoped and secret-safe", () => {
   assert.match(workflow, /environment:\s+deca-production/);
   assert.match(workflow, /OPERATIONS_HEALTH_SECRET/);
-  assert.match(workflow, /::add-mask::\$api_key/);
+  assert.match(workflow, /echo \"::add-mask::\$api_key\"/);
   assert.match(workflow, /trap cleanup EXIT/);
   assert.match(workflow, /revoke_credential/);
   assert.match(workflow, /rm -rf \"\$work\"/);
@@ -35,7 +35,8 @@ test("engine phase diagnostic emits only bounded phase and HTTP metadata", () =>
   }
 
   assert.doesNotMatch(workflow, /cat\s+[^\n]*(fixture|health|list|shipment|json)/i);
-  assert.doesNotMatch(workflow, /echo\s+[^\n]*\$api_key/);
+  const apiKeyEchoes = workflow.match(/echo\s+[^\n]*\$api_key/g) ?? [];
+  assert.deepEqual(apiKeyEchoes, ['echo "::add-mask::$api_key']);
   assert.doesNotMatch(workflow, /print.*fixture_body/i);
 });
 
