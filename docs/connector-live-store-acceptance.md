@@ -112,9 +112,62 @@ Both files use owner-only permissions (`0600`). Schema version 2 contains:
 - order mapping booleans and missing fact **names only**;
 - no order ID or source field values.
 
-The command output also surfaces the evidence SHA-256 so it can be copied into the final `deca-100` manifest without reopening the evidence file.
+The command output also surfaces the evidence SHA-256.
 
 A normal diagnostic run may still write evidence, but it always has `completionEligible: false`. It must never be promoted to the final manifest.
+
+## Verify and promote evidence into `deca-100`
+
+Do not manually reinterpret a connector evidence file. Verify its checksum and completion semantics with:
+
+```bash
+npm run production:connector-live-evidence-verify -- \
+  --evidence=.artifacts/connector-live/woocommerce-acceptance-evidence.json
+```
+
+or:
+
+```bash
+npm run production:connector-live-evidence-verify -- \
+  --evidence=.artifacts/connector-live/prestashop-acceptance-evidence.json
+```
+
+The verifier reads the adjacent `.sha256` file by default. It rejects:
+
+- checksum mismatch;
+- diagnostic/non-completion evidence;
+- non-synthetic or non-Kairoseth-controlled acceptance declarations;
+- connector-version mismatch;
+- incomplete order mapping;
+- forged or inconsistent PrestaShop runtime classification.
+
+A valid result emits exactly one final-manifest gate candidate:
+
+```json
+{
+  "status": "ok",
+  "check": "connector-live-evidence-verify",
+  "gateName": "wooCommerceLive",
+  "gate": {
+    "status": "pass",
+    "evidenceSha256": "sha256:<64 hex>",
+    "repository": "Emmakex/puente-deca",
+    "commit": "<40 hex>",
+    "runId": "connector-live-<uuid>",
+    "recordedAt": "<UTC timestamp>"
+  }
+}
+```
+
+Depending on the actual accepted runtime, `gateName` is exactly one of:
+
+```text
+wooCommerceLive
+prestaShop178Live
+prestaShop8Live
+```
+
+The nested `gate` object has the exact shape accepted by `scripts/production/final-infrastructure-acceptance.mjs`.
 
 ## Required mapping facts
 
@@ -124,15 +177,16 @@ The wrapper rejects partial mappings with `ORDER_MAPPING_NOT_READY`.
 
 ## Safety boundary
 
-Both PHP scripts are guarded in CI against shipment/document/order mutation methods. The evidence wrapper is guarded in CI so it must keep:
+Both PHP scripts are guarded in CI against shipment/document/order mutation methods. The evidence wrapper and verifier are guarded in CI so they must keep:
 
 - read-only result validation;
 - synthetic/Kairoseth-controlled completion declarations;
 - mandatory completion-order mapping;
 - expected connector-version binding;
 - exact Git commit binding;
-- SHA-256 evidence;
+- SHA-256 evidence verification;
 - owner-only artifact permissions;
+- final-gate classification tied to the actual runtime line;
 - no serialization of environment/order IDs/customer values.
 
 They intentionally do not:
