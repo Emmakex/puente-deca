@@ -1,0 +1,149 @@
+name: DeCA Kairoseth Cargo CSP Edge Diagnostic
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/kairoseth-cargo-csp-edge-diagnostic.yml
+  workflow_dispatch:
+
+concurrency:
+  group: puente-deca-kairoseth-cargo-csp-edge-diagnostic
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: deca-production
+
+    steps:
+      - name: Inspect deployed CSP classification safely
+        shell: bash
+        env:
+          OPERATIONS_HEALTH_SECRET: ${{ secrets.OPERATIONS_HEALTH_SECRET }}
+        run: |
+          set -euo pipefail
+          test ${#OPERATIONS_HEALTH_SECRET} -ge 32
+
+          base="https://kairoseth.com"
+          fixture_endpoint="$base/api/operations/deca/acceptance-fixture"
+          user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+          work="$RUNNER_TEMP/deca-csp-edge-diagnostic"
+          mkdir -p "$work"
+          chmod 700 "$work"
+          credential_id=""
+          revoked=0
+
+          revoke_credential() {
+            if [ "$revoked" -eq 1 ] || [ -z "$credential_id" ]; then
+              return 0
+            fi
+            local body="$work/revoke.json"
+            local status=""
+            status="$(curl -4 --silent --show-error --request DELETE \
+              --connect-timeout 8 --max-time 20 \
+              --header "Authorization: Bearer $OPERATIONS_HEALTH_SECRET" \
+              --header "x-kairoseth-acceptance-confirm: synthetic-production-credential-revoke" \
+              --header "x-kairoseth-acceptance-credential-id: $credential_id" \
+              --header "Accept: application/json" \
+              --header "User-Agent: $user_agent" \
+              --output "$body" --write-out '%{http_code}' \
+              "$fixture_endpoint")" || return 1
+            [ "$status" = "200" ] || return 1
+            node -e '
+              const fs = require("node:fs");
+              const body = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+              process.exit(body?.status === "ok" && body?.revoked === true ? 0 : 1);
+            ' "$body" || return 1
+            revoked=1
+          }
+
+          cleanup() {
+            revoke_credential >/dev/null 2>&1 || true
+            rm -rf "$work"
+          }
+          trap cleanup EXIT
+
+          fixture_body="$work/fixture.json"
+          fixture_status="$(curl -4 --silent --show-error --request POST \
+            --connect-timeout 8 --max-time 25 \
+            --header "Authorization: Bearer $OPERATIONS_HEALTH_SECRET" \
+            --header "x-kairoseth-acceptance-confirm: synthetic-production-fixture" \
+            --header "Accept: application/json" \
+            --header "User-Agent: $user_agent" \
+            --output "$fixture_body" --write-out '%{http_code}' \
+            "$fixture_endpoint")"
+          [ "$fixture_status" = "200" ]
+
+          FIXTURE_BODY="$fixture_body" WORK_DIR="$work" node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const body = JSON.parse(fs.readFileSync(process.env.FIXTURE_BODY, 'utf8'));
+          const publicPdfUrl = body?.publicPdfUrl ?? '';
+          const credentialId = body?.credential?.credentialId ?? '';
+          const ok = body?.status === 'ok'
+            && body?.synthetic === true
+            && body?.customerData === false
+            && /^https:\/\/kairoseth\.com\/deca\/d\/[A-Za-z0-9_-]{16,128}\.pdf$/.test(publicPdfUrl)
+            && /^[A-Za-z0-9_-]{8,160}$/.test(credentialId);
+          if (!ok) process.exit(1);
+          fs.writeFileSync(path.join(process.env.WORK_DIR, 'pdf-url.txt'), `${publicPdfUrl}\n`, { mode: 0o600 });
+          fs.writeFileSync(path.join(process.env.WORK_DIR, 'credential.txt'), `${credentialId}\n`, { mode: 0o600 });
+          NODE
+
+          public_pdf_url="$(tr -d '\r\n' < "$work/pdf-url.txt")"
+          credential_id="$(tr -d '\r\n' < "$work/credential.txt")"
+
+          headers="$work/headers.txt"
+          pdf="$work/document.pdf"
+          pdf_status="$(curl -4 --silent --show-error \
+            --connect-timeout 8 --max-time 25 --max-redirs 0 \
+            --header "Accept: application/pdf" \
+            --header "User-Agent: $user_agent" \
+            --dump-header "$headers" \
+            --output "$pdf" --write-out '%{http_code}' \
+            "$public_pdf_url")"
+          [ "$pdf_status" = "200" ]
+          [ "$(head -c 5 "$pdf")" = "%PDF-" ]
+
+          normalized="$work/headers-normalized.txt"
+          tr -d '\r' < "$headers" > "$normalized"
+
+          csp_count="$(grep -Eic '^content-security-policy:' "$normalized" || true)"
+          report_only_count="$(grep -Eic '^content-security-policy-report-only:' "$normalized" || true)"
+          default_none=0
+          frame_none=0
+          upgrade_insecure=0
+          same_policy=0
+          hcdn_observed=0
+
+          grep -Eiq '^content-security-policy:.*default-src .none.' "$normalized" && default_none=1 || true
+          grep -Eiq '^content-security-policy:.*frame-ancestors .none.' "$normalized" && frame_none=1 || true
+          grep -Eiq '^content-security-policy:.*upgrade-insecure-requests' "$normalized" && upgrade_insecure=1 || true
+          grep -Eiq '^content-security-policy:.*default-src .none..*frame-ancestors .none.' "$normalized" && same_policy=1 || true
+          if grep -Eiq '^server: *hcdn|^x-hcdn-request-id:' "$normalized"; then
+            hcdn_observed=1
+          fi
+
+          echo "CSP_EDGE_DIAGNOSTIC http=$pdf_status csp_count=$csp_count report_only_count=$report_only_count default_none=$default_none frame_none=$frame_none upgrade_insecure=$upgrade_insecure same_policy=$same_policy hcdn_observed=$hcdn_observed"
+
+          if [ "$same_policy" -eq 1 ]; then
+            echo "CSP_EDGE_CLASSIFICATION=fail_closed_policy_present"
+          elif [ "$csp_count" -eq 0 ]; then
+            echo "CSP_EDGE_CLASSIFICATION=policy_missing"
+          elif [ "$upgrade_insecure" -eq 1 ] && [ "$default_none" -eq 0 ] && [ "$frame_none" -eq 0 ]; then
+            echo "CSP_EDGE_CLASSIFICATION=edge_upgrade_only"
+          elif [ "$default_none" -eq 1 ] || [ "$frame_none" -eq 1 ]; then
+            echo "CSP_EDGE_CLASSIFICATION=policy_partial_or_split"
+          else
+            echo "CSP_EDGE_CLASSIFICATION=policy_replaced_or_unknown"
+          fi
+
+          revoke_credential
+          trap - EXIT
+          rm -rf "$work"
