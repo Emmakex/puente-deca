@@ -1,0 +1,114 @@
+name: DeCA Atlas Core Acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Confirm DeCA-only Atlas/GridFS production acceptance
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: puente-deca-atlas-core-acceptance
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  atlas-core:
+    if: ${{ inputs.confirm == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: deca-production
+
+    env:
+      NODE_ENV: production
+      PUBLIC_BASE_URL: https://kairoseth.com/deca
+      MONGODB_DB_NAME: kairoseth
+      PERSISTENCE_DRIVER: mongodb
+      ARTIFACT_DRIVER: gridfs
+      DECA_GRIDFS_BUCKET: deca_pdf
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Assert protected main execution and required secrets
+        shell: bash
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          KAIROSETH_SERVICE_SECRET: ${{ secrets.KAIROSETH_SERVICE_SECRET }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_SHA" = "$(git rev-parse HEAD)"
+          test -n "$MONGODB_URI"
+          test ${#KAIROSETH_SERVICE_SECRET} -ge 32
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Run DeCA-only Atlas core acceptance
+        shell: bash
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          KAIROSETH_SERVICE_SECRET: ${{ secrets.KAIROSETH_SERVICE_SECRET }}
+        run: |
+          set -euo pipefail
+          mkdir -p .artifacts/deca-atlas-core
+          npm run --silent production:atlas-core-acceptance \
+            > .artifacts/deca-atlas-core/result.json
+          node -e '
+            const fs = require("node:fs");
+            const result = JSON.parse(fs.readFileSync(".artifacts/deca-atlas-core/result.json", "utf8"));
+            if (
+              result?.status !== "ok" ||
+              result?.check !== "deca-atlas-core-acceptance" ||
+              result?.scope !== "deca-only"
+            ) {
+              throw new Error("Atlas core acceptance result is not green");
+            }
+            const evidence = {
+              schemaVersion: 1,
+              check: "deca-atlas-core-acceptance",
+              scope: "deca-only",
+              repository: process.env.GITHUB_REPOSITORY,
+              commit: process.env.GITHUB_SHA,
+              runId: process.env.GITHUB_RUN_ID,
+              runAttempt: process.env.GITHUB_RUN_ATTEMPT,
+              recordedAt: new Date().toISOString(),
+              result
+            };
+            fs.writeFileSync(
+              ".artifacts/deca-atlas-core/acceptance-evidence.json",
+              `${JSON.stringify(evidence, null, 2)}\n`,
+              { mode: 0o600 }
+            );
+          '
+          sha256sum .artifacts/deca-atlas-core/acceptance-evidence.json \
+            > .artifacts/deca-atlas-core/acceptance-evidence.json.sha256
+
+      - name: Upload sanitized Atlas core acceptance evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: puente-deca-atlas-core-${{ github.run_id }}
+          path: |
+            .artifacts/deca-atlas-core/acceptance-evidence.json
+            .artifacts/deca-atlas-core/acceptance-evidence.json.sha256
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+      - name: Remove transient raw output
+        if: ${{ always() }}
+        shell: bash
+        run: rm -f .artifacts/deca-atlas-core/result.json
