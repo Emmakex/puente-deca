@@ -111,8 +111,6 @@ const main = () => {
         check:
           "puente-deca-backup-restore-acceptance",
         backup: {
-          archive:
-            backup.archive,
           bytes:
             backup.bytes,
           sha256:
