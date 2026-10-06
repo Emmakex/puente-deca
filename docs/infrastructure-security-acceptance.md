@@ -38,7 +38,7 @@ This control is separate from application unit/container tests: it refers to the
 
 Evidence must show that the Hostinger/CDN/WAF layer has the intended public-edge abuse/volumetric protections enabled for the DeCA public route. The safe Hostinger edge acceptance workflow deliberately does not perform a DDoS/volumetric load test.
 
-## Secret-free manifest
+## Secret-free control manifest
 
 Each control accepts exactly:
 
@@ -47,22 +47,73 @@ Each control accepts exactly:
   "status": "pass",
   "evidenceSha256": "sha256:<64 lowercase hex>",
   "referenceId": "internal-evidence-id",
-  "recordedAt": "2026-10-05T12:30:00Z"
+  "recordedAt": "2026-10-06T18:30:00Z"
 }
 ```
 
 Additional fields are rejected. This prevents MongoDB URIs, API keys, opaque public tokens, network rules or other sensitive values from being embedded accidentally.
 
-## Validation
+The top-level input contains only `schemaVersion`, `check`, `recordedAt` and the exact six controls. One missing/pending control makes the entire gate fail closed.
+
+## Validate the six-control bundle
+
+Use an exact checkout of the release being closed:
 
 ```bash
-node scripts/production/infrastructure-security-acceptance.mjs \
+npm run production:infrastructure-security-acceptance -- \
   /secure/path/deca-infrastructure-security.json \
   /secure/path/deca-infrastructure-security-evidence.json
 ```
 
-The optional validated output is written with mode `0600`, and the normal test suite verifies that the validated output does not contain obvious secret material.
+The optional validated output is written with mode `0600`. The normal test suite verifies that the validated output cannot carry extra secret-bearing control fields and that all six controls are mandatory.
 
-A single missing/pending control makes the whole gate fail closed. The SHA-256 of the validated output is the evidence supplied to the `infrastructureSecurity` entry in `final-infrastructure-acceptance.mjs`.
+## Promote validated evidence into `deca-100`
+
+Do not manually calculate and transcribe the final `infrastructureSecurity` gate. After validation, run:
+
+```bash
+npm run production:infrastructure-security-evidence-promote -- \
+  /secure/path/deca-infrastructure-security-evidence.json
+```
+
+The promoter:
+
+- re-runs the infrastructure-security validator against the retained file;
+- hashes the exact retained evidence bytes with SHA-256;
+- binds promotion to `git rev-parse HEAD` from the exact repository checkout;
+- derives a deterministic secret-free `runId` from the evidence digest;
+- emits the exact gate object accepted by `scripts/production/final-infrastructure-acceptance.mjs`.
+
+Expected shape:
+
+```json
+{
+  "status": "ok",
+  "check": "infrastructure-security-evidence-promote",
+  "gateName": "infrastructureSecurity",
+  "gate": {
+    "status": "pass",
+    "evidenceSha256": "sha256:<64 lowercase hex>",
+    "repository": "Emmakex/puente-deca",
+    "commit": "<40 hex>",
+    "runId": "infra-security-<digest-prefix>",
+    "recordedAt": "2026-10-06T18:35:00Z"
+  }
+}
+```
+
+The nested `gate` object has exactly the six keys required by the final `deca-100` infrastructure manifest. No MongoDB URI, WAF rule, API key, token, IP allowlist or provider credential is copied into that final gate.
+
+## Evidence ownership boundary
+
+Internal CI evidence can support internal controls, but it does not by itself satisfy deployed/provider controls. In particular:
+
+- the existing internal security workflow is useful supporting evidence for static/auth/isolation behavior;
+- `deployedTenantIsolation` must still be demonstrated at the intended deployed Kairoseth boundary;
+- `deploymentReadinessRollback` must refer to the actual controlled runtime/revision;
+- `hostingerWafConfiguration` requires retained provider/edge configuration evidence rather than a synthetic volumetric test;
+- Atlas least-privilege/network-access evidence remains an infrastructure inspection, not an application-unit-test result.
+
+This prevents already-green internal tests from being reused incorrectly to self-certify the remaining external infrastructure controls.
 
 This gate is DeCA-only. It does not advance or accept eCMR/eFTI.
