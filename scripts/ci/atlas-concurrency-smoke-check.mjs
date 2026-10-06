@@ -12,15 +12,12 @@ const required = [
   "IDEMPOTENCY_RETRY",
   "DOCUMENT_VERSION_EXISTS",
   "DOCUMENT_LINEAGE_CONFLICT",
-  "REGULATORY_VERSION_CONFLICT",
-  "REGULATORY_VERSION_HEAD_CONFLICT",
-  "deca_regulatory_versions",
-  "regulatory.version.created",
   "idempotencyConcurrency",
+  "idempotencyConverged",
   "documentVersionConcurrency",
-  "regulatoryVersionConcurrency",
-  "regulatoryLineageConsistent",
+  "documentLineageConsistent",
   "cleanupVerified",
+  "deca-only",
   "deleteMany",
   "countDocuments"
 ];
@@ -29,6 +26,22 @@ for (const token of required) {
   if (!source.includes(token)) {
     throw new Error(
       `Atlas concurrency smoke is missing ${token}`
+    );
+  }
+}
+
+for (const forbidden of [
+  "createEcmrAmendmentChain",
+  "appendEcmrAmendment",
+  "deca_regulatory_versions",
+  "regulatoryType",
+  "REGULATORY_VERSION_",
+  "regulatoryVersionConcurrency",
+  "regulatoryLineageConsistent"
+]) {
+  if (source.includes(forbidden)) {
+    throw new Error(
+      `DeCA Atlas concurrency smoke must not include frozen regulatory/eCMR scope: ${forbidden}`
     );
   }
 }
@@ -54,5 +67,5 @@ if (
 }
 
 console.log(
-  "Atlas concurrency smoke contract OK (idempotency race, document-version race, regulatory-head race, convergence, scoped cleanup)"
+  "Atlas concurrency smoke contract OK (DeCA-only idempotency race, document-version race, convergence, scoped cleanup)"
 );
