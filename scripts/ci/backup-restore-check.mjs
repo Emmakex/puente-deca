@@ -1,6 +1,12 @@
 import { readFile } from "node:fs/promises";
 
-const [backup, restore, acceptance] =
+const [
+  backup,
+  restore,
+  acceptance,
+  scope,
+  workflow
+] =
   await Promise.all([
     readFile(
       "scripts/production/backup-deca.mjs",
@@ -12,6 +18,14 @@ const [backup, restore, acceptance] =
     ),
     readFile(
       "scripts/production/backup-restore-acceptance.mjs",
+      "utf8"
+    ),
+    readFile(
+      "scripts/production/deca-backup-scope.mjs",
+      "utf8"
+    ),
+    readFile(
+      ".github/workflows/backup-restore-acceptance.yml",
       "utf8"
     )
   ]);
@@ -25,6 +39,36 @@ const requirePattern = (
     throw new Error(message);
   }
 };
+
+for (
+  const requiredCollection of [
+    "deca_organizations",
+    "deca_api_credentials",
+    "deca_shipments",
+    "deca_document_versions",
+    "deca_idempotency",
+    "deca_audit_events",
+    "deca_artifact_purges",
+    "deca_pdf.files",
+    "deca_pdf.chunks"
+  ]
+) {
+  if (!scope.includes(`"${requiredCollection}"`)) {
+    throw new Error(
+      `DeCA DR scope is missing ${requiredCollection}`
+    );
+  }
+}
+
+if (
+  /ecmr|efti|regulatory/i.test(
+    scope
+  )
+) {
+  throw new Error(
+    "DeCA DR scope must not include frozen eCMR/eFTI or regulatory namespaces"
+  );
+}
 
 for (
   const [name, source] of [
@@ -57,6 +101,11 @@ for (
 
 requirePattern(
   backup,
+  /DECA_BACKUP_COLLECTIONS/,
+  "Backup must consume the shared DeCA-only collection allowlist"
+);
+requirePattern(
+  backup,
   /--archive=/,
   "Backup must use a single archive"
 );
@@ -67,8 +116,28 @@ requirePattern(
 );
 requirePattern(
   backup,
-  /--nsInclude=.*deca_\*/,
-  "Backup must be restricted to DeCA namespaces"
+  /--db=\$\{databaseName\}/,
+  "Backup must scope mongodump to the kairoseth database"
+);
+requirePattern(
+  backup,
+  /--excludeCollection=\$\{collectionName\}/,
+  "Backup must exclude every source collection outside the DeCA allowlist"
+);
+requirePattern(
+  backup,
+  /listCollectionNames/,
+  "Backup must inspect the live source collection set"
+);
+requirePattern(
+  backup,
+  /BACKUP_COLLECTION_SET_CHANGED/,
+  "Backup must fail closed if the source collection set changes during the dump"
+);
+requirePattern(
+  backup,
+  /sourceCollectionSetSha256/,
+  "Backup evidence must bind the observed source collection set"
 );
 requirePattern(
   backup,
@@ -80,7 +149,32 @@ requirePattern(
   /\.metadata\.json/,
   "Backup must emit metadata evidence"
 );
+requirePattern(
+  backup,
+  /schemaVersion:\s*2/,
+  "Backup metadata must use the explicit namespace evidence schema"
+);
+requirePattern(
+  backup,
+  /namespaces/,
+  "Backup evidence must record the explicit namespace allowlist"
+);
 
+if (
+  /--nsInclude=/.test(
+    backup
+  )
+) {
+  throw new Error(
+    "mongodump must not use mongorestore-only --nsInclude"
+  );
+}
+
+requirePattern(
+  restore,
+  /decaBackupNamespaces/,
+  "Restore must use the shared DeCA-only namespace allowlist"
+);
 requirePattern(
   restore,
   /restoreDatabase ===[\s\S]*"kairoseth"/,
@@ -118,23 +212,13 @@ requirePattern(
 );
 requirePattern(
   restore,
-  /deca_regulatory_versions/,
-  "Restore drill must require the immutable regulatory-version collection"
-);
-requirePattern(
-  restore,
-  /deca_ecmr_signer_keys/,
-  "Restore drill must require the eCMR signer-key registry collection"
+  /DECA_BACKUP_COLLECTIONS/,
+  "Restore verification must use the shared DeCA-only collection allowlist"
 );
 requirePattern(
   restore,
   /deca_pdf\.files/,
   "Restore must verify GridFS files"
-);
-requirePattern(
-  restore,
-  /deca_pdf\.chunks/,
-  "Restore must verify GridFS chunks"
 );
 requirePattern(
   restore,
@@ -197,6 +281,16 @@ requirePattern(
   "Restore drill must clean up the isolated DR database by default"
 );
 
+if (
+  /--nsInclude=.*deca_\*/.test(
+    restore
+  )
+) {
+  throw new Error(
+    "Restore must not use a wildcard DeCA namespace scope"
+  );
+}
+
 requirePattern(
   acceptance,
   /backup-deca\.mjs/,
@@ -224,6 +318,11 @@ requirePattern(
 );
 requirePattern(
   acceptance,
+  /namespaces:/,
+  "DR acceptance evidence must expose the exact DeCA namespace allowlist"
+);
+requirePattern(
+  acceptance,
   /allArtifactsVerified/,
   "DR acceptance evidence must report full GridFS verification"
 );
@@ -238,9 +337,64 @@ requirePattern(
   "DR acceptance evidence must include restored reconciliation counts"
 );
 
+requirePattern(
+  workflow,
+  /workflow_dispatch:/,
+  "DR workflow must remain explicitly dispatched"
+);
+requirePattern(
+  workflow,
+  /environment:\s*deca-production/,
+  "DR workflow must remain protected by the deca-production environment"
+);
+requirePattern(
+  workflow,
+  /ref:\s*main/,
+  "DR workflow must execute the protected main branch"
+);
+requirePattern(
+  workflow,
+  /rm -rf "\$BACKUP_OUTPUT_DIR"/,
+  "DR workflow must remove backup archives from the hosted runner"
+);
+
+const uploadStep =
+  workflow
+    .split(
+      "- name: Upload sanitized DR acceptance evidence"
+    )[1]
+    ?.split("\n      - name:")[0] ??
+  "";
+
+requirePattern(
+  uploadStep,
+  /uses:\s*actions\/upload-artifact@v4/,
+  "DR workflow must use the dedicated sanitized evidence upload step"
+);
+requirePattern(
+  uploadStep,
+  /acceptance-evidence\.json/,
+  "DR evidence upload must include acceptance-evidence.json"
+);
+requirePattern(
+  uploadStep,
+  /acceptance-evidence\.json\.sha256/,
+  "DR evidence upload must include the evidence SHA-256"
+);
+
+if (
+  /BACKUP_OUTPUT_DIR|puente-deca-backups|archive\.gz/i.test(
+    uploadStep
+  )
+) {
+  throw new Error(
+    "DR evidence upload step must never include the sensitive backup archive directory"
+  );
+}
+
 if (
   /SKIP_|BYPASS_|ALLOW_PRODUCTION_RESTORE|FORCE_RESTORE/i.test(
-    backup + restore + acceptance
+    backup + restore + acceptance + scope + workflow
   )
 ) {
   throw new Error(
@@ -249,5 +403,5 @@ if (
 }
 
 console.log(
-  "Backup/restore automation contract OK (0600 config, scoped archive, SHA-256, isolated namespace remap, metadata/GridFS reconciliation, all-artifact integrity, failure cleanup, one-command acceptance, no production-restore bypass)"
+  "Backup/restore automation contract OK (mongodump-compatible DeCA allowlist enforcement, stable source collection set, 0600 config, SHA-256, isolated namespace remap, metadata/GridFS reconciliation, protected sanitized workflow evidence, no frozen eCMR/eFTI dependency, no production-restore bypass)"
 );

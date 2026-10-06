@@ -20,6 +20,13 @@ import {
 import {
   spawnSync
 } from "node:child_process";
+import {
+  openKairosethMongoClient
+} from "../../packages/persistence/src/mongo-client.mjs";
+import {
+  DECA_BACKUP_COLLECTIONS,
+  decaBackupNamespaces
+} from "./deca-backup-scope.mjs";
 
 const requireText = (
   value,
@@ -87,6 +94,35 @@ const sha256File = async (
     .digest("hex");
 };
 
+const collectionSetHash = (
+  collectionNames
+) =>
+  `sha256:${createHash("sha256")
+    .update(
+      JSON.stringify(
+        [...collectionNames].sort()
+      )
+    )
+    .digest("hex")}`;
+
+const listCollectionNames = async (
+  client,
+  databaseName
+) =>
+  (
+    await client
+      .db(databaseName)
+      .listCollections(
+        {},
+        { nameOnly: true }
+      )
+      .toArray()
+  )
+    .map(
+      (entry) => entry.name
+    )
+    .sort();
+
 const main = async () => {
   const uri = requireText(
     process.env.MONGODB_URI,
@@ -122,6 +158,11 @@ const main = async () => {
       "BACKUP_SOURCE_DATABASE_INVALID";
     throw error;
   }
+
+  const namespaces =
+    decaBackupNamespaces(
+      databaseName
+    );
 
   const outputDirectory =
     resolve(
@@ -169,50 +210,132 @@ const main = async () => {
   const metadataPath =
     `${archivePath}.metadata.json`;
 
-  const configDirectory =
-    await mkdtemp(
-      join(
-        tmpdir(),
-        "pdeca-mongodump-"
-      )
-    );
-  const configPath =
-    join(
-      configDirectory,
-      "mongo-tools.yml"
-    );
+  const client =
+    await openKairosethMongoClient({
+      uri,
+      appName:
+        "kairoseth-puente-deca-backup-scope"
+    });
+
+  let sourceCollectionsBefore = [];
 
   try {
-    await writeFile(
-      configPath,
-      `uri: ${JSON.stringify(uri)}\n`,
-      {
-        encoding: "utf8",
-        mode: 0o600
-      }
-    );
-    await chmod(
-      configPath,
-      0o600
-    );
+    sourceCollectionsBefore =
+      await listCollectionNames(
+        client,
+        databaseName
+      );
 
-    run(
-      "mongodump",
-      [
-        `--config=${configPath}`,
-        `--archive=${archivePath}`,
-        "--gzip",
-        `--nsInclude=${databaseName}.deca_*`
-      ]
-    );
+    const missingCollections =
+      DECA_BACKUP_COLLECTIONS
+        .filter(
+          (name) =>
+            !sourceCollectionsBefore
+              .includes(name)
+        );
+
+    if (
+      missingCollections.length > 0
+    ) {
+      const error = new Error(
+        "Source database is missing required DeCA core collections"
+      );
+      error.code =
+        "BACKUP_COLLECTIONS_MISSING";
+      error.missingCollections =
+        missingCollections;
+      throw error;
+    }
+
+    const excludedCollections =
+      sourceCollectionsBefore
+        .filter(
+          (name) =>
+            !DECA_BACKUP_COLLECTIONS
+              .includes(name) &&
+            !name.startsWith(
+              "system."
+            )
+        );
+
+    const configDirectory =
+      await mkdtemp(
+        join(
+          tmpdir(),
+          "pdeca-mongodump-"
+        )
+      );
+    const configPath =
+      join(
+        configDirectory,
+        "mongo-tools.yml"
+      );
+
+    try {
+      await writeFile(
+        configPath,
+        `uri: ${JSON.stringify(uri)}\n`,
+        {
+          encoding: "utf8",
+          mode: 0o600
+        }
+      );
+      await chmod(
+        configPath,
+        0o600
+      );
+
+      run(
+        "mongodump",
+        [
+          `--config=${configPath}`,
+          `--archive=${archivePath}`,
+          "--gzip",
+          `--db=${databaseName}`,
+          ...excludedCollections.map(
+            (collectionName) =>
+              `--excludeCollection=${collectionName}`
+          )
+        ]
+      );
+    } finally {
+      await rm(
+        configDirectory,
+        {
+          recursive: true,
+          force: true
+        }
+      );
+    }
+
+    const sourceCollectionsAfter =
+      await listCollectionNames(
+        client,
+        databaseName
+      );
+
+    if (
+      collectionSetHash(
+        sourceCollectionsBefore
+      ) !==
+      collectionSetHash(
+        sourceCollectionsAfter
+      )
+    ) {
+      await rm(
+        archivePath,
+        { force: true }
+      );
+
+      const error = new Error(
+        "Source collection set changed during backup"
+      );
+      error.code =
+        "BACKUP_COLLECTION_SET_CHANGED";
+      throw error;
+    }
   } finally {
-    await rm(
-      configDirectory,
-      {
-        recursive: true,
-        force: true
-      }
-    );
+    await client.close();
   }
 
   const archiveStat =
@@ -241,13 +364,16 @@ const main = async () => {
   );
 
   const metadata = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     product:
       "Kairoseth Puente DeCA",
     sourceDatabase:
       databaseName,
-    namespace:
-      `${databaseName}.deca_*`,
+    namespaces,
+    sourceCollectionSetSha256:
+      collectionSetHash(
+        sourceCollectionsBefore
+      ),
     createdAt:
       new Date().toISOString(),
     archive:
@@ -286,8 +412,11 @@ const main = async () => {
           archiveStat.size,
         sha256:
           `sha256:${checksum}`,
-        namespace:
-          metadata.namespace
+        namespaces:
+          metadata.namespaces,
+        sourceCollectionSetSha256:
+          metadata
+            .sourceCollectionSetSha256
       },
       null,
       2
@@ -305,7 +434,13 @@ main().catch((error) => {
         typeof error?.code ===
           "string"
           ? error.code
-          : "BACKUP_FAILED"
+          : "BACKUP_FAILED",
+      missingCollections:
+        Array.isArray(
+          error?.missingCollections
+        )
+          ? error.missingCollections
+          : undefined
     })}\n`
   );
 
