@@ -14,6 +14,8 @@ const [workflowSource, atlasCoreSource] = await Promise.all([
 for (const required of [
   "name: DeCA Atlas Core Acceptance",
   "workflow_dispatch:",
+  "group: puente-deca-atlas-core-acceptance",
+  "cancel-in-progress: true",
   "environment: deca-production",
   "runs-on: ubuntu-24.04",
   "ref: main",
@@ -34,6 +36,7 @@ for (const required of [
 }
 
 for (const forbidden of [
+  "cancel-in-progress: false",
   "self-hosted",
   "MONGODB_URI",
   "KAIROSETH_SERVICE_SECRET",
@@ -69,5 +72,5 @@ if (
 }
 
 console.log(
-  "Atlas core workflow contract OK (GitHub stores only operations secret, Atlas executes in Kairoseth Hostinger runtime, retained sanitized evidence, no runner/database secret coupling)"
+  "Atlas core workflow contract OK (latest-run supersession, GitHub stores only operations secret, Atlas executes in Kairoseth Hostinger runtime, retained sanitized evidence, no runner/database secret coupling)"
 );
