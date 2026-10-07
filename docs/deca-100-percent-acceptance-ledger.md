@@ -41,7 +41,7 @@ Customer systems and customer data are not required to close any gate. Fixtures,
 | Hostinger public edge technical acceptance | GREEN | Safe low-volume external edge gate proves PDF 200, immutable repeated hash and fail-closed CSP |
 | Hostinger CDN/WAF provider configuration evidence | READY | Fail-closed verifier is complete; retain sanitized intended-production hPanel/provider evidence bound by SHA-256 to the protected Hostinger edge artifact; no disruptive DDoS/stress test |
 | Infrastructure security acceptance | READY | All six control evidence/verifier paths plus the automatic fail-closed composer are complete; collect intended Atlas/Hostinger/GitHub/protected-runtime evidence and compose/promote the exact retained bundle |
-| Final evidence freeze | OPEN | All rows above GREEN; pin final DeCA commit/release manifest and retained acceptance references |
+| Final evidence freeze | READY | Final eight-gate composer, canonical validator and freeze script are complete; execute only after all live/provider gates above are GREEN and release evidence is pinned to the accepted commit |
 
 ## Production closure evidence — 2026-10-06
 
@@ -65,6 +65,19 @@ The six-control `infrastructureSecurity` evidence path is now complete at reposi
 - final infrastructure-security promoter that hashes the exact retained bundle and binds the rollup gate to the exact Puente DeCA Git checkout.
 
 These controls remain `READY` until their intended production/provider evidence exists and passes the corresponding verifier. Repository CI success alone must never promote them to `GREEN`.
+
+## Final-manifest tooling closure — 2026-10-07
+
+The final `deca-100` assembly path is now complete at repository level without allowing manual gate normalization:
+
+- retained Atlas core, DR restore, Kairoseth engine and Hostinger edge evidence can be promoted through the dedicated fail-closed final-gate promoter;
+- WooCommerce, PrestaShop 1.7.8.x and PrestaShop 8.x use their connector live-evidence verifier to emit their final gates;
+- the six-control infrastructure-security bundle has its own dedicated promoter;
+- `final-infrastructure-evidence-compose.mjs` requires exactly the eight promoted gate results, rejects missing/duplicate/unknown gates and binds every gate to its expected producer;
+- the composer sends the assembled result through the canonical `final-infrastructure-acceptance.mjs` validator;
+- `final-deca-evidence-freeze.mjs` binds the validated infrastructure result to the final release manifest, connector checksums, SBOM and accepted Git commit.
+
+The final freeze remains `READY`, not `GREEN`, until all upstream live/provider evidence gates are green and the freeze is actually executed with the retained completion-grade evidence.
 
 ## Mapping to the fail-closed `deca-100` manifest
 
