@@ -41,7 +41,10 @@ let savedArtifact = null;
 
 try {
   const preflight =
-    assertProductionEnvironment();
+    assertProductionEnvironment(
+      process.env,
+      { topology: "in-process" }
+    );
 
   client = await openKairosethMongoClient({
     uri: process.env.MONGODB_URI,
