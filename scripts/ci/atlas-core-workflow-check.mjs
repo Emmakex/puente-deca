@@ -1,12 +1,16 @@
 import { readFile } from "node:fs/promises";
 
-const [workflowSource, atlasCoreSource] = await Promise.all([
+const [workflowSource, atlasCoreSource, atlasCoreDocs] = await Promise.all([
   readFile(
     ".github/workflows/atlas-core-acceptance.yml",
     "utf8"
   ),
   readFile(
     "scripts/production/atlas-core-acceptance.mjs",
+    "utf8"
+  ),
+  readFile(
+    "docs/atlas-core-acceptance.md",
     "utf8"
   )
 ]);
@@ -85,6 +89,33 @@ if (
   );
 }
 
+for (const required of [
+  "OPERATIONS_HEALTH_SECRET",
+  "does **not** receive `MONGODB_URI` or `KAIROSETH_SERVICE_SECRET`",
+  "POST https://kairoseth.com/api/operations/deca/atlas-core-acceptance",
+  "x-kairoseth-acceptance-confirm: deca-atlas-core-production",
+  "runtime=hostinger-in-process",
+  "--topology=in-process",
+  "retains for 90 days"
+]) {
+  if (!atlasCoreDocs.includes(required)) {
+    throw new Error(
+      `Atlas core documentation is missing the current Hostinger boundary: ${required}`
+    );
+  }
+}
+
+for (const stale of [
+  "requires the Kairoseth-controlled production secrets already expected by the production preflight",
+  "The workflow executes:\n\n```bash\nnpm run production:atlas-core-acceptance"
+]) {
+  if (atlasCoreDocs.includes(stale)) {
+    throw new Error(
+      `Atlas core documentation still describes the obsolete direct-run topology: ${stale}`
+    );
+  }
+}
+
 console.log(
-  "Atlas core workflow contract OK (latest-run supersession, GitHub stores only operations secret, Atlas executes in Kairoseth Hostinger runtime, bounded contract diagnostics, retained sanitized evidence, no runner/database secret coupling)"
+  "Atlas core workflow contract OK (latest-run supersession, GitHub stores only operations secret, Atlas executes in Kairoseth Hostinger runtime, bounded contract diagnostics, retained sanitized evidence, documentation aligned, no runner/database secret coupling)"
 );
