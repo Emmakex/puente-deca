@@ -24,6 +24,10 @@ for (const required of [
   "https://kairoseth.com/api/operations/deca/atlas-core-acceptance",
   "x-kairoseth-acceptance-confirm: deca-atlas-core-production",
   "hostinger-in-process",
+  "allowedContractFailures",
+  "contractFailures",
+  "shape.evidence",
+  "reconciliation.orphanedArtifacts",
   "acceptance-evidence.json",
   "acceptance-evidence.json.sha256",
   "retention-days: 90"
@@ -71,6 +75,16 @@ if (
   );
 }
 
+if (
+  !workflowSource.includes(
+    "response.contractFailures.filter((value) => allowedContractFailures.has(value)).slice(0, 32)"
+  )
+) {
+  throw new Error(
+    "Atlas core workflow must whitelist and bound Hostinger contract failure diagnostics"
+  );
+}
+
 console.log(
-  "Atlas core workflow contract OK (latest-run supersession, GitHub stores only operations secret, Atlas executes in Kairoseth Hostinger runtime, retained sanitized evidence, no runner/database secret coupling)"
+  "Atlas core workflow contract OK (latest-run supersession, GitHub stores only operations secret, Atlas executes in Kairoseth Hostinger runtime, bounded contract diagnostics, retained sanitized evidence, no runner/database secret coupling)"
 );

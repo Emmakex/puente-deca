@@ -74,6 +74,39 @@ jobs:
               try {
                 response = JSON.parse(fs.readFileSync(".artifacts/deca-atlas-core/hostinger-response.json", "utf8"));
               } catch {}
+              const allowedContractFailures = new Set([
+                "shape.topLevel",
+                "status",
+                "check",
+                "scope",
+                "database",
+                "artifactBucket",
+                "shape.steps",
+                "steps.preflight",
+                "steps.atlasGridFs",
+                "steps.atlasConcurrency",
+                "steps.artifactReconciliation",
+                "shape.evidence",
+                "evidence.metadataPing",
+                "evidence.artifactPing",
+                "evidence.indexContract",
+                "evidence.transactionRollback",
+                "evidence.gridfsRoundTrip",
+                "evidence.gridfsCleanup",
+                "evidence.idempotencyConcurrency",
+                "evidence.idempotencyConverged",
+                "evidence.documentVersionConcurrency",
+                "evidence.documentLineageConsistent",
+                "evidence.cleanupVerified",
+                "shape.reconciliation",
+                "reconciliation.missingBeforeRetention",
+                "reconciliation.missingAfterRetention",
+                "reconciliation.orphanedArtifacts",
+                "reconciliation.purgedArtifactsStillPresent"
+              ]);
+              const contractFailures = Array.isArray(response?.contractFailures)
+                ? response.contractFailures.filter((value) => allowedContractFailures.has(value)).slice(0, 32)
+                : [];
               const safe = {
                 status: "error",
                 check: "deca-atlas-core-acceptance",
@@ -83,7 +116,8 @@ jobs:
                 engineCode: typeof response?.engineCode === "string" ? response.engineCode : undefined,
                 engineStep: typeof response?.engineStep === "string" ? response.engineStep : undefined,
                 causeCode: typeof response?.causeCode === "string" ? response.causeCode : undefined,
-                causeClass: typeof response?.causeClass === "string" ? response.causeClass : undefined
+                causeClass: typeof response?.causeClass === "string" ? response.causeClass : undefined,
+                contractFailures: contractFailures.length > 0 ? contractFailures : undefined
               };
               console.error(JSON.stringify(safe));
               process.exit(1);
