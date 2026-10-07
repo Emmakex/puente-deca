@@ -11,7 +11,7 @@ on:
 
 concurrency:
   group: puente-deca-atlas-core-acceptance
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
   contents: read
