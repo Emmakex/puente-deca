@@ -23,6 +23,10 @@ requirePattern(
   "Atlas smoke must run production preflight first"
 );
 requirePattern(
+  /topology:\s*"in-process"/,
+  "Atlas smoke must use the real Kairoseth in-process topology"
+);
+requirePattern(
   /MongoStore\.open/,
   "Atlas smoke must initialize the real metadata adapter"
 );
@@ -109,5 +113,5 @@ if (
 }
 
 console.log(
-  "Atlas/GridFS smoke contract OK (preflight, live index contract, rollback, round-trip integrity, cleanup, sanitized output)"
+  "Atlas/GridFS smoke contract OK (in-process preflight, live index contract, rollback, round-trip integrity, cleanup, sanitized output)"
 );
