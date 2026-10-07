@@ -7,6 +7,44 @@ const npmCommand =
     ? "npm.cmd"
     : "npm";
 
+const parseSafeChildFailure = (stderr) => {
+  const lines = String(stderr ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .reverse();
+
+  for (const line of lines) {
+    try {
+      const parsed = JSON.parse(line);
+      const code =
+        typeof parsed?.code === "string" &&
+        /^[A-Z0-9_]{1,100}$/.test(parsed.code)
+          ? parsed.code
+          : null;
+      const errorClass =
+        typeof parsed?.errorClass === "string" &&
+        /^[A-Za-z][A-Za-z0-9_]{0,79}$/.test(parsed.errorClass)
+          ? parsed.errorClass
+          : null;
+
+      if (parsed?.status === "error" && code) {
+        return {
+          causeCode: code,
+          causeClass: errorClass
+        };
+      }
+    } catch {
+      // Ignore non-JSON stderr such as npm/runtime warnings.
+    }
+  }
+
+  return {
+    causeCode: null,
+    causeClass: null
+  };
+};
+
 const runScript = (
   script,
   id,
@@ -31,12 +69,18 @@ const runScript = (
   );
 
   if (result.status !== 0) {
+    const childFailure =
+      parseSafeChildFailure(result.stderr);
     const error = new Error(
       `Atlas core acceptance step failed: ${id}`
     );
     error.code =
       "ATLAS_CORE_STEP_FAILED";
     error.step = id;
+    error.causeCode =
+      childFailure.causeCode;
+    error.causeClass =
+      childFailure.causeClass;
     throw error;
   }
 
@@ -255,6 +299,14 @@ try {
         typeof error?.step === "string"
           ? error.step
           : null,
+      causeCode:
+        typeof error?.causeCode === "string"
+          ? error.causeCode
+          : undefined,
+      causeClass:
+        typeof error?.causeClass === "string"
+          ? error.causeClass
+          : undefined,
       anomalies:
         error?.anomalies &&
         typeof error.anomalies === "object"
