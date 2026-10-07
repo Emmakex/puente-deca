@@ -9,14 +9,18 @@ const npmCommand =
 
 const runScript = (
   script,
-  id
+  id,
+  scriptArgs = []
 ) => {
   const result = spawnSync(
     npmCommand,
     [
       "run",
       "--silent",
-      script
+      script,
+      ...(scriptArgs.length > 0
+        ? ["--", ...scriptArgs]
+        : [])
     ],
     {
       encoding: "utf8",
@@ -62,12 +66,16 @@ const main = () => {
   const preflight =
     runScript(
       "production:preflight",
-      "production-preflight"
+      "production-preflight",
+      ["--topology=in-process"]
     );
 
-  if (preflight?.valid !== true) {
+  if (
+    preflight?.valid !== true ||
+    preflight?.target?.topology !== "in-process"
+  ) {
     const error = new Error(
-      "Production preflight is not valid"
+      "Production preflight is not valid for in-process topology"
     );
     error.code =
       "ATLAS_CORE_PREFLIGHT_INVALID";

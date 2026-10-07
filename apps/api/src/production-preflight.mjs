@@ -13,11 +13,27 @@ const validSecret = (value) =>
   typeof value === "string" &&
   value.trim().length >= 32;
 
+const VALID_TOPOLOGIES = new Set([
+  "standalone",
+  "in-process"
+]);
+
 export function validateProductionEnvironment(
-  env = process.env
+  env = process.env,
+  { topology = "standalone" } = {}
 ) {
   const errors = [];
   const warnings = [];
+  const normalizedTopology =
+    typeof topology === "string"
+      ? topology.trim()
+      : "";
+
+  if (!VALID_TOPOLOGIES.has(normalizedTopology)) {
+    errors.push(
+      "Production topology must be standalone or in-process."
+    );
+  }
 
   if (env.NODE_ENV !== "production") {
     errors.push(
@@ -118,10 +134,11 @@ export function validateProductionEnvironment(
   }
 
   if (
+    normalizedTopology !== "in-process" &&
     !validSecret(env.KAIROSETH_SERVICE_SECRET)
   ) {
     errors.push(
-      "KAIROSETH_SERVICE_SECRET must contain at least 32 characters."
+      "KAIROSETH_SERVICE_SECRET must contain at least 32 characters for standalone topology."
     );
   }
 
@@ -165,6 +182,7 @@ export function validateProductionEnvironment(
     errors,
     warnings,
     target: {
+      topology: normalizedTopology || null,
       publicBaseUrl:
         publicUrl?.toString() ?? null,
       database:
@@ -177,10 +195,11 @@ export function validateProductionEnvironment(
 }
 
 export function assertProductionEnvironment(
-  env = process.env
+  env = process.env,
+  options = {}
 ) {
   const result =
-    validateProductionEnvironment(env);
+    validateProductionEnvironment(env, options);
 
   if (!result.valid) {
     const error = new Error(

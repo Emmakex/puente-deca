@@ -25,7 +25,7 @@ const validEnv = () => ({
   RATE_LIMIT_MAX_ENTRIES: "10000"
 });
 
-test("production preflight accepts the canonical Kairoseth topology", () => {
+test("production preflight accepts the canonical standalone Kairoseth topology", () => {
   const result =
     validateProductionEnvironment(
       validEnv()
@@ -34,12 +34,108 @@ test("production preflight accepts the canonical Kairoseth topology", () => {
   assert.equal(result.valid, true);
   assert.deepEqual(result.errors, []);
   assert.equal(
+    result.target.topology,
+    "standalone"
+  );
+  assert.equal(
     result.target.database,
     "kairoseth"
   );
   assert.equal(
     result.target.artifactBucket,
     "deca_pdf"
+  );
+});
+
+test("standalone production preflight still requires a service secret", () => {
+  const env = validEnv();
+  delete env.KAIROSETH_SERVICE_SECRET;
+
+  const result =
+    validateProductionEnvironment(env);
+
+  assert.equal(result.valid, false);
+  assert.ok(
+    result.errors.some(
+      (message) =>
+        message.includes(
+          "KAIROSETH_SERVICE_SECRET"
+        )
+    )
+  );
+});
+
+test("in-process production preflight does not require a bridge service secret", () => {
+  const env = validEnv();
+  delete env.KAIROSETH_SERVICE_SECRET;
+
+  const result =
+    validateProductionEnvironment(
+      env,
+      { topology: "in-process" }
+    );
+
+  assert.equal(result.valid, true);
+  assert.deepEqual(result.errors, []);
+  assert.equal(
+    result.target.topology,
+    "in-process"
+  );
+});
+
+test("in-process production preflight still requires Atlas and GridFS configuration", () => {
+  const env = validEnv();
+  delete env.KAIROSETH_SERVICE_SECRET;
+  delete env.MONGODB_URI;
+  env.PERSISTENCE_DRIVER = "json";
+  env.ARTIFACT_DRIVER = "file";
+
+  const result =
+    validateProductionEnvironment(
+      env,
+      { topology: "in-process" }
+    );
+
+  assert.equal(result.valid, false);
+  assert.ok(
+    result.errors.some(
+      (message) =>
+        message.includes("MONGODB_URI")
+    )
+  );
+  assert.ok(
+    result.errors.some(
+      (message) =>
+        message.includes("PERSISTENCE_DRIVER")
+    )
+  );
+  assert.ok(
+    result.errors.some(
+      (message) =>
+        message.includes("ARTIFACT_DRIVER")
+    )
+  );
+  assert.ok(
+    !result.errors.some(
+      (message) =>
+        message.includes("KAIROSETH_SERVICE_SECRET")
+    )
+  );
+});
+
+test("production preflight rejects unknown topology fail-closed", () => {
+  const result =
+    validateProductionEnvironment(
+      validEnv(),
+      { topology: "bypass" }
+    );
+
+  assert.equal(result.valid, false);
+  assert.ok(
+    result.errors.some(
+      (message) =>
+        message.includes("topology")
+    )
   );
 });
 
