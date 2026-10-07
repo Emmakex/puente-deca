@@ -53,12 +53,12 @@ if (!atlasCoreSource.includes('"--topology=in-process"')) {
 }
 
 if (
-  /echo\s+[^\n]*(?:MONGODB_URI|KAIROSETH_SERVICE_SECRET)/.test(
+  /echo\s+[^\n]*\$(?:\{)?(?:MONGODB_URI|KAIROSETH_SERVICE_SECRET)/.test(
     workflowSource
   )
 ) {
   throw new Error(
-    "Atlas core workflow must not echo production secrets"
+    "Atlas core workflow must not echo production secret values"
   );
 }
 
