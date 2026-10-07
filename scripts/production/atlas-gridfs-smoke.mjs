@@ -23,12 +23,54 @@ const sha256 = (bytes) =>
     .update(bytes)
     .digest("hex")}`;
 
-const safeFailure = (code) => {
+const mongoCodeMap = new Map([
+  [13, "MONGODB_UNAUTHORIZED"],
+  [18, "MONGODB_AUTHENTICATION_FAILED"],
+  [20, "MONGODB_TRANSACTION_UNSUPPORTED"]
+]);
+
+const safeErrorClass = (error) => {
+  const name =
+    typeof error?.name === "string"
+      ? error.name
+      : "";
+  return /^[A-Za-z][A-Za-z0-9_]{0,79}$/.test(name)
+    ? name
+    : null;
+};
+
+const safeFailureCode = (error) => {
+  if (typeof error?.code === "string") {
+    return /^[A-Z0-9_]{1,100}$/.test(error.code)
+      ? error.code
+      : "ATLAS_SMOKE_FAILED";
+  }
+
+  if (Number.isInteger(error?.code)) {
+    return mongoCodeMap.get(error.code) ??
+      `MONGODB_CODE_${error.code}`;
+  }
+
+  if (error?.name === "MongoServerSelectionError") {
+    return "MONGODB_SERVER_SELECTION_FAILED";
+  }
+  if (error?.name === "MongoNetworkError") {
+    return "MONGODB_NETWORK_FAILED";
+  }
+  if (error?.name === "MongoParseError") {
+    return "MONGODB_URI_INVALID";
+  }
+
+  return "ATLAS_SMOKE_FAILED";
+};
+
+const safeFailure = (error) => {
   process.stderr.write(
     `${JSON.stringify({
       status: "error",
       check: "atlas-gridfs-smoke",
-      code
+      code: safeFailureCode(error),
+      errorClass: safeErrorClass(error)
     })}\n`
   );
   process.exitCode = 1;
@@ -250,11 +292,7 @@ try {
       .catch(() => undefined);
   }
 
-  safeFailure(
-    typeof error?.code === "string"
-      ? error.code
-      : "ATLAS_SMOKE_FAILED"
-  );
+  safeFailure(error);
 } finally {
   if (
     artifactStore &&
