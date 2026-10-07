@@ -6,10 +6,13 @@ const source = await readFile(
 );
 
 for (const required of [
-  "production:preflight",
-  "production:atlas-smoke",
-  "production:atlas-concurrency-smoke",
-  "artifacts:reconcile",
+  "process.execPath",
+  "./preflight.mjs",
+  "./atlas-gridfs-smoke.mjs",
+  "./atlas-concurrency-smoke.mjs",
+  "../retention/retention-cli.mjs",
+  "--topology=in-process",
+  "reconcile",
   "deca-atlas-core-acceptance",
   "deca-only",
   "missingBeforeRetention",
@@ -25,6 +28,9 @@ for (const required of [
 }
 
 for (const forbidden of [
+  "npmCommand",
+  "npm.cmd",
+  '"npm"',
   "production:kairoseth-health-smoke",
   "production:public-pdf-smoke",
   "DECA_SMOKE_PUBLIC_URL",
@@ -36,7 +42,7 @@ for (const forbidden of [
     forbidden.toLowerCase()
   )) {
     throw new Error(
-      `Focused Atlas core acceptance must not depend on already-closed or frozen scope: ${forbidden}`
+      `Focused Atlas core acceptance must not depend on package-manager/runtime-external or already-closed scope: ${forbidden}`
     );
   }
 }
@@ -62,5 +68,5 @@ if (
 }
 
 console.log(
-  "Atlas core acceptance contract OK (DeCA-only Atlas/GridFS/concurrency/reconciliation, no edge recoupling, no bypasses)"
+  "Atlas core acceptance contract OK (runtime-portable direct Node execution, DeCA-only Atlas/GridFS/concurrency/reconciliation, no edge recoupling, no bypasses)"
 );
