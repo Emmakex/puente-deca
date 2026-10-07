@@ -19,7 +19,7 @@ permissions:
 jobs:
   drill:
     if: ${{ inputs.confirm == true }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64, kairoseth-ci, kairoseth-platform]
     timeout-minutes: 30
     environment: deca-production
 
