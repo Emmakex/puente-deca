@@ -15,6 +15,7 @@ for (const required of [
   "name: DeCA Atlas Core Acceptance",
   "workflow_dispatch:",
   "environment: deca-production",
+  "runs-on: [self-hosted, Linux, X64, kairoseth-ci, kairoseth-platform]",
   "ref: main",
   "MONGODB_URI: ${{ secrets.MONGODB_URI }}",
   "MONGODB_URI is not configured in the deca-production environment",
@@ -31,6 +32,8 @@ for (const required of [
 }
 
 for (const forbidden of [
+  "runs-on: ubuntu-latest",
+  "runs-on: ubuntu-24.04",
   "KAIROSETH_SERVICE_SECRET",
   "public_pdf_url",
   "public_pdf_sha256",
@@ -63,5 +66,5 @@ if (
 }
 
 console.log(
-  "Atlas core workflow contract OK (protected main, in-process topology, Atlas secret only, retained sanitized evidence, no edge recoupling)"
+  "Atlas core workflow contract OK (protected Kairoseth self-hosted runner, protected main, in-process topology, Atlas secret only, retained sanitized evidence, no edge recoupling)"
 );
