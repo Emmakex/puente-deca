@@ -42,17 +42,18 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
-      - name: Assert protected main execution and required secrets
+      - name: Assert protected main execution and Atlas secret
         shell: bash
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
-          KAIROSETH_SERVICE_SECRET: ${{ secrets.KAIROSETH_SERVICE_SECRET }}
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = "refs/heads/main"
           test "$GITHUB_SHA" = "$(git rev-parse HEAD)"
-          test -n "$MONGODB_URI"
-          test ${#KAIROSETH_SERVICE_SECRET} -ge 32
+          if [ -z "${MONGODB_URI:-}" ]; then
+            echo "::error::MONGODB_URI is not configured in the deca-production environment"
+            exit 1
+          fi
 
       - name: Install locked dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
@@ -61,7 +62,6 @@ jobs:
         shell: bash
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
-          KAIROSETH_SERVICE_SECRET: ${{ secrets.KAIROSETH_SERVICE_SECRET }}
         run: |
           set -euo pipefail
           mkdir -p .artifacts/deca-atlas-core
