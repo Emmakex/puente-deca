@@ -1,11 +1,45 @@
 import {
   spawnSync
 } from "node:child_process";
+import {
+  fileURLToPath
+} from "node:url";
 
-const npmCommand =
-  process.platform === "win32"
-    ? "npm.cmd"
-    : "npm";
+const packageRoot =
+  fileURLToPath(
+    new URL("../../", import.meta.url)
+  );
+
+const scriptPaths = {
+  preflight:
+    fileURLToPath(
+      new URL(
+        "./preflight.mjs",
+        import.meta.url
+      )
+    ),
+  atlasGridFs:
+    fileURLToPath(
+      new URL(
+        "./atlas-gridfs-smoke.mjs",
+        import.meta.url
+      )
+    ),
+  atlasConcurrency:
+    fileURLToPath(
+      new URL(
+        "./atlas-concurrency-smoke.mjs",
+        import.meta.url
+      )
+    ),
+  reconciliation:
+    fileURLToPath(
+      new URL(
+        "../retention/retention-cli.mjs",
+        import.meta.url
+      )
+    )
+};
 
 const parseSafeChildFailure = (stderr) => {
   const lines = String(stderr ?? "")
@@ -35,7 +69,7 @@ const parseSafeChildFailure = (stderr) => {
         };
       }
     } catch {
-      // Ignore non-JSON stderr such as npm/runtime warnings.
+      // Ignore non-JSON runtime warnings.
     }
   }
 
@@ -45,22 +79,16 @@ const parseSafeChildFailure = (stderr) => {
   };
 };
 
-const runScript = (
-  script,
+const runNodeScript = (
+  scriptPath,
   id,
   scriptArgs = []
 ) => {
   const result = spawnSync(
-    npmCommand,
-    [
-      "run",
-      "--silent",
-      script,
-      ...(scriptArgs.length > 0
-        ? ["--", ...scriptArgs]
-        : [])
-    ],
+    process.execPath,
+    [scriptPath, ...scriptArgs],
     {
+      cwd: packageRoot,
       encoding: "utf8",
       env: process.env,
       maxBuffer:
@@ -108,8 +136,8 @@ const anomalyKeys = [
 
 const main = () => {
   const preflight =
-    runScript(
-      "production:preflight",
+    runNodeScript(
+      scriptPaths.preflight,
       "production-preflight",
       ["--topology=in-process"]
     );
@@ -129,8 +157,8 @@ const main = () => {
   }
 
   const atlasGridFs =
-    runScript(
-      "production:atlas-smoke",
+    runNodeScript(
+      scriptPaths.atlasGridFs,
       "atlas-gridfs"
     );
 
@@ -149,8 +177,8 @@ const main = () => {
   }
 
   const atlasConcurrency =
-    runScript(
-      "production:atlas-concurrency-smoke",
+    runNodeScript(
+      scriptPaths.atlasConcurrency,
       "atlas-concurrency"
     );
 
@@ -172,9 +200,10 @@ const main = () => {
   }
 
   const reconciliation =
-    runScript(
-      "artifacts:reconcile",
-      "artifact-reconciliation"
+    runNodeScript(
+      scriptPaths.reconciliation,
+      "artifact-reconciliation",
+      ["reconcile"]
     );
 
   const counts =
