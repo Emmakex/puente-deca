@@ -19,7 +19,7 @@ permissions:
 jobs:
   atlas-core:
     if: ${{ inputs.confirm == true }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64, kairoseth-ci, kairoseth-platform]
     timeout-minutes: 15
     environment: deca-production
 
