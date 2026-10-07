@@ -85,7 +85,8 @@ const parseSafeChildFailure = (stderr) => {
 const runNodeScript = (
   scriptPath,
   id,
-  scriptArgs = []
+  scriptArgs = [],
+  env = process.env
 ) => {
   const result = spawnSync(
     process.execPath,
@@ -93,7 +94,7 @@ const runNodeScript = (
     {
       cwd: packageRoot,
       encoding: "utf8",
-      env: process.env,
+      env,
       maxBuffer:
         4 * 1024 * 1024
     }
@@ -137,12 +138,15 @@ const anomalyKeys = [
   "purgedArtifactsStillPresent"
 ];
 
-export const runAtlasCoreAcceptance = () => {
+export const runAtlasCoreAcceptance = ({
+  env = process.env
+} = {}) => {
   const preflight =
     runNodeScript(
       scriptPaths.preflight,
       "production-preflight",
-      ["--topology=in-process"]
+      ["--topology=in-process"],
+      env
     );
 
   if (
@@ -162,7 +166,9 @@ export const runAtlasCoreAcceptance = () => {
   const atlasGridFs =
     runNodeScript(
       scriptPaths.atlasGridFs,
-      "atlas-gridfs"
+      "atlas-gridfs",
+      [],
+      env
     );
 
   if (
@@ -182,7 +188,9 @@ export const runAtlasCoreAcceptance = () => {
   const atlasConcurrency =
     runNodeScript(
       scriptPaths.atlasConcurrency,
-      "atlas-concurrency"
+      "atlas-concurrency",
+      [],
+      env
     );
 
   if (
@@ -206,7 +214,8 @@ export const runAtlasCoreAcceptance = () => {
     runNodeScript(
       scriptPaths.reconciliation,
       "artifact-reconciliation",
-      ["reconcile"]
+      ["reconcile"],
+      env
     );
 
   const counts =
