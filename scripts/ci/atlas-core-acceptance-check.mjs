@@ -8,6 +8,7 @@ const source = await readFile(
 for (const required of [
   "process.execPath",
   "export const runAtlasCoreAcceptance",
+  "env = process.env",
   "isDirectExecution",
   "./preflight.mjs",
   "./atlas-gridfs-smoke.mjs",
@@ -79,5 +80,5 @@ if (
 }
 
 console.log(
-  "Atlas core acceptance contract OK (import-safe in-process entry, runtime-portable direct Node steps, DeCA-only Atlas/GridFS/concurrency/reconciliation, no edge recoupling, no bypasses)"
+  "Atlas core acceptance contract OK (import-safe in-process entry with injectable environment, runtime-portable direct Node steps, DeCA-only Atlas/GridFS/concurrency/reconciliation, no edge recoupling, no bypasses)"
 );
