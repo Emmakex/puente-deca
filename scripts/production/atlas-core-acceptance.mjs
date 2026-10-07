@@ -2,6 +2,9 @@ import {
   spawnSync
 } from "node:child_process";
 import {
+  resolve
+} from "node:path";
+import {
   fileURLToPath
 } from "node:url";
 
@@ -82,7 +85,8 @@ const parseSafeChildFailure = (stderr) => {
 const runNodeScript = (
   scriptPath,
   id,
-  scriptArgs = []
+  scriptArgs = [],
+  env = process.env
 ) => {
   const result = spawnSync(
     process.execPath,
@@ -90,7 +94,7 @@ const runNodeScript = (
     {
       cwd: packageRoot,
       encoding: "utf8",
-      env: process.env,
+      env,
       maxBuffer:
         4 * 1024 * 1024
     }
@@ -134,12 +138,15 @@ const anomalyKeys = [
   "purgedArtifactsStillPresent"
 ];
 
-const main = () => {
+export const runAtlasCoreAcceptance = ({
+  env = process.env
+} = {}) => {
   const preflight =
     runNodeScript(
       scriptPaths.preflight,
       "production-preflight",
-      ["--topology=in-process"]
+      ["--topology=in-process"],
+      env
     );
 
   if (
@@ -159,7 +166,9 @@ const main = () => {
   const atlasGridFs =
     runNodeScript(
       scriptPaths.atlasGridFs,
-      "atlas-gridfs"
+      "atlas-gridfs",
+      [],
+      env
     );
 
   if (
@@ -179,7 +188,9 @@ const main = () => {
   const atlasConcurrency =
     runNodeScript(
       scriptPaths.atlasConcurrency,
-      "atlas-concurrency"
+      "atlas-concurrency",
+      [],
+      env
     );
 
   if (
@@ -203,7 +214,8 @@ const main = () => {
     runNodeScript(
       scriptPaths.reconciliation,
       "artifact-reconciliation",
-      ["reconcile"]
+      ["reconcile"],
+      env
     );
 
   const counts =
@@ -252,96 +264,105 @@ const main = () => {
     throw error;
   }
 
-  process.stdout.write(
-    `${JSON.stringify(
-      {
-        status: "ok",
-        check:
-          "deca-atlas-core-acceptance",
-        scope: "deca-only",
-        database:
-          atlasGridFs.database,
-        artifactBucket:
-          atlasGridFs.artifactBucket,
-        steps: {
-          preflight: true,
-          atlasGridFs: true,
-          atlasConcurrency: true,
-          artifactReconciliation: true
-        },
-        evidence: {
-          metadataPing:
-            atlasGridFs.metadataPing === true,
-          artifactPing:
-            atlasGridFs.artifactPing === true,
-          indexContract:
-            atlasGridFs.indexContract === true,
-          transactionRollback:
-            atlasGridFs.transactionRollback === true,
-          gridfsRoundTrip:
-            atlasGridFs.gridfsRoundTrip === true,
-          gridfsCleanup:
-            atlasGridFs.gridfsCleanup === true,
-          idempotencyConcurrency:
-            atlasConcurrency.idempotencyConcurrency === true,
-          idempotencyConverged:
-            atlasConcurrency.idempotencyConverged === true,
-          documentVersionConcurrency:
-            atlasConcurrency.documentVersionConcurrency === true,
-          documentLineageConsistent:
-            atlasConcurrency.documentLineageConsistent === true,
-          cleanupVerified:
-            atlasConcurrency.cleanupVerified === true
-        },
-        reconciliation: {
-          references:
-            Number(counts.references ?? 0),
-          storedArtifacts:
-            Number(counts.storedArtifacts ?? 0),
-          purgeRecords:
-            Number(counts.purgeRecords ?? 0),
-          missingBeforeRetention: 0,
-          missingAfterRetention: 0,
-          orphanedArtifacts: 0,
-          purgedArtifactsStillPresent: 0
-        }
-      },
-      null,
-      2
-    )}\n`
-  );
+  return {
+    status: "ok",
+    check:
+      "deca-atlas-core-acceptance",
+    scope: "deca-only",
+    database:
+      atlasGridFs.database,
+    artifactBucket:
+      atlasGridFs.artifactBucket,
+    steps: {
+      preflight: true,
+      atlasGridFs: true,
+      atlasConcurrency: true,
+      artifactReconciliation: true
+    },
+    evidence: {
+      metadataPing:
+        atlasGridFs.metadataPing === true,
+      artifactPing:
+        atlasGridFs.artifactPing === true,
+      indexContract:
+        atlasGridFs.indexContract === true,
+      transactionRollback:
+        atlasGridFs.transactionRollback === true,
+      gridfsRoundTrip:
+        atlasGridFs.gridfsRoundTrip === true,
+      gridfsCleanup:
+        atlasGridFs.gridfsCleanup === true,
+      idempotencyConcurrency:
+        atlasConcurrency.idempotencyConcurrency === true,
+      idempotencyConverged:
+        atlasConcurrency.idempotencyConverged === true,
+      documentVersionConcurrency:
+        atlasConcurrency.documentVersionConcurrency === true,
+      documentLineageConsistent:
+        atlasConcurrency.documentLineageConsistent === true,
+      cleanupVerified:
+        atlasConcurrency.cleanupVerified === true
+    },
+    reconciliation: {
+      references:
+        Number(counts.references ?? 0),
+      storedArtifacts:
+        Number(counts.storedArtifacts ?? 0),
+      purgeRecords:
+        Number(counts.purgeRecords ?? 0),
+      missingBeforeRetention: 0,
+      missingAfterRetention: 0,
+      orphanedArtifacts: 0,
+      purgedArtifactsStillPresent: 0
+    }
+  };
 };
 
-try {
-  main();
-} catch (error) {
-  process.stderr.write(
-    `${JSON.stringify({
-      status: "error",
-      check:
-        "deca-atlas-core-acceptance",
-      code:
-        typeof error?.code === "string"
-          ? error.code
-          : "ATLAS_CORE_ACCEPTANCE_FAILED",
-      step:
-        typeof error?.step === "string"
-          ? error.step
-          : null,
-      causeCode:
-        typeof error?.causeCode === "string"
-          ? error.causeCode
-          : undefined,
-      causeClass:
-        typeof error?.causeClass === "string"
-          ? error.causeClass
-          : undefined,
-      anomalies:
-        error?.anomalies &&
-        typeof error.anomalies === "object"
-          ? error.anomalies
-          : undefined
-    })}\n`
-  );
-  process.exitCode = 1;
+const isDirectExecution =
+  process.argv[1] &&
+  resolve(process.argv[1]) ===
+    resolve(fileURLToPath(import.meta.url));
+
+if (isDirectExecution) {
+  try {
+    const result =
+      runAtlasCoreAcceptance();
+    process.stdout.write(
+      `${JSON.stringify(
+        result,
+        null,
+        2
+      )}\n`
+    );
+  } catch (error) {
+    process.stderr.write(
+      `${JSON.stringify({
+        status: "error",
+        check:
+          "deca-atlas-core-acceptance",
+        code:
+          typeof error?.code === "string"
+            ? error.code
+            : "ATLAS_CORE_ACCEPTANCE_FAILED",
+        step:
+          typeof error?.step === "string"
+            ? error.step
+            : null,
+        causeCode:
+          typeof error?.causeCode === "string"
+            ? error.causeCode
+            : undefined,
+        causeClass:
+          typeof error?.causeClass === "string"
+            ? error.causeClass
+            : undefined,
+        anomalies:
+          error?.anomalies &&
+          typeof error.anomalies === "object"
+            ? error.anomalies
+            : undefined
+      })}\n`
+    );
+    process.exitCode = 1;
+  }
 }
