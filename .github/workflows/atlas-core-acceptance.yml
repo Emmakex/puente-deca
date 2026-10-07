@@ -19,17 +19,9 @@ permissions:
 jobs:
   atlas-core:
     if: ${{ inputs.confirm == true }}
-    runs-on: [self-hosted, Linux, X64, kairoseth-ci, kairoseth-platform]
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     environment: deca-production
-
-    env:
-      NODE_ENV: production
-      PUBLIC_BASE_URL: https://kairoseth.com/deca
-      MONGODB_DB_NAME: kairoseth
-      PERSISTENCE_DRIVER: mongodb
-      ARTIFACT_DRIVER: gridfs
-      DECA_GRIDFS_BUCKET: deca_pdf
 
     steps:
       - uses: actions/checkout@v4
@@ -40,42 +32,89 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: npm
 
-      - name: Assert protected main execution and Atlas secret
+      - name: Assert protected main execution and operations secret
         shell: bash
         env:
-          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          OPERATIONS_HEALTH_SECRET: ${{ secrets.OPERATIONS_HEALTH_SECRET }}
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = "refs/heads/main"
           test "$GITHUB_SHA" = "$(git rev-parse HEAD)"
-          if [ -z "${MONGODB_URI:-}" ]; then
-            echo "::error::MONGODB_URI is not configured in the deca-production environment"
+          if [ ${#OPERATIONS_HEALTH_SECRET} -lt 32 ]; then
+            echo "::error::OPERATIONS_HEALTH_SECRET is not configured in the deca-production environment"
             exit 1
           fi
 
-      - name: Install locked dependencies
-        run: npm ci --ignore-scripts --no-audit --no-fund
-
-      - name: Run DeCA-only Atlas core acceptance
+      - name: Run DeCA-only Atlas core acceptance inside Hostinger
         shell: bash
         env:
-          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          OPERATIONS_HEALTH_SECRET: ${{ secrets.OPERATIONS_HEALTH_SECRET }}
         run: |
           set -euo pipefail
           mkdir -p .artifacts/deca-atlas-core
-          npm run --silent production:atlas-core-acceptance \
-            > .artifacts/deca-atlas-core/result.json
+
+          http_status="$(
+            curl \
+              --silent \
+              --show-error \
+              --max-time 120 \
+              --request POST \
+              --header "authorization: Bearer ${OPERATIONS_HEALTH_SECRET}" \
+              --header "x-kairoseth-acceptance-confirm: deca-atlas-core-production" \
+              --output .artifacts/deca-atlas-core/hostinger-response.json \
+              --write-out '%{http_code}' \
+              https://kairoseth.com/api/operations/deca/atlas-core-acceptance
+          )"
+
+          if [ "$http_status" != "200" ]; then
+            HTTP_STATUS="$http_status" node -e '
+              const fs = require("node:fs");
+              let response = {};
+              try {
+                response = JSON.parse(fs.readFileSync(".artifacts/deca-atlas-core/hostinger-response.json", "utf8"));
+              } catch {}
+              const safe = {
+                status: "error",
+                check: "deca-atlas-core-acceptance",
+                code: "HOSTINGER_ATLAS_ACCEPTANCE_FAILED",
+                httpStatus: Number(process.env.HTTP_STATUS || 0),
+                reason: typeof response?.reason === "string" ? response.reason : undefined,
+                engineCode: typeof response?.engineCode === "string" ? response.engineCode : undefined,
+                engineStep: typeof response?.engineStep === "string" ? response.engineStep : undefined,
+                causeCode: typeof response?.causeCode === "string" ? response.causeCode : undefined,
+                causeClass: typeof response?.causeClass === "string" ? response.causeClass : undefined
+              };
+              console.error(JSON.stringify(safe));
+              process.exit(1);
+            '
+          fi
+
           node -e '
             const fs = require("node:fs");
-            const result = JSON.parse(fs.readFileSync(".artifacts/deca-atlas-core/result.json", "utf8"));
+            const response = JSON.parse(fs.readFileSync(".artifacts/deca-atlas-core/hostinger-response.json", "utf8"));
+            const result = response?.result;
+            const steps = result?.steps;
+            const checks = result?.evidence;
+            const reconciliation = result?.reconciliation;
             if (
+              response?.status !== "ok" ||
+              response?.check !== "kairoseth-cargo-atlas-core-acceptance" ||
+              response?.scope !== "deca-only" ||
+              response?.runtime !== "hostinger-in-process" ||
               result?.status !== "ok" ||
               result?.check !== "deca-atlas-core-acceptance" ||
-              result?.scope !== "deca-only"
+              result?.scope !== "deca-only" ||
+              result?.database !== "kairoseth" ||
+              result?.artifactBucket !== "deca_pdf" ||
+              !steps || Object.values(steps).some((value) => value !== true) ||
+              !checks || Object.values(checks).some((value) => value !== true) ||
+              Number(reconciliation?.missingBeforeRetention) !== 0 ||
+              Number(reconciliation?.missingAfterRetention) !== 0 ||
+              Number(reconciliation?.orphanedArtifacts) !== 0 ||
+              Number(reconciliation?.purgedArtifactsStillPresent) !== 0
             ) {
-              throw new Error("Atlas core acceptance result is not green");
+              throw new Error("Hostinger Atlas core acceptance result is not canonical and green");
             }
             const evidence = {
               schemaVersion: 1,
@@ -108,7 +147,7 @@ jobs:
           retention-days: 90
           compression-level: 0
 
-      - name: Remove transient raw output
+      - name: Remove transient Hostinger response
         if: ${{ always() }}
         shell: bash
-        run: rm -f .artifacts/deca-atlas-core/result.json
+        run: rm -f .artifacts/deca-atlas-core/hostinger-response.json
