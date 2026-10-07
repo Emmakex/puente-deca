@@ -7,6 +7,7 @@ const source = await readFile(
 
 const required = [
   "assertProductionEnvironment",
+  'topology: "in-process"',
   "MongoStore.open",
   "Promise.allSettled",
   "IDEMPOTENCY_RETRY",
@@ -67,5 +68,5 @@ if (
 }
 
 console.log(
-  "Atlas concurrency smoke contract OK (DeCA-only idempotency race, document-version race, convergence, scoped cleanup)"
+  "Atlas concurrency smoke contract OK (in-process preflight, DeCA-only idempotency race, document-version race, convergence, scoped cleanup)"
 );
