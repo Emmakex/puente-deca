@@ -214,7 +214,10 @@ let smokeOrganizationId = null;
 
 try {
   const preflight =
-    assertProductionEnvironment();
+    assertProductionEnvironment(
+      process.env,
+      { topology: "in-process" }
+    );
 
   client =
     await openKairosethMongoClient({
