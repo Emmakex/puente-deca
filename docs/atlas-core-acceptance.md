@@ -6,16 +6,16 @@ It exists so Atlas/GridFS closure does not depend on re-running the Kairoseth en
 
 ## Scope
 
-The gate is deliberately **DeCA-only** and runs:
+The gate is deliberately **DeCA-only** and runs inside the Kairoseth Hostinger application runtime:
 
-1. production environment preflight;
+1. production environment preflight with explicit `in-process` topology;
 2. Atlas/GridFS transaction, index and round-trip smoke;
 3. DeCA shipment-idempotency and DeCA document-version concurrency smoke;
 4. artifact reconciliation with zero accepted anomalies.
 
 It does **not** run eCMR/eFTI regulatory acceptance. Those tracks remain frozen until DeCA reaches 100%.
 
-## Workflow
+## Execution topology
 
 Run the manual GitHub Actions workflow:
 
@@ -23,34 +23,40 @@ Run the manual GitHub Actions workflow:
 DeCA Atlas Core Acceptance
 ```
 
-The workflow is protected by the `deca-production` environment and requires the Kairoseth-controlled production secrets already expected by the production preflight:
-
-- `MONGODB_URI`;
-- `KAIROSETH_SERVICE_SECRET`.
-
-The non-secret production boundary is fixed by the workflow:
+The workflow is protected by the `deca-production` environment and requires explicit confirmation. GitHub Actions receives only the protected operations credential:
 
 ```text
-PUBLIC_BASE_URL=https://kairoseth.com/deca
-MONGODB_DB_NAME=kairoseth
-PERSISTENCE_DRIVER=mongodb
-ARTIFACT_DRIVER=gridfs
-DECA_GRIDFS_BUCKET=deca_pdf
+OPERATIONS_HEALTH_SECRET
 ```
 
-The workflow checks out `main`, requires the checked-out commit to equal `GITHUB_SHA`, and never prints database credentials or service secrets.
+The workflow deliberately does **not** receive `MONGODB_URI` or `KAIROSETH_SERVICE_SECRET` and does not connect directly to MongoDB Atlas. Database/runtime credentials remain inside the Kairoseth-controlled Hostinger environment.
 
-## Acceptance command
+After checking out the exact `main` revision and validating the operations secret, GitHub sends a bounded authenticated request to:
 
-The workflow executes:
-
-```bash
-npm run production:atlas-core-acceptance
+```text
+POST https://kairoseth.com/api/operations/deca/atlas-core-acceptance
+x-kairoseth-acceptance-confirm: deca-atlas-core-production
 ```
 
-The command fails closed unless all of these are true:
+The Kairoseth endpoint executes the Atlas acceptance in the Hostinger process and returns the canonical runtime marker:
 
-- production preflight is valid;
+```text
+runtime=hostinger-in-process
+```
+
+This boundary keeps GitHub as the protected orchestration/evidence surface while Atlas connectivity and database secrets remain local to Kairoseth/Hostinger.
+
+## In-process acceptance
+
+Inside the Hostinger runtime, `scripts/production/atlas-core-acceptance.mjs` orchestrates the DeCA-only checks. Its production preflight is explicitly invoked with:
+
+```text
+--topology=in-process
+```
+
+The acceptance fails closed unless all of these are true:
+
+- production preflight is valid for the in-process topology;
 - Atlas metadata and GridFS probes succeed;
 - required metadata/GridFS indexes match the contract;
 - transaction rollback leaves no smoke record;
@@ -64,9 +70,11 @@ The command fails closed unless all of these are true:
 - artifact reconciliation reports zero `orphanedArtifacts`;
 - artifact reconciliation reports zero `purgedArtifactsStillPresent`.
 
+The GitHub workflow independently validates the returned contract before accepting the run. Non-200 failures expose only bounded, whitelisted diagnostic fields such as the failing step/cause code; raw database URIs, tokens and provider secrets are not retained.
+
 ## Evidence
 
-A successful run retains:
+A successful run retains for 90 days:
 
 ```text
 acceptance-evidence.json
@@ -81,7 +89,7 @@ The evidence binds the sanitized result to:
 - UTC recording time;
 - the DeCA-only Atlas/GridFS/concurrency/reconciliation result.
 
-No MongoDB URI, API key, service secret or customer payload is included in the retained artifact.
+The transient Hostinger response is deleted after the run. No MongoDB URI, API key, service secret or customer payload is included in the retained artifact.
 
 ## Ledger rule
 
