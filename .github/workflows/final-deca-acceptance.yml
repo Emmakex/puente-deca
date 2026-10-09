@@ -124,6 +124,7 @@ jobs:
         run: |
           set -euo pipefail
           rm -rf .artifacts/deca-final
+          mkdir -p .artifacts
           node scripts/production/final-deca-acceptance.mjs \
             "--gate-result=$PDECA_GATE_ATLAS_CORE" \
             "--gate-result=$PDECA_GATE_DR_RESTORE" \
