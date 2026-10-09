@@ -5,6 +5,7 @@ import {
 } from "../scripts/production/final-deca-evidence-freeze.mjs";
 
 const commit = "ca5e74d3000c95f098d18add72e595700cbb18bf";
+const repository = "Emmakex/puente-deca";
 const artifacts = [
   "dist/puente-deca-woocommerce-0.1.0.zip",
   "dist/puentedeca-prestashop-0.1.0.zip",
@@ -16,13 +17,17 @@ const releaseManifest = () => ({
   schemaVersion: 1,
   productSlug: "extensions/puente-deca",
   version: "0.1.0",
-  source: { repository: "Emmakex/puente-deca", commit },
+  source: { repository, commit },
   artifacts,
 });
 
 const gate = (hex) => ({
   status: "pass",
   evidenceSha256: `sha256:${hex.repeat(64).slice(0, 64)}`,
+  repository,
+  commit,
+  runId: `run-${hex}`,
+  recordedAt: "2026-10-09T07:45:00.000Z",
 });
 
 const infrastructureAcceptance = () => ({
@@ -88,5 +93,31 @@ test("final freeze requires release ZIP, checksums and SBOM", () => {
   assert.throws(
     () => validateFinalFreezeInputs({ releaseManifest: release, infrastructureAcceptance: infrastructureAcceptance(), currentCommit: commit }),
     /release artifact missing: dist\/sbom\.cdx\.json/,
+  );
+});
+
+test("final freeze rejects a gate promoted from another repository", () => {
+  const infra = infrastructureAcceptance();
+  infra.gates.wooCommerceLive.repository = "OtherOrg/other-repo";
+  assert.throws(
+    () => validateFinalFreezeInputs({
+      releaseManifest: releaseManifest(),
+      infrastructureAcceptance: infra,
+      currentCommit: commit,
+    }),
+    /wooCommerceLive repository must be Emmakex\/puente-deca/,
+  );
+});
+
+test("final freeze rejects a stale gate promoted from another commit", () => {
+  const infra = infrastructureAcceptance();
+  infra.gates.prestaShop8Live.commit = "1111111111111111111111111111111111111111";
+  assert.throws(
+    () => validateFinalFreezeInputs({
+      releaseManifest: releaseManifest(),
+      infrastructureAcceptance: infra,
+      currentCommit: commit,
+    }),
+    /prestaShop8Live commit must equal current git HEAD/,
   );
 });
