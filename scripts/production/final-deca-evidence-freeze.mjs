@@ -15,6 +15,8 @@ const REQUIRED_GATES = [
   "prestaShop8Live",
 ];
 
+const REPOSITORY = "Emmakex/puente-deca";
+
 const sha256 = (bytes) =>
   `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
 
@@ -40,8 +42,8 @@ export const validateFinalFreezeInputs = ({
   if (releaseManifest.productSlug !== "extensions/puente-deca") {
     fail("release productSlug must be extensions/puente-deca");
   }
-  if (releaseManifest.source?.repository !== "Emmakex/puente-deca") {
-    fail("release repository must be Emmakex/puente-deca");
+  if (releaseManifest.source?.repository !== REPOSITORY) {
+    fail(`release repository must be ${REPOSITORY}`);
   }
   if (releaseManifest.source?.commit !== currentCommit) {
     fail("release manifest commit must equal current git HEAD");
@@ -89,6 +91,12 @@ export const validateFinalFreezeInputs = ({
     if (!/^sha256:[a-f0-9]{64}$/.test(gate?.evidenceSha256 ?? "")) {
       fail(`${name} evidence hash is invalid`);
     }
+    if (gate?.repository !== REPOSITORY) {
+      fail(`${name} repository must be ${REPOSITORY}`);
+    }
+    if (gate?.commit !== currentCommit) {
+      fail(`${name} commit must equal current git HEAD`);
+    }
   }
 
   return true;
@@ -122,7 +130,7 @@ const runCli = async () => {
     milestone: "deca-100-final-freeze",
     product: "Kairoseth Cargo",
     productSlug: "extensions/puente-deca",
-    repository: "Emmakex/puente-deca",
+    repository: REPOSITORY,
     commit: currentCommit,
     version: releaseManifest.version,
     frozenAt,
