@@ -1,0 +1,286 @@
+name: DeCA Connector Live Acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Confirm synthetic Kairoseth-controlled connector live acceptance
+        required: true
+        default: false
+        type: boolean
+      target:
+        description: Connector live gate to execute
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - woocommerce
+          - prestashop178
+          - prestashop8
+
+concurrency:
+  group: puente-deca-connector-live-acceptance
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  woocommerce:
+    if: ${{ inputs.confirm == true && (inputs.target == 'all' || inputs.target == 'woocommerce') }}
+    name: WooCommerce controlled live acceptance
+    runs-on: [self-hosted, Linux, X64, kairoseth-ci, kairoseth-platform]
+    timeout-minutes: 20
+    environment: deca-production
+
+    env:
+      PDECA_WP_ROOT: ${{ vars.PDECA_WOO_ACCEPTANCE_ROOT }}
+      PDECA_ACCEPTANCE_DATA_CLASS: synthetic
+      PDECA_ACCEPTANCE_ENVIRONMENT: kairoseth-controlled
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Assert protected WooCommerce acceptance runtime
+        shell: bash
+        env:
+          PDECA_ACCEPTANCE_API_KEY: ${{ secrets.PDECA_ACCEPTANCE_API_KEY }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_SHA" = "$(git rev-parse HEAD)"
+          command -v php >/dev/null
+          test -n "$PDECA_WP_ROOT"
+          test -f "$PDECA_WP_ROOT/wp-load.php"
+          if [ ${#PDECA_ACCEPTANCE_API_KEY} -lt 16 ]; then
+            echo "::error::PDECA_ACCEPTANCE_API_KEY is not configured in the deca-production environment"
+            exit 1
+          fi
+
+      - name: Install locked verifier dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Prepare controlled synthetic WooCommerce fixture
+        shell: bash
+        env:
+          PDECA_ACCEPTANCE_API_KEY: ${{ secrets.PDECA_ACCEPTANCE_API_KEY }}
+        run: |
+          set -euo pipefail
+          order_id="$(
+            php -r '
+              $root = rtrim((string) getenv("PDECA_WP_ROOT"), DIRECTORY_SEPARATOR);
+              require $root . DIRECTORY_SEPARATOR . "wp-load.php";
+              require getcwd() . "/scripts/ci/php/woocommerce-live-acceptance-fixture.php";
+            '
+          )"
+          case "$order_id" in
+            ''|*[!0-9]*)
+              echo "::error::Synthetic WooCommerce fixture did not return a numeric order ID"
+              exit 1
+              ;;
+          esac
+          echo "PDECA_WOO_SMOKE_ORDER_ID=$order_id" >> "$GITHUB_ENV"
+
+      - name: Run completion-grade WooCommerce live acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .artifacts/connector-live
+          npm run --silent production:woocommerce-live-acceptance \
+            | tee .artifacts/connector-live/woocommerce-acceptance-result.json
+
+      - name: Verify WooCommerce live evidence and emit final gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run --silent production:connector-live-evidence-verify -- \
+            --evidence=.artifacts/connector-live/woocommerce-acceptance-evidence.json \
+            | tee .artifacts/connector-live/woocommerce-final-gate.json
+          grep -F '"gateName":"wooCommerceLive"' \
+            .artifacts/connector-live/woocommerce-final-gate.json
+
+      - name: Upload WooCommerce live acceptance evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: deca-live-woocommerce-${{ github.sha }}
+          path: .artifacts/connector-live/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+  prestashop178:
+    if: ${{ inputs.confirm == true && (inputs.target == 'all' || inputs.target == 'prestashop178') }}
+    name: PrestaShop 1.7.8.x controlled live acceptance
+    runs-on: [self-hosted, Linux, X64, kairoseth-ci, kairoseth-platform]
+    timeout-minutes: 20
+    environment: deca-production
+
+    env:
+      PDECA_PRESTASHOP_ROOT: ${{ vars.PDECA_PRESTASHOP_178_ACCEPTANCE_ROOT }}
+      PDECA_ACCEPTANCE_DATA_CLASS: synthetic
+      PDECA_ACCEPTANCE_ENVIRONMENT: kairoseth-controlled
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Assert protected PrestaShop 1.7.8.x acceptance runtime
+        shell: bash
+        env:
+          PDECA_ACCEPTANCE_API_KEY: ${{ secrets.PDECA_ACCEPTANCE_API_KEY }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_SHA" = "$(git rev-parse HEAD)"
+          command -v php >/dev/null
+          test -n "$PDECA_PRESTASHOP_ROOT"
+          test -f "$PDECA_PRESTASHOP_ROOT/config/config.inc.php"
+          if [ ${#PDECA_ACCEPTANCE_API_KEY} -lt 16 ]; then
+            echo "::error::PDECA_ACCEPTANCE_API_KEY is not configured in the deca-production environment"
+            exit 1
+          fi
+
+      - name: Install locked verifier dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Prepare controlled synthetic PrestaShop 1.7.8.x fixture
+        shell: bash
+        env:
+          PDECA_ACCEPTANCE_API_KEY: ${{ secrets.PDECA_ACCEPTANCE_API_KEY }}
+        run: |
+          set -euo pipefail
+          order_id="$(php scripts/ci/php/prestashop-live-acceptance-fixture.php)"
+          case "$order_id" in
+            ''|*[!0-9]*)
+              echo "::error::Synthetic PrestaShop fixture did not return a numeric order ID"
+              exit 1
+              ;;
+          esac
+          echo "PDECA_PRESTASHOP_SMOKE_ORDER_ID=$order_id" >> "$GITHUB_ENV"
+
+      - name: Run completion-grade PrestaShop 1.7.8.x live acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .artifacts/connector-live
+          npm run --silent production:prestashop-live-acceptance \
+            | tee .artifacts/connector-live/prestashop-178-acceptance-result.json
+
+      - name: Verify PrestaShop 1.7.8.x live evidence and emit final gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run --silent production:connector-live-evidence-verify -- \
+            --evidence=.artifacts/connector-live/prestashop-acceptance-evidence.json \
+            | tee .artifacts/connector-live/prestashop-178-final-gate.json
+          grep -F '"gateName":"prestaShop178Live"' \
+            .artifacts/connector-live/prestashop-178-final-gate.json
+
+      - name: Upload PrestaShop 1.7.8.x live acceptance evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: deca-live-prestashop-178-${{ github.sha }}
+          path: .artifacts/connector-live/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+  prestashop8:
+    if: ${{ inputs.confirm == true && (inputs.target == 'all' || inputs.target == 'prestashop8') }}
+    name: PrestaShop 8.x controlled live acceptance
+    runs-on: [self-hosted, Linux, X64, kairoseth-ci, kairoseth-platform]
+    timeout-minutes: 20
+    environment: deca-production
+
+    env:
+      PDECA_PRESTASHOP_ROOT: ${{ vars.PDECA_PRESTASHOP_8_ACCEPTANCE_ROOT }}
+      PDECA_ACCEPTANCE_DATA_CLASS: synthetic
+      PDECA_ACCEPTANCE_ENVIRONMENT: kairoseth-controlled
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Assert protected PrestaShop 8.x acceptance runtime
+        shell: bash
+        env:
+          PDECA_ACCEPTANCE_API_KEY: ${{ secrets.PDECA_ACCEPTANCE_API_KEY }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_SHA" = "$(git rev-parse HEAD)"
+          command -v php >/dev/null
+          test -n "$PDECA_PRESTASHOP_ROOT"
+          test -f "$PDECA_PRESTASHOP_ROOT/config/config.inc.php"
+          if [ ${#PDECA_ACCEPTANCE_API_KEY} -lt 16 ]; then
+            echo "::error::PDECA_ACCEPTANCE_API_KEY is not configured in the deca-production environment"
+            exit 1
+          fi
+
+      - name: Install locked verifier dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Prepare controlled synthetic PrestaShop 8.x fixture
+        shell: bash
+        env:
+          PDECA_ACCEPTANCE_API_KEY: ${{ secrets.PDECA_ACCEPTANCE_API_KEY }}
+        run: |
+          set -euo pipefail
+          order_id="$(php scripts/ci/php/prestashop-live-acceptance-fixture.php)"
+          case "$order_id" in
+            ''|*[!0-9]*)
+              echo "::error::Synthetic PrestaShop fixture did not return a numeric order ID"
+              exit 1
+              ;;
+          esac
+          echo "PDECA_PRESTASHOP_SMOKE_ORDER_ID=$order_id" >> "$GITHUB_ENV"
+
+      - name: Run completion-grade PrestaShop 8.x live acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .artifacts/connector-live
+          npm run --silent production:prestashop-live-acceptance \
+            | tee .artifacts/connector-live/prestashop-8-acceptance-result.json
+
+      - name: Verify PrestaShop 8.x live evidence and emit final gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run --silent production:connector-live-evidence-verify -- \
+            --evidence=.artifacts/connector-live/prestashop-acceptance-evidence.json \
+            | tee .artifacts/connector-live/prestashop-8-final-gate.json
+          grep -F '"gateName":"prestaShop8Live"' \
+            .artifacts/connector-live/prestashop-8-final-gate.json
+
+      - name: Upload PrestaShop 8.x live acceptance evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: deca-live-prestashop-8-${{ github.sha }}
+          path: .artifacts/connector-live/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
