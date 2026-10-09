@@ -101,8 +101,8 @@ test("connector live acceptance workflow stays fail-closed", async () => {
   );
   assert.doesNotMatch(
     workflow,
-    /echo\s+[^\n]*PDECA_ACCEPTANCE_API_KEY/,
-    "workflow must not print the live acceptance credential"
+    /(?:echo|printf)[^\n]*\$\{?PDECA_ACCEPTANCE_API_KEY\}?/,
+    "workflow must not print the live acceptance credential value"
   );
   assert.doesNotMatch(
     workflow,
