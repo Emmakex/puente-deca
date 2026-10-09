@@ -1,0 +1,175 @@
+name: DeCA Final Acceptance Freeze
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Confirm all eight completion-grade DeCA gates were produced from this exact main commit
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: puente-deca-final-acceptance
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  final-freeze:
+    if: ${{ inputs.confirm == true }}
+    name: Validate eight gates and freeze DeCA release
+    runs-on: [self-hosted, Linux, X64, kairoseth-ci, kairoseth-platform]
+    timeout-minutes: 25
+    environment: deca-production
+
+    env:
+      PDECA_GATE_ATLAS_CORE: ${{ vars.PDECA_GATE_ATLAS_CORE }}
+      PDECA_GATE_DR_RESTORE: ${{ vars.PDECA_GATE_DR_RESTORE }}
+      PDECA_GATE_KAIROSETH_ENGINE: ${{ vars.PDECA_GATE_KAIROSETH_ENGINE }}
+      PDECA_GATE_HOSTINGER_EDGE: ${{ vars.PDECA_GATE_HOSTINGER_EDGE }}
+      PDECA_GATE_INFRASTRUCTURE_SECURITY: ${{ vars.PDECA_GATE_INFRASTRUCTURE_SECURITY }}
+      PDECA_GATE_WOOCOMMERCE_LIVE: ${{ vars.PDECA_GATE_WOOCOMMERCE_LIVE }}
+      PDECA_GATE_PRESTASHOP_178_LIVE: ${{ vars.PDECA_GATE_PRESTASHOP_178_LIVE }}
+      PDECA_GATE_PRESTASHOP_8_LIVE: ${{ vars.PDECA_GATE_PRESTASHOP_8_LIVE }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Assert exact clean release checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_SHA" = "$(git rev-parse HEAD)"
+          test "$(git status --porcelain)" = ""
+
+      - name: Assert exactly eight promoted gate result files exist
+        shell: bash
+        run: |
+          set -euo pipefail
+          names=(
+            PDECA_GATE_ATLAS_CORE
+            PDECA_GATE_DR_RESTORE
+            PDECA_GATE_KAIROSETH_ENGINE
+            PDECA_GATE_HOSTINGER_EDGE
+            PDECA_GATE_INFRASTRUCTURE_SECURITY
+            PDECA_GATE_WOOCOMMERCE_LIVE
+            PDECA_GATE_PRESTASHOP_178_LIVE
+            PDECA_GATE_PRESTASHOP_8_LIVE
+          )
+
+          for name in "${names[@]}"; do
+            value="${!name:-}"
+            if [ -z "$value" ]; then
+              echo "::error::$name is not configured in the deca-production environment"
+              exit 1
+            fi
+            if [ ! -f "$value" ]; then
+              echo "::error::Configured promoted gate path for $name does not exist on the protected runner"
+              exit 1
+            fi
+          done
+
+      - name: Preflight gate identity against exact release HEAD
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const expected = [
+            ['PDECA_GATE_ATLAS_CORE', 'atlasCore'],
+            ['PDECA_GATE_DR_RESTORE', 'drRestore'],
+            ['PDECA_GATE_KAIROSETH_ENGINE', 'kairosethEngine'],
+            ['PDECA_GATE_HOSTINGER_EDGE', 'hostingerEdge'],
+            ['PDECA_GATE_INFRASTRUCTURE_SECURITY', 'infrastructureSecurity'],
+            ['PDECA_GATE_WOOCOMMERCE_LIVE', 'wooCommerceLive'],
+            ['PDECA_GATE_PRESTASHOP_178_LIVE', 'prestaShop178Live'],
+            ['PDECA_GATE_PRESTASHOP_8_LIVE', 'prestaShop8Live'],
+          ];
+          const repository = 'Emmakex/puente-deca';
+          const commit = process.env.GITHUB_SHA;
+          for (const [envName, gateName] of expected) {
+            const raw = fs.readFileSync(process.env[envName], 'utf8');
+            const result = JSON.parse(raw);
+            if (result.status !== 'ok' || result.gateName !== gateName) {
+              throw new Error(`${gateName} promoted result is not canonical`);
+            }
+            if (result.gate?.status !== 'pass') {
+              throw new Error(`${gateName} is not pass`);
+            }
+            if (result.gate?.repository !== repository) {
+              throw new Error(`${gateName} repository mismatch`);
+            }
+            if (result.gate?.commit !== commit) {
+              throw new Error(`${gateName} commit mismatch`);
+            }
+          }
+          NODE
+
+      - name: Install locked release dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Run canonical one-command DeCA close-out
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .artifacts/deca-final
+          node scripts/production/final-deca-acceptance.mjs \
+            "--gate-result=$PDECA_GATE_ATLAS_CORE" \
+            "--gate-result=$PDECA_GATE_DR_RESTORE" \
+            "--gate-result=$PDECA_GATE_KAIROSETH_ENGINE" \
+            "--gate-result=$PDECA_GATE_HOSTINGER_EDGE" \
+            "--gate-result=$PDECA_GATE_INFRASTRUCTURE_SECURITY" \
+            "--gate-result=$PDECA_GATE_WOOCOMMERCE_LIVE" \
+            "--gate-result=$PDECA_GATE_PRESTASHOP_178_LIVE" \
+            "--gate-result=$PDECA_GATE_PRESTASHOP_8_LIVE" \
+            --output-dir=.artifacts/deca-final \
+            | tee .artifacts/deca-final-command-result.json
+
+      - name: Assert final freeze identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const summary = JSON.parse(fs.readFileSync('.artifacts/deca-final/deca-final-acceptance-summary.json', 'utf8'));
+          const freeze = JSON.parse(fs.readFileSync('.artifacts/deca-final/deca-final-release-evidence.json', 'utf8'));
+          const expectedCommit = process.env.GITHUB_SHA;
+          if (summary.status !== 'ok') throw new Error('final summary is not ok');
+          if (summary.milestone !== 'deca-100-final-freeze') throw new Error('final milestone mismatch');
+          if (summary.repository !== 'Emmakex/puente-deca') throw new Error('final repository mismatch');
+          if (summary.commit !== expectedCommit) throw new Error('final summary commit mismatch');
+          if (summary.allRequiredGatesPassed !== true) throw new Error('final summary is not fully green');
+          if (freeze.milestone !== 'deca-100-final-freeze') throw new Error('freeze milestone mismatch');
+          if (freeze.repository !== 'Emmakex/puente-deca') throw new Error('freeze repository mismatch');
+          if (freeze.commit !== expectedCommit) throw new Error('freeze commit mismatch');
+          if (freeze.allRequiredGatesPassed !== true) throw new Error('freeze is not fully green');
+          NODE
+
+      - name: Upload sanitized final freeze and deterministic release bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: puente-deca-final-${{ github.sha }}
+          path: |
+            .artifacts/deca-final/deca-final-infrastructure-evidence.json
+            .artifacts/deca-final/deca-final-release-evidence.json
+            .artifacts/deca-final/deca-final-acceptance-summary.json
+            .artifacts/deca-final-command-result.json
+            dist/puente-deca-woocommerce-0.1.0.zip
+            dist/puentedeca-prestashop-0.1.0.zip
+            dist/SHA256SUMS
+            dist/sbom.cdx.json
+            dist/release-manifest.json
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
