@@ -1,0 +1,172 @@
+name: DeCA Infrastructure Security Acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Confirm review of the retained Kairoseth infrastructure evidence
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: puente-deca-infrastructure-security-acceptance
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  infrastructure-security:
+    if: ${{ inputs.confirm == true }}
+    name: Compose and promote infrastructureSecurity
+    runs-on: [self-hosted, Linux, X64, kairoseth-ci, kairoseth-platform]
+    timeout-minutes: 20
+    environment: deca-production
+
+    env:
+      PDECA_INFRA_ATLAS_INSPECTION: ${{ vars.PDECA_INFRA_ATLAS_INSPECTION }}
+      PDECA_INFRA_ATLAS_ROLE_EVIDENCE: ${{ vars.PDECA_INFRA_ATLAS_ROLE_EVIDENCE }}
+      PDECA_INFRA_ATLAS_NETWORK_EVIDENCE: ${{ vars.PDECA_INFRA_ATLAS_NETWORK_EVIDENCE }}
+      PDECA_INFRA_RUNTIME_SECRET_EVIDENCE: ${{ vars.PDECA_INFRA_RUNTIME_SECRET_EVIDENCE }}
+      PDECA_INFRA_TENANT_EVIDENCE: ${{ vars.PDECA_INFRA_TENANT_EVIDENCE }}
+      PDECA_INFRA_TENANT_CHECKSUM: ${{ vars.PDECA_INFRA_TENANT_CHECKSUM }}
+      PDECA_INFRA_ROLLBACK_EVIDENCE: ${{ vars.PDECA_INFRA_ROLLBACK_EVIDENCE }}
+      PDECA_INFRA_ROLLBACK_CHECKSUM: ${{ vars.PDECA_INFRA_ROLLBACK_CHECKSUM }}
+      PDECA_INFRA_WAF_INSPECTION: ${{ vars.PDECA_INFRA_WAF_INSPECTION }}
+      PDECA_INFRA_WAF_PROVIDER_EVIDENCE: ${{ vars.PDECA_INFRA_WAF_PROVIDER_EVIDENCE }}
+      PDECA_INFRA_EDGE_EVIDENCE: ${{ vars.PDECA_INFRA_EDGE_EVIDENCE }}
+      PDECA_INFRA_EDGE_CHECKSUM: ${{ vars.PDECA_INFRA_EDGE_CHECKSUM }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Assert exact protected release checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_SHA" = "$(git rev-parse HEAD)"
+          test "$(git status --porcelain)" = ""
+
+      - name: Assert retained evidence paths exist
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            PDECA_INFRA_ATLAS_INSPECTION
+            PDECA_INFRA_ATLAS_ROLE_EVIDENCE
+            PDECA_INFRA_ATLAS_NETWORK_EVIDENCE
+            PDECA_INFRA_RUNTIME_SECRET_EVIDENCE
+            PDECA_INFRA_TENANT_EVIDENCE
+            PDECA_INFRA_ROLLBACK_EVIDENCE
+            PDECA_INFRA_WAF_INSPECTION
+            PDECA_INFRA_WAF_PROVIDER_EVIDENCE
+            PDECA_INFRA_EDGE_EVIDENCE
+          )
+          for name in "${required[@]}"; do
+            value="${!name:-}"
+            if [ -z "$value" ]; then
+              echo "::error::$name is not configured in the deca-production environment"
+              exit 1
+            fi
+            if [ ! -f "$value" ]; then
+              echo "::error::Configured evidence path for $name does not exist on the protected runner"
+              exit 1
+            fi
+          done
+
+          optional=(
+            PDECA_INFRA_TENANT_CHECKSUM
+            PDECA_INFRA_ROLLBACK_CHECKSUM
+            PDECA_INFRA_EDGE_CHECKSUM
+          )
+          for name in "${optional[@]}"; do
+            value="${!name:-}"
+            if [ -n "$value" ] && [ ! -f "$value" ]; then
+              echo "::error::Configured checksum path for $name does not exist on the protected runner"
+              exit 1
+            fi
+          done
+
+      - name: Install locked verifier dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Compose canonical six-control security evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .artifacts/infrastructure-security
+
+          args=(
+            "--atlas-inspection=$PDECA_INFRA_ATLAS_INSPECTION"
+            "--atlas-role-evidence=$PDECA_INFRA_ATLAS_ROLE_EVIDENCE"
+            "--atlas-network-evidence=$PDECA_INFRA_ATLAS_NETWORK_EVIDENCE"
+            "--runtime-secret-evidence=$PDECA_INFRA_RUNTIME_SECRET_EVIDENCE"
+            "--tenant-evidence=$PDECA_INFRA_TENANT_EVIDENCE"
+            "--rollback-evidence=$PDECA_INFRA_ROLLBACK_EVIDENCE"
+            "--waf-inspection=$PDECA_INFRA_WAF_INSPECTION"
+            "--waf-provider-evidence=$PDECA_INFRA_WAF_PROVIDER_EVIDENCE"
+            "--edge-evidence=$PDECA_INFRA_EDGE_EVIDENCE"
+            "--output=.artifacts/infrastructure-security/deca-infrastructure-security-evidence.json"
+          )
+
+          if [ -n "${PDECA_INFRA_TENANT_CHECKSUM:-}" ]; then
+            args+=("--tenant-checksum=$PDECA_INFRA_TENANT_CHECKSUM")
+          fi
+          if [ -n "${PDECA_INFRA_ROLLBACK_CHECKSUM:-}" ]; then
+            args+=("--rollback-checksum=$PDECA_INFRA_ROLLBACK_CHECKSUM")
+          fi
+          if [ -n "${PDECA_INFRA_EDGE_CHECKSUM:-}" ]; then
+            args+=("--edge-checksum=$PDECA_INFRA_EDGE_CHECKSUM")
+          fi
+
+          npm run --silent production:infrastructure-security-evidence-compose -- "${args[@]}" \
+            > .artifacts/infrastructure-security/compose-result.json
+
+          node -e '
+            const fs = require("node:fs");
+            const value = JSON.parse(fs.readFileSync(".artifacts/infrastructure-security/deca-infrastructure-security-evidence.json", "utf8"));
+            if (value.status !== "pass" || value.check !== "deca-infrastructure-security-acceptance") process.exit(1);
+            const expected = ["atlasLeastPrivilege", "atlasNetworkAccess", "runtimeSecretScope", "deployedTenantIsolation", "deploymentReadinessRollback", "hostingerWafConfiguration"].sort();
+            const actual = Object.keys(value.controls || {}).sort();
+            if (JSON.stringify(actual) !== JSON.stringify(expected)) process.exit(1);
+            if (!actual.every((name) => value.controls[name]?.status === "pass")) process.exit(1);
+          '
+
+      - name: Promote exact retained bundle into final infrastructureSecurity gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run --silent production:infrastructure-security-evidence-promote -- \
+            .artifacts/infrastructure-security/deca-infrastructure-security-evidence.json \
+            | tee .artifacts/infrastructure-security/infrastructure-security-final-gate.json
+
+          node -e '
+            const fs = require("node:fs");
+            const value = JSON.parse(fs.readFileSync(".artifacts/infrastructure-security/infrastructure-security-final-gate.json", "utf8"));
+            if (value.status !== "ok" || value.gateName !== "infrastructureSecurity") process.exit(1);
+            if (value.gate?.status !== "pass") process.exit(1);
+            if (value.gate?.repository !== "Emmakex/puente-deca") process.exit(1);
+            if (value.gate?.commit !== process.env.GITHUB_SHA) process.exit(1);
+          '
+
+      - name: Upload only sanitized infrastructure-security rollup evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: deca-infrastructure-security-${{ github.sha }}
+          path: |
+            .artifacts/infrastructure-security/deca-infrastructure-security-evidence.json
+            .artifacts/infrastructure-security/compose-result.json
+            .artifacts/infrastructure-security/infrastructure-security-final-gate.json
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
