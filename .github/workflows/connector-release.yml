@@ -41,7 +41,7 @@ jobs:
         run: npm run release:connectors
 
       - name: Verify checksum manifest
-        run: sha256sum --check dist/SHA256SUMS
+        run: (cd dist && sha256sum --check SHA256SUMS)
 
       - name: Upload release bundle
         uses: actions/upload-artifact@v4
