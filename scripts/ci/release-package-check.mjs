@@ -19,6 +19,7 @@ const directory = await mkdtemp(
 );
 const first = join(directory, "first");
 const second = join(directory, "second");
+const connectorVersion = "0.1.1";
 
 const run = (args, options = {}) => {
   const result = spawnSync(
@@ -64,7 +65,7 @@ try {
   const packages = [
     {
       name:
-        "puente-deca-woocommerce-0.1.0.zip",
+        `puente-deca-woocommerce-${connectorVersion}.zip`,
       root: "puente-deca-woocommerce/",
       required: [
         "puente-deca-woocommerce/puente-deca-woocommerce.php",
@@ -77,14 +78,15 @@ try {
     },
     {
       name:
-        "puentedeca-prestashop-0.1.0.zip",
+        `puentedeca-prestashop-${connectorVersion}.zip`,
       root: "puentedeca/",
       required: [
         "puentedeca/puentedeca.php",
         "puentedeca/classes/PDECAPrestaShopClient.php",
         "puentedeca/classes/PDECAPrestaShopConnector.php",
         "puentedeca/classes/PDECAPrestaShopOrderPayload.php",
-        "puentedeca/classes/PDECAPrestaShopSecretStore.php"
+        "puentedeca/classes/PDECAPrestaShopSecretStore.php",
+        "puentedeca/upgrade/upgrade-0.1.1.php"
       ]
     }
   ];
@@ -160,11 +162,11 @@ try {
 
   const wooPackage = join(
     first,
-    "puente-deca-woocommerce-0.1.0.zip"
+    `puente-deca-woocommerce-${connectorVersion}.zip`
   );
   const prestaPackage = join(
     first,
-    "puentedeca-prestashop-0.1.0.zip"
+    `puentedeca-prestashop-${connectorVersion}.zip`
   );
 
   run([
@@ -224,10 +226,10 @@ try {
 
   if (
     !sums.includes(
-      "puente-deca-woocommerce-0.1.0.zip"
+      `puente-deca-woocommerce-${connectorVersion}.zip`
     ) ||
     !sums.includes(
-      "puentedeca-prestashop-0.1.0.zip"
+      `puentedeca-prestashop-${connectorVersion}.zip`
     )
   ) {
     throw new Error(
@@ -236,7 +238,7 @@ try {
   }
 
   console.log(
-    "Connector release packaging OK (stable top-level folders, deterministic ZIP bytes, SHA-256 manifest, extracted PHP runtime smoke)"
+    "Connector release packaging OK (0.1.1, stable top-level folders, deterministic ZIP bytes, SHA-256 manifest, extracted PHP runtime smoke)"
   );
 } finally {
   await rm(directory, {
