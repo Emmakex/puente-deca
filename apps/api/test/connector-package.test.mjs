@@ -13,7 +13,7 @@ test("connector package builder produces deterministic WooCommerce ZIP bytes", a
 
   assert.equal(
     first.filename,
-    "puente-deca-woocommerce-0.1.1.zip"
+    "puente-deca-woocommerce-0.1.2.zip"
   );
   assert.equal(first.sha256, second.sha256);
   assert.deepEqual(first.bytes, second.bytes);
