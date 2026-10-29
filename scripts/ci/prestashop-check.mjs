@@ -6,7 +6,8 @@ const files = {
   client: "connectors/prestashop/classes/PDECAPrestaShopClient.php",
   payload: "connectors/prestashop/classes/PDECAPrestaShopOrderPayload.php",
   connector: "connectors/prestashop/classes/PDECAPrestaShopConnector.php",
-  secrets: "connectors/prestashop/classes/PDECAPrestaShopSecretStore.php"
+  secrets: "connectors/prestashop/classes/PDECAPrestaShopSecretStore.php",
+  upgrade: "connectors/prestashop/upgrade/upgrade-0.1.1.php"
 };
 
 const content = Object.fromEntries(
@@ -31,6 +32,16 @@ requirePattern(
 );
 requirePattern(
   "main",
+  /const VERSION = '0\.1\.1'/,
+  "PrestaShop module version must match the 0.1.1 product package"
+);
+requirePattern(
+  "main",
+  /displayName = \$this->l\('DeCA Transporte'\)/,
+  "PrestaShop module must expose the DeCA Transporte commercial name"
+);
+requirePattern(
+  "main",
   /'min'\s*=>\s*'1\.7\.8\.0'[\s\S]*'max'\s*=>\s*'8\.99\.99'/,
   "PrestaShop compatibility must stay bounded to the accepted initial range"
 );
@@ -43,6 +54,11 @@ requirePattern(
   "main",
   /displayAdminOrderMainBottom/,
   "PrestaShop connector must expose local order controls"
+);
+requirePattern(
+  "main",
+  /access_url[\s\S]*Open DeCA document/,
+  "PrestaShop order card must expose the generated DeCA document URL"
 );
 requirePattern(
   "main",
@@ -78,6 +94,16 @@ requirePattern(
   "connector",
   /generateDeca/,
   "PrestaShop connector must generate or refresh DeCA"
+);
+requirePattern(
+  "connector",
+  /accessUrl[\s\S]*saveSync/,
+  "PrestaShop connector must persist document access metadata"
+);
+requirePattern(
+  "upgrade",
+  /ADD `access_url` TEXT NULL AFTER `document_id`/,
+  "PrestaShop 0.1.1 upgrade must add document access persistence"
 );
 requirePattern(
   "payload",
@@ -130,5 +156,5 @@ if (php.status === 0) {
 }
 
 console.log(
-  "PrestaShop connector contract OK (bounded compatibility, encrypted token, opt-in automation, explicit logistics)"
+  "PrestaShop connector contract OK (DeCA Transporte 0.1.1, document access, bounded compatibility, encrypted token, opt-in automation, explicit logistics)"
 );

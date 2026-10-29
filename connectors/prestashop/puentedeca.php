@@ -11,7 +11,7 @@ require_once __DIR__ . '/classes/PDECAPrestaShopConnector.php';
 
 class PuenteDeca extends Module
 {
-    const VERSION = '0.1.0';
+    const VERSION = '0.1.1';
     const CONFIG_ENDPOINT = 'PDECA_PS_ENDPOINT';
     const CONFIG_TIMEOUT = 'PDECA_PS_TIMEOUT';
     const CONFIG_SHIPPER_NAME = 'PDECA_PS_SHIPPER_NAME';
@@ -37,9 +37,9 @@ class PuenteDeca extends Module
 
         parent::__construct();
 
-        $this->displayName = $this->l('Kairoseth Cargo · DeCA');
-        $this->description = $this->l('Connects PrestaShop with Kairoseth Cargo to create and keep DeCA transport documents up to date.');
-        $this->confirmUninstall = $this->l('Uninstall Kairoseth Cargo · DeCA? Local connector state will be removed, but remote DeCA documents are not deleted.');
+        $this->displayName = $this->l('DeCA Transporte');
+        $this->description = $this->l('Generate and keep DeCA transport documents up to date from PrestaShop orders.');
+        $this->confirmUninstall = $this->l('Uninstall DeCA Transporte? Local connector state will be removed, but remote DeCA documents are not deleted.');
     }
 
     public function install()
@@ -140,7 +140,10 @@ class PuenteDeca extends Module
 
         $row = $this->getSyncRow($orderId);
         $status = is_array($row) ? (string) $row['status'] : 'not_configured';
+        $shipmentId = is_array($row) ? (string) $row['shipment_id'] : '';
         $documentId = is_array($row) ? (string) $row['document_id'] : '';
+        $accessUrlRaw = is_array($row) && isset($row['access_url']) ? (string) $row['access_url'] : '';
+        $accessUrl = strpos($accessUrlRaw, 'https://') === 0 ? $accessUrlRaw : '';
         $lastError = is_array($row) ? (string) $row['last_error'] : '';
 
         $url = $this->context->link->getAdminLink(
@@ -156,18 +159,25 @@ class PuenteDeca extends Module
         );
 
         $html = '<div class="card mt-2"><h3 class="card-header"><i class="material-icons">local_shipping</i> '
-            . $this->l('Kairoseth Cargo · DeCA') . '</h3><div class="card-body">'
+            . $this->l('DeCA Transporte') . '</h3><div class="card-body">'
             . '<p><strong>' . $this->l('Status:') . '</strong> ' . Tools::safeOutput($status) . '</p>';
 
+        if ($shipmentId !== '') {
+            $html .= '<p><strong>' . $this->l('Shipment:') . '</strong> ' . Tools::safeOutput($shipmentId) . '</p>';
+        }
         if ($documentId !== '') {
             $html .= '<p><strong>' . $this->l('Current DeCA:') . '</strong> ' . Tools::safeOutput($documentId) . '</p>';
+        }
+        if ($accessUrl !== '') {
+            $html .= '<p><a class="btn btn-primary" href="' . Tools::safeOutput($accessUrl)
+                . '" target="_blank" rel="noopener noreferrer">' . $this->l('Open DeCA document') . '</a></p>';
         }
         if ($lastError !== '') {
             $html .= '<div class="alert alert-warning">' . Tools::safeOutput($lastError) . '</div>';
         }
 
         return $html . '<a class="btn btn-default" href="' . Tools::safeOutput($url) . '">'
-            . $this->l('Open Kairoseth Cargo · DeCA controls') . '</a></div></div>';
+            . $this->l('Open DeCA Transporte controls') . '</a></div></div>';
     }
 
     private function saveSettings()
@@ -178,7 +188,7 @@ class PuenteDeca extends Module
         $token = trim((string) Tools::getValue('PDECA_PS_API_KEY'));
 
         if ($endpoint === '' || strpos($endpoint, 'https://') !== 0) {
-            return $this->displayError($this->l('The Puente DeCA endpoint must use HTTPS.'));
+            return $this->displayError($this->l('The DeCA Transporte endpoint must use HTTPS.'));
         }
 
         Configuration::updateValue(self::CONFIG_ENDPOINT, $endpoint, false, null, $shopId);
@@ -212,7 +222,7 @@ class PuenteDeca extends Module
             PDECAPrestaShopSecretStore::delete($shopId);
         }
 
-        return $this->displayConfirmation($this->l('Puente DeCA settings saved. The API key is stored encrypted and is never displayed again.'));
+        return $this->displayConfirmation($this->l('DeCA Transporte settings saved. The API key is stored encrypted and is never displayed again.'));
     }
 
     private function testConnection()
@@ -222,11 +232,11 @@ class PuenteDeca extends Module
             $client->testConnection();
 
             return $this->displayConfirmation(
-                $this->l('Kairoseth Cargo connection is working.')
+                $this->l('DeCA Transporte connection is working.')
             );
         } catch (Exception $exception) {
             return $this->displayError(
-                $this->l('Kairoseth Cargo connection failed: ')
+                $this->l('DeCA Transporte connection failed: ')
                 . Tools::safeOutput(
                     substr(
                         (string) $exception->getMessage(),
@@ -266,13 +276,13 @@ class PuenteDeca extends Module
 
         $result = PDECAPrestaShopConnector::processOrder($this, $order);
         if (!empty($result['ok'])) {
-            return $this->displayConfirmation($this->l('Puente DeCA processed the order successfully.'));
+            return $this->displayConfirmation($this->l('DeCA Transporte processed the order successfully.'));
         }
 
         return $this->displayError(
             isset($result['message'])
                 ? Tools::safeOutput((string) $result['message'])
-                : $this->l('Puente DeCA could not process the order.')
+                : $this->l('DeCA Transporte could not process the order.')
         );
     }
 
@@ -339,8 +349,8 @@ class PuenteDeca extends Module
             array(
                 array(
                     'form' => array(
-                        'legend' => array('title' => $this->l('Kairoseth Cargo · DeCA connection'), 'icon' => 'icon-truck'),
-                        'description' => $this->l('Connect this store to Kairoseth Cargo. DeCA validation, PDF, QR and document history remain centralized in Kairoseth.'),
+                        'legend' => array('title' => $this->l('DeCA Transporte connection'), 'icon' => 'icon-truck'),
+                        'description' => $this->l('Connect this store to DeCA Transporte to validate shipment data and generate PDF/QR documents with history.'),
                         'input' => $fields,
                         'submit' => array('title' => $this->l('Save'), 'class' => 'btn btn-default pull-right'),
                     ),
@@ -369,7 +379,7 @@ class PuenteDeca extends Module
             . '</p><form method="post" action="'
             . Tools::safeOutput($action)
             . '"><button class="btn btn-default" type="submit" name="submitPuenteDecaTestConnection" value="1">'
-            . $this->l('Test Kairoseth Cargo connection')
+            . $this->l('Test DeCA Transporte connection')
             . '</button></form></div>';
     }
 
@@ -378,7 +388,7 @@ class PuenteDeca extends Module
         $orderId = (int) Tools::getValue('PDECA_ORDER_ID');
         if ($orderId <= 0) {
             return '<div class="panel"><h3>' . $this->l('Manual order processing')
-                . '</h3><p>' . $this->l('Open an order and use the Puente DeCA card to load its logistics controls here.')
+                . '</h3><p>' . $this->l('Open an order and use the DeCA Transporte card to load its logistics controls here.')
                 . '</p></div>';
         }
 
@@ -429,7 +439,7 @@ class PuenteDeca extends Module
         return $html
             . '<input type="hidden" name="PDECA_ORDER_ID" value="' . (int) $orderId . '">'
             . '<button class="btn btn-primary" type="submit" name="submitPuenteDecaProcess" value="1">'
-            . $this->l('Save transport data and generate / refresh DeCA')
+            . $this->l('Save transport data and generate / update DeCA')
             . '</button></form></div>';
     }
 
@@ -496,35 +506,37 @@ class PuenteDeca extends Module
             (int) $orderId,
             is_array($existing) ? (string) $existing['shipment_id'] : '',
             is_array($existing) ? (string) $existing['document_id'] : '',
+            is_array($existing) && isset($existing['access_url']) ? (string) $existing['access_url'] : '',
             is_array($existing) ? (string) $existing['status'] : 'configured',
             is_array($existing) ? (string) $existing['last_error'] : '',
             $values
         );
     }
 
-    public function saveSync(Order $order, $shipmentId, $documentId, $status, $lastError)
+    public function saveSync(Order $order, $shipmentId, $documentId, $accessUrl, $status, $lastError)
     {
         $existing = $this->getSyncRow((int) $order->id);
         return $this->saveRawSync(
             (int) $order->id,
             (string) $shipmentId,
             (string) $documentId,
+            (string) $accessUrl,
             (string) $status,
             (string) $lastError,
             is_array($existing) ? $existing : array()
         );
     }
 
-    private function saveRawSync($orderId, $shipmentId, $documentId, $status, $lastError, array $values)
+    private function saveRawSync($orderId, $shipmentId, $documentId, $accessUrl, $status, $lastError, array $values)
     {
         return Db::getInstance()->execute(
             'REPLACE INTO `' . _DB_PREFIX_ . 'pdeca_order_sync` '
-            . '(`id_shop`,`id_order`,`shipment_id`,`document_id`,`status`,`last_error`,'
+            . '(`id_shop`,`id_order`,`shipment_id`,`document_id`,`access_url`,`status`,`last_error`,'
             . '`transport_date`,`tractor_registration`,`trailer_registration`,`carrier_name`,'
             . '`carrier_tax_id`,`weight_kg`,`special_authorization`,`date_upd`) VALUES ('
             . (int) $this->context->shop->id . ','
             . (int) $orderId . ',\'' . pSQL($shipmentId) . '\',\'' . pSQL($documentId) . '\',\''
-            . pSQL($status) . '\',\'' . pSQL($lastError, true) . '\',\''
+            . pSQL($accessUrl, true) . '\',\'' . pSQL($status) . '\',\'' . pSQL($lastError, true) . '\',\''
             . pSQL(isset($values['transport_date']) ? (string) $values['transport_date'] : '') . '\',\''
             . pSQL(isset($values['tractor_registration']) ? (string) $values['tractor_registration'] : '') . '\',\''
             . pSQL(isset($values['trailer_registration']) ? (string) $values['trailer_registration'] : '') . '\',\''
@@ -543,6 +555,7 @@ class PuenteDeca extends Module
             . '`id_order` INT UNSIGNED NOT NULL,'
             . '`shipment_id` VARCHAR(96) NOT NULL DEFAULT \'\','
             . '`document_id` VARCHAR(96) NOT NULL DEFAULT \'\','
+            . '`access_url` TEXT NULL,'
             . '`status` VARCHAR(64) NOT NULL DEFAULT \'configured\','
             . '`last_error` TEXT NULL,'
             . '`transport_date` VARCHAR(10) NOT NULL DEFAULT \'\','

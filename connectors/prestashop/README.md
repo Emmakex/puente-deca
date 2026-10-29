@@ -2,6 +2,8 @@
 
 Módulo instalable de **Cargo Connect** para **PrestaShop 1.7.8.x y 8.x**.
 
+Versión actual del conector: **0.1.1**.
+
 Su objetivo es reutilizar los datos del pedido y la información logística necesaria para crear o actualizar el DeCA, mantener el documento asociado a la operación y reducir la introducción manual de datos.
 
 ## Flujo
@@ -15,7 +17,7 @@ crear/actualizar expedición DeCA
    |
 generar/reutilizar/revisar DeCA
    |
-estado local + document ID
+estado + document ID + abrir documento
 ```
 
 ## Compatibilidad
@@ -29,12 +31,17 @@ PrestaShop 9 queda fuera del rango actual hasta que exista una necesidad real de
 
 ## Instalación
 
-1. Instala el ZIP desde el gestor de módulos de PrestaShop.
+1. Instala `puentedeca-prestashop-0.1.1.zip` desde el gestor de módulos de PrestaShop.
 2. Abre la configuración de **DeCA Transporte**.
 3. Guarda endpoint, clave API y datos básicos del cargador/origen.
 4. Ejecuta **Probar conexión**.
 5. Desde un pedido, completa los datos logísticos necesarios.
 6. Genera o actualiza el DeCA del pedido.
+7. Cuando el documento esté listo, usa **Abrir documento DeCA** desde la ficha del pedido.
+
+## Actualización desde 0.1.0
+
+La actualización a 0.1.1 añade automáticamente el campo local necesario para conservar la URL de acceso al documento. No cambia el nombre técnico del módulo (`puentedeca`) ni los identificadores existentes, por lo que las instalaciones anteriores mantienen compatibilidad.
 
 ## Configuración
 
@@ -63,19 +70,21 @@ Desde el pedido se pueden guardar:
 - peso total opcional en kg;
 - autorización especial opcional.
 
-El módulo no inventa fecha, matrícula, transportista ni peso. Si falta un dato obligatorio, la generación debe detenerse con un error útil.
+El módulo no inventa fecha, matrícula, transportista ni peso. Si falta un dato obligatorio, la generación se detiene con un error útil.
 
 ## Peso
 
 Si no existe un peso explícito, el módulo suma los pesos nativos de producto y convierte unidades habituales a kg. Si algún dato no permite calcular un peso fiable, no fabrica un valor.
 
-## Revisiones e idempotencia
+## Documento y revisiones
 
 La primera generación crea la expedición y el DeCA. Las siguientes reutilizan la misma identidad de expedición y actualizan el documento solo cuando existen cambios materiales, conservando la trazabilidad de revisiones.
 
+La ficha del pedido muestra el estado, identificador de expedición, identificador del DeCA, último error cuando existe y un enlace directo al documento generado.
+
 ## Persistencia local
 
-La tabla `pdeca_order_sync`, única por tienda + pedido, conserva únicamente el estado necesario del conector y los datos logísticos explícitos: identificadores de expedición/documento, estado/error, fecha, matrículas, transportista, peso, autorización y fecha de actualización.
+La tabla `pdeca_order_sync`, única por tienda + pedido, conserva únicamente el estado necesario del conector y los datos logísticos explícitos: identificadores de expedición/documento, URL de acceso, estado/error, fecha, matrículas, transportista, peso, autorización y fecha de actualización.
 
 La clave API no se guarda en esa tabla.
 
@@ -92,4 +101,4 @@ Después de guardar endpoint y clave API, usa **Probar conexión con DeCA Transp
 
 ## Criterio de producto
 
-Este módulo pertenece a **Cargo Connect**. No depende de Atlas, DR, eCMR, OIDC ni de matrices de aceptación de arquitectura para considerarse entregable. Su criterio es: instalar, configurar, conectar un pedido, generar/actualizar el DeCA y dejar el documento identificado y trazable.
+Este módulo pertenece a **Cargo Connect**. No depende de Atlas, DR, eCMR, OIDC ni de matrices de aceptación de arquitectura para considerarse entregable. Su criterio es: instalar, configurar, conectar un pedido, generar/actualizar el DeCA y dejar el documento accesible y trazable desde la propia operación.

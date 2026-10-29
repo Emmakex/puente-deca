@@ -13,7 +13,7 @@ test("connector package builder produces deterministic WooCommerce ZIP bytes", a
 
   assert.equal(
     first.filename,
-    "puente-deca-woocommerce-0.1.0.zip"
+    "puente-deca-woocommerce-0.1.1.zip"
   );
   assert.equal(first.sha256, second.sha256);
   assert.deepEqual(first.bytes, second.bytes);
@@ -36,7 +36,7 @@ test("connector package builder produces installable-root PrestaShop ZIP bytes",
 
   assert.equal(
     artifact.filename,
-    "puentedeca-prestashop-0.1.0.zip"
+    "puentedeca-prestashop-0.1.1.zip"
   );
   assert.equal(
     artifact.bytes.readUInt32LE(0),
@@ -53,6 +53,13 @@ test("connector package builder produces installable-root PrestaShop ZIP bytes",
     artifact.bytes.includes(
       Buffer.from(
         "puentedeca/classes/PDECAPrestaShopClient.php"
+      )
+    )
+  );
+  assert.ok(
+    artifact.bytes.includes(
+      Buffer.from(
+        "puentedeca/upgrade/upgrade-0.1.1.php"
       )
     )
   );

@@ -240,7 +240,8 @@ pdeca_assert(class_exists('PuenteDeca'), 'PrestaShop module class did not load.'
 $module = new PuenteDeca();
 
 pdeca_assert($module->name === 'puentedeca', 'PrestaShop module name drifted.');
-pdeca_assert($module->version === '0.1.0', 'PrestaShop module version drifted.');
+pdeca_assert($module->version === '0.1.1', 'PrestaShop module version drifted.');
+pdeca_assert($module->displayName === 'DeCA Transporte', 'PrestaShop commercial product name drifted.');
 pdeca_assert(
     version_compare($targetVersion, $module->ps_versions_compliancy['min'], '>='),
     'Target PrestaShop version is below the declared minimum.'
@@ -277,6 +278,7 @@ $queries = Db::getInstance()->queries;
 pdeca_assert(
     count($queries) >= 1
         && strpos($queries[0], 'pdeca_order_sync') !== false
+        && strpos($queries[0], 'access_url') !== false
         && strpos($queries[0], 'utf8mb4') !== false,
     'PrestaShop connector schema bootstrap failed.'
 );
@@ -380,6 +382,7 @@ fwrite(
             'hooks' => $module->registeredHooks,
             'encryptedSecretRoundtrip' => true,
             'payloadMapping' => true,
+            'documentAccessPersistence' => true,
             'uninstallLifecycle' => true,
         ),
         JSON_UNESCAPED_SLASHES

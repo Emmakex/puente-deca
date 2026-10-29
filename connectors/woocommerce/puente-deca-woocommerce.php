@@ -3,7 +3,7 @@
  * Plugin Name: DeCA Transporte for WooCommerce
  * Plugin URI: https://kairoseth.com/products/kairoseth-cargo
  * Description: Genera y mantiene documentos DeCA desde pedidos WooCommerce con DeCA Transporte de Kairoseth.
- * Version: 0.1.0
+ * Version: 0.1.1
  * Author: Kairoseth Extensions
  * Text Domain: puente-deca-woocommerce
  * Requires at least: 6.5
@@ -14,7 +14,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'PDECA_WOO_VERSION', '0.1.0' );
+define( 'PDECA_WOO_VERSION', '0.1.1' );
 define( 'PDECA_WOO_FILE', __FILE__ );
 define( 'PDECA_WOO_PATH', plugin_dir_path( __FILE__ ) );
 

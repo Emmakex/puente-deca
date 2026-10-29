@@ -383,7 +383,7 @@ pdeca_assert(is_file($plugin), 'WooCommerce plugin entrypoint was not found.');
 require $plugin;
 
 pdeca_assert(
-    defined('PDECA_WOO_VERSION') && PDECA_WOO_VERSION === '0.1.0',
+    defined('PDECA_WOO_VERSION') && PDECA_WOO_VERSION === '0.1.1',
     'WooCommerce connector version bootstrap failed.'
 );
 pdeca_assert(
@@ -420,6 +420,7 @@ foreach (
         'pdeca_woo_process_order',
         'woocommerce_order_status_changed',
         'woocommerce_order_action_pdeca_generate',
+        'woocommerce_admin_order_data_after_order_details',
     ) as $hook
 ) {
     pdeca_assert(
