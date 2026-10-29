@@ -4,7 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OUT_DIR="${1:-$ROOT/dist}"
 STAGE="$(mktemp -d)"
-CONNECTOR_VERSION="0.1.1"
+WOO_VERSION="0.1.2"
+PRESTA_VERSION="0.1.1"
 
 cleanup() {
   rm -rf "$STAGE"
@@ -13,8 +14,8 @@ trap cleanup EXIT
 
 mkdir -p "$OUT_DIR"
 rm -f \
-  "$OUT_DIR/puente-deca-woocommerce-${CONNECTOR_VERSION}.zip" \
-  "$OUT_DIR/puentedeca-prestashop-${CONNECTOR_VERSION}.zip" \
+  "$OUT_DIR/puente-deca-woocommerce-${WOO_VERSION}.zip" \
+  "$OUT_DIR/puentedeca-prestashop-${PRESTA_VERSION}.zip" \
   "$OUT_DIR/SHA256SUMS"
 
 copy_woocommerce() {
@@ -69,17 +70,17 @@ normalize_timestamps
 
 make_zip \
   "puente-deca-woocommerce" \
-  "$OUT_DIR/puente-deca-woocommerce-${CONNECTOR_VERSION}.zip"
+  "$OUT_DIR/puente-deca-woocommerce-${WOO_VERSION}.zip"
 
 make_zip \
   "puentedeca" \
-  "$OUT_DIR/puentedeca-prestashop-${CONNECTOR_VERSION}.zip"
+  "$OUT_DIR/puentedeca-prestashop-${PRESTA_VERSION}.zip"
 
 (
   cd "$OUT_DIR"
   sha256sum \
-    "puente-deca-woocommerce-${CONNECTOR_VERSION}.zip" \
-    "puentedeca-prestashop-${CONNECTOR_VERSION}.zip" \
+    "puente-deca-woocommerce-${WOO_VERSION}.zip" \
+    "puentedeca-prestashop-${PRESTA_VERSION}.zip" \
     > SHA256SUMS
 )
 
