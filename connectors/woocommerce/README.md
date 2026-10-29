@@ -9,13 +9,13 @@ Su objetivo es simple: reutilizar los datos del pedido y la información logíst
 ```text
 Pedido WooCommerce
    |
-mapear pedido + datos logísticos
+pedido + datos de transporte editables
    |
 crear/actualizar expedición DeCA
    |
 generar/reutilizar/revisar DeCA
    |
-pedido: shipment ID + document ID + access URL
+pedido: estado + shipment ID + document ID + acceso al documento
 ```
 
 Si los datos relevantes no han cambiado, se reutiliza el DeCA vigente. Si cambian, se actualiza la expedición y se conserva la trazabilidad de la nueva revisión.
@@ -29,44 +29,67 @@ Si los datos relevantes no han cambiado, se reutiliza el DeCA vigente. Si cambia
 - Usa WooCommerce CRUD, no acceso directo a tablas de pedidos.
 - Usa Action Scheduler cuando está disponible y WordPress cron como fallback.
 
-## Instalación
+## Instalación y primer DeCA
 
 1. Instala el ZIP del conector desde **Plugins > Añadir plugin > Subir plugin**.
 2. Actívalo con WooCommerce activo.
 3. Abre **WooCommerce > DeCA Transporte**.
-4. Guarda la conexión y los datos básicos del cargador/origen.
-5. Ejecuta **Probar conexión**.
-6. Completa los datos logísticos del pedido y usa la acción **Generar / actualizar DeCA**.
+4. Guarda la clave de Cargo Connect y los datos básicos del cargador/origen.
+5. Ejecuta **Probar conexión con DeCA Transporte**.
+6. Abre un pedido.
+7. En el bloque **DeCA Transporte**, completa fecha de transporte, matrícula y cualquier dato que no llegue ya del pedido o de la configuración general.
+8. Guarda/actualiza el pedido.
+9. Usa la acción **Generar / actualizar DeCA**.
+10. Abre el documento desde el botón **Abrir documento DeCA** del mismo pedido.
 
-## Configuración
+## Configuración básica
 
-En **WooCommerce > DeCA Transporte** se configuran:
+En **WooCommerce > DeCA Transporte** se configuran primero:
 
 - endpoint HTTPS de DeCA Transporte;
 - clave API de Cargo Connect;
 - nombre legal, NIF/CIF y dirección del cargador contractual;
 - origen de carga por defecto;
-- transportista por defecto si no llega informado en el pedido;
-- campos de pedido para fecha de transporte, matrícula tractora, remolque opcional, autorización especial opcional y peso opcional;
-- estados WooCommerce que pueden lanzar el proceso automáticamente.
+- transportista por defecto, si aplica.
+
+La propia pantalla indica si la configuración básica está completa.
+
+## Opciones avanzadas
+
+Quedan separadas del primer uso:
+
+- nombres de los metadatos usados para integrar otros plugins/sistemas;
+- estados WooCommerce que pueden lanzar el proceso automáticamente;
+- timeout HTTP.
 
 Si no se selecciona ningún estado, el plugin funciona en modo manual.
 
-## Datos logísticos
+## Datos de transporte del pedido
 
-El conector **no inventa datos de cumplimiento**. Si falta fecha de transporte, transportista, matrícula, destino o cantidad/peso necesarios, la validación debe detener la generación con un error útil.
+El operador puede editar directamente desde el pedido:
 
-El peso puede venir de un campo configurado del pedido. Si no existe, el plugin suma los pesos de producto de WooCommerce y los convierte a kilogramos. Si no puede obtener un peso fiable, no fabrica uno.
+- fecha de transporte;
+- matrícula tractora;
+- matrícula de remolque opcional;
+- transportista efectivo y NIF/CIF;
+- peso total opcional en kg;
+- autorización especial opcional.
+
+Los valores del pedido tienen prioridad sobre los valores generales. Si el transportista del pedido se deja vacío, se usa el transportista por defecto configurado. Si el peso se deja vacío, el conector intenta calcularlo con los pesos de producto de WooCommerce.
+
+El conector **no inventa datos de cumplimiento**. Si falta un dato obligatorio, la validación debe detener la generación con un error útil.
 
 ## Documento y trazabilidad
 
-El pedido conserva:
+El pedido muestra y conserva:
 
+- estado DeCA;
 - identificador de expedición;
 - identificador del documento DeCA;
-- URL de acceso al documento.
+- enlace directo para abrir el documento;
+- último error de generación, si existe.
 
-La URL pública del documento no se copia en las notas del pedido; las notas utilizan únicamente el identificador documental.
+La URL pública del documento no se copia en las notas del pedido.
 
 ## Seguridad
 
@@ -89,10 +112,6 @@ add_filter(
 
 Cualquier modificación sigue pasando por la validación DeCA.
 
-## Comprobación de conexión
-
-Después de guardar endpoint y clave API, usa **Probar conexión con DeCA Transporte**. La comprobación es no destructiva y no crea ni modifica expediciones.
-
 ## Criterio de producto
 
-Este conector está dentro de **Cargo Connect**. No depende de Atlas, DR, eCMR, OIDC ni de gates de arquitectura para considerarse entregable. Su criterio es: instalar, configurar, conectar un pedido, generar/actualizar el DeCA y dejar el documento accesible y trazable.
+Este conector está dentro de **Cargo Connect**. Su recorrido mínimo es: instalar, configurar, probar conexión, completar los datos de transporte del pedido, generar/actualizar el DeCA y abrir el documento desde el propio pedido.

@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 
 const CONNECTOR_PACKAGES = {
   woocommerce: {
-    filename: "puente-deca-woocommerce-0.1.1.zip",
+    filename: "puente-deca-woocommerce-0.1.2.zip",
     root: "puente-deca-woocommerce",
     files: [
       ["connectors/woocommerce/puente-deca-woocommerce.php", "puente-deca-woocommerce.php"],

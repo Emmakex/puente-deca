@@ -19,7 +19,8 @@ const directory = await mkdtemp(
 );
 const first = join(directory, "first");
 const second = join(directory, "second");
-const connectorVersion = "0.1.1";
+const wooVersion = "0.1.2";
+const prestaVersion = "0.1.1";
 
 const run = (args, options = {}) => {
   const result = spawnSync(
@@ -65,7 +66,7 @@ try {
   const packages = [
     {
       name:
-        `puente-deca-woocommerce-${connectorVersion}.zip`,
+        `puente-deca-woocommerce-${wooVersion}.zip`,
       root: "puente-deca-woocommerce/",
       required: [
         "puente-deca-woocommerce/puente-deca-woocommerce.php",
@@ -78,7 +79,7 @@ try {
     },
     {
       name:
-        `puentedeca-prestashop-${connectorVersion}.zip`,
+        `puentedeca-prestashop-${prestaVersion}.zip`,
       root: "puentedeca/",
       required: [
         "puentedeca/puentedeca.php",
@@ -162,11 +163,11 @@ try {
 
   const wooPackage = join(
     first,
-    `puente-deca-woocommerce-${connectorVersion}.zip`
+    `puente-deca-woocommerce-${wooVersion}.zip`
   );
   const prestaPackage = join(
     first,
-    `puentedeca-prestashop-${connectorVersion}.zip`
+    `puentedeca-prestashop-${prestaVersion}.zip`
   );
 
   run([
@@ -226,10 +227,10 @@ try {
 
   if (
     !sums.includes(
-      `puente-deca-woocommerce-${connectorVersion}.zip`
+      `puente-deca-woocommerce-${wooVersion}.zip`
     ) ||
     !sums.includes(
-      `puentedeca-prestashop-${connectorVersion}.zip`
+      `puentedeca-prestashop-${prestaVersion}.zip`
     )
   ) {
     throw new Error(
@@ -238,7 +239,7 @@ try {
   }
 
   console.log(
-    "Connector release packaging OK (0.1.1, stable top-level folders, deterministic ZIP bytes, SHA-256 manifest, extracted PHP runtime smoke)"
+    `Connector release packaging OK (WooCommerce ${wooVersion}, PrestaShop ${prestaVersion}, deterministic ZIPs, SHA-256 manifest, extracted PHP runtime smoke)`
   );
 } finally {
   await rm(directory, {

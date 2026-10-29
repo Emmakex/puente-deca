@@ -46,8 +46,8 @@ jobs:
         with:
           name: puente-deca-connectors-${{ github.ref_name }}
           path: |
-            dist/puente-deca-woocommerce-0.1.0.zip
-            dist/puentedeca-prestashop-0.1.0.zip
+            dist/puente-deca-woocommerce-0.1.2.zip
+            dist/puentedeca-prestashop-0.1.1.zip
             dist/SHA256SUMS
           if-no-files-found: error
           retention-days: 30
