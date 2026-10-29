@@ -7,7 +7,8 @@ const files = {
   payload: "connectors/prestashop/classes/PDECAPrestaShopOrderPayload.php",
   connector: "connectors/prestashop/classes/PDECAPrestaShopConnector.php",
   secrets: "connectors/prestashop/classes/PDECAPrestaShopSecretStore.php",
-  upgrade: "connectors/prestashop/upgrade/upgrade-0.1.1.php"
+  upgrade011: "connectors/prestashop/upgrade/upgrade-0.1.1.php",
+  upgrade012: "connectors/prestashop/upgrade/upgrade-0.1.2.php"
 };
 
 const content = Object.fromEntries(
@@ -32,8 +33,8 @@ requirePattern(
 );
 requirePattern(
   "main",
-  /const VERSION = '0\.1\.1'/,
-  "PrestaShop module version must match the 0.1.1 product package"
+  /const VERSION = '0\.1\.2'/,
+  "PrestaShop module version must match the 0.1.2 product package"
 );
 requirePattern(
   "main",
@@ -57,8 +58,23 @@ requirePattern(
 );
 requirePattern(
   "main",
-  /access_url[\s\S]*Open DeCA document/,
+  /access_url[\s\S]*Abrir documento DeCA/,
   "PrestaShop order card must expose the generated DeCA document URL"
+);
+requirePattern(
+  "main",
+  /missingBasicConfiguration[\s\S]*clave API de Cargo Connect/,
+  "PrestaShop setup must report missing basic configuration"
+);
+requirePattern(
+  "main",
+  /Primer DeCA[\s\S]*Probar conexión con DeCA Transporte/,
+  "PrestaShop setup must explain the first DeCA flow"
+);
+requirePattern(
+  "main",
+  /https:\/\/kairoseth\.com\/products\/kairoseth-cargo/,
+  "PrestaShop setup must link to the canonical DeCA Transporte commercial page"
 );
 requirePattern(
   "main",
@@ -86,6 +102,11 @@ requirePattern(
   "PrestaShop settings must expose the connection test action"
 );
 requirePattern(
+  "main",
+  /Guardar datos y generar \/ actualizar DeCA/,
+  "PrestaShop order controls must provide the direct generate/update action"
+);
+requirePattern(
   "client",
   /updateShipment/,
   "PrestaShop connector must update an existing shipment"
@@ -101,9 +122,14 @@ requirePattern(
   "PrestaShop connector must persist document access metadata"
 );
 requirePattern(
-  "upgrade",
+  "upgrade011",
   /ADD `access_url` TEXT NULL AFTER `document_id`/,
-  "PrestaShop 0.1.1 upgrade must add document access persistence"
+  "PrestaShop 0.1.1 upgrade must preserve document access persistence"
+);
+requirePattern(
+  "upgrade012",
+  /upgrade_module_0_1_2[\s\S]*return true/,
+  "PrestaShop 0.1.2 upgrade step must remain non-destructive"
 );
 requirePattern(
   "payload",
@@ -156,5 +182,5 @@ if (php.status === 0) {
 }
 
 console.log(
-  "PrestaShop connector contract OK (DeCA Transporte 0.1.1, document access, bounded compatibility, encrypted token, opt-in automation, explicit logistics)"
+  "PrestaShop connector contract OK (DeCA Transporte 0.1.2, first-use setup, direct document access, bounded compatibility, encrypted token, opt-in automation)"
 );
