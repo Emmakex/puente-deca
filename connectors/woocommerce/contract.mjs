@@ -1,6 +1,6 @@
 export const connector = {
   id: "woocommerce",
-  version: "0.1.1",
+  version: "0.1.2",
   capabilities: ["shipment.import"],
 
   mapShipment(source) {
