@@ -36,7 +36,7 @@ test("connector package builder produces installable-root PrestaShop ZIP bytes",
 
   assert.equal(
     artifact.filename,
-    "puentedeca-prestashop-0.1.1.zip"
+    "puentedeca-prestashop-0.1.2.zip"
   );
   assert.equal(
     artifact.bytes.readUInt32LE(0),
@@ -60,6 +60,13 @@ test("connector package builder produces installable-root PrestaShop ZIP bytes",
     artifact.bytes.includes(
       Buffer.from(
         "puentedeca/upgrade/upgrade-0.1.1.php"
+      )
+    )
+  );
+  assert.ok(
+    artifact.bytes.includes(
+      Buffer.from(
+        "puentedeca/upgrade/upgrade-0.1.2.php"
       )
     )
   );

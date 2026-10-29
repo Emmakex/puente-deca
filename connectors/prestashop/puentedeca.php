@@ -11,7 +11,7 @@ require_once __DIR__ . '/classes/PDECAPrestaShopConnector.php';
 
 class PuenteDeca extends Module
 {
-    const VERSION = '0.1.1';
+    const VERSION = '0.1.2';
     const CONFIG_ENDPOINT = 'PDECA_PS_ENDPOINT';
     const CONFIG_TIMEOUT = 'PDECA_PS_TIMEOUT';
     const CONFIG_SHIPPER_NAME = 'PDECA_PS_SHIPPER_NAME';
@@ -38,8 +38,8 @@ class PuenteDeca extends Module
         parent::__construct();
 
         $this->displayName = $this->l('DeCA Transporte');
-        $this->description = $this->l('Generate and keep DeCA transport documents up to date from PrestaShop orders.');
-        $this->confirmUninstall = $this->l('Uninstall DeCA Transporte? Local connector state will be removed, but remote DeCA documents are not deleted.');
+        $this->description = $this->l('Genera y mantiene documentos DeCA desde pedidos PrestaShop con Cargo Connect.');
+        $this->confirmUninstall = $this->l('¿Desinstalar DeCA Transporte? Se eliminará el estado local del conector, pero no los documentos DeCA remotos.');
     }
 
     public function install()
@@ -93,6 +93,7 @@ class PuenteDeca extends Module
         }
 
         return $output
+            . $this->renderFirstUsePanel()
             . $this->renderSettingsForm()
             . $this->renderConnectionTestPanel()
             . $this->renderManualOrderPanel();
@@ -146,6 +147,15 @@ class PuenteDeca extends Module
         $accessUrl = strpos($accessUrlRaw, 'https://') === 0 ? $accessUrlRaw : '';
         $lastError = is_array($row) ? (string) $row['last_error'] : '';
 
+        $statusLabels = array(
+            'ready' => $this->l('Listo'),
+            'ready_reused' => $this->l('Listo · sin cambios'),
+            'blocked' => $this->l('Requiere atención'),
+            'configured' => $this->l('Datos guardados'),
+            'not_configured' => $this->l('Aún no generado'),
+        );
+        $statusLabel = isset($statusLabels[$status]) ? $statusLabels[$status] : $status;
+
         $url = $this->context->link->getAdminLink(
             'AdminModules',
             true,
@@ -160,24 +170,25 @@ class PuenteDeca extends Module
 
         $html = '<div class="card mt-2"><h3 class="card-header"><i class="material-icons">local_shipping</i> '
             . $this->l('DeCA Transporte') . '</h3><div class="card-body">'
-            . '<p><strong>' . $this->l('Status:') . '</strong> ' . Tools::safeOutput($status) . '</p>';
+            . '<p><strong>' . $this->l('Estado:') . '</strong> ' . Tools::safeOutput($statusLabel) . '</p>';
 
         if ($shipmentId !== '') {
-            $html .= '<p><strong>' . $this->l('Shipment:') . '</strong> ' . Tools::safeOutput($shipmentId) . '</p>';
+            $html .= '<p><strong>' . $this->l('Expedición:') . '</strong> ' . Tools::safeOutput($shipmentId) . '</p>';
         }
         if ($documentId !== '') {
-            $html .= '<p><strong>' . $this->l('Current DeCA:') . '</strong> ' . Tools::safeOutput($documentId) . '</p>';
+            $html .= '<p><strong>' . $this->l('DeCA actual:') . '</strong> ' . Tools::safeOutput($documentId) . '</p>';
         }
         if ($accessUrl !== '') {
             $html .= '<p><a class="btn btn-primary" href="' . Tools::safeOutput($accessUrl)
-                . '" target="_blank" rel="noopener noreferrer">' . $this->l('Open DeCA document') . '</a></p>';
+                . '" target="_blank" rel="noopener noreferrer">' . $this->l('Abrir documento DeCA') . '</a></p>';
         }
         if ($lastError !== '') {
-            $html .= '<div class="alert alert-warning">' . Tools::safeOutput($lastError) . '</div>';
+            $html .= '<div class="alert alert-warning"><strong>' . $this->l('Último error:') . '</strong> '
+                . Tools::safeOutput($lastError) . '</div>';
         }
 
         return $html . '<a class="btn btn-default" href="' . Tools::safeOutput($url) . '">'
-            . $this->l('Open DeCA Transporte controls') . '</a></div></div>';
+            . $this->l('Completar datos / generar DeCA') . '</a></div></div>';
     }
 
     private function saveSettings()
@@ -188,7 +199,7 @@ class PuenteDeca extends Module
         $token = trim((string) Tools::getValue('PDECA_PS_API_KEY'));
 
         if ($endpoint === '' || strpos($endpoint, 'https://') !== 0) {
-            return $this->displayError($this->l('The DeCA Transporte endpoint must use HTTPS.'));
+            return $this->displayError($this->l('La URL de DeCA Transporte debe usar HTTPS.'));
         }
 
         Configuration::updateValue(self::CONFIG_ENDPOINT, $endpoint, false, null, $shopId);
@@ -215,14 +226,14 @@ class PuenteDeca extends Module
         }
 
         if ($token !== '' && !PDECAPrestaShopSecretStore::set($token, $shopId)) {
-            return $this->displayError($this->l('The API key could not be encrypted on this server.'));
+            return $this->displayError($this->l('La clave API no pudo cifrarse en este servidor.'));
         }
 
         if ((int) Tools::getValue('PDECA_PS_CLEAR_API_KEY', 0) === 1) {
             PDECAPrestaShopSecretStore::delete($shopId);
         }
 
-        return $this->displayConfirmation($this->l('DeCA Transporte settings saved. The API key is stored encrypted and is never displayed again.'));
+        return $this->displayConfirmation($this->l('Configuración de DeCA Transporte guardada. La clave API queda cifrada y no se vuelve a mostrar.'));
     }
 
     private function testConnection()
@@ -232,11 +243,11 @@ class PuenteDeca extends Module
             $client->testConnection();
 
             return $this->displayConfirmation(
-                $this->l('DeCA Transporte connection is working.')
+                $this->l('La conexión con DeCA Transporte funciona correctamente.')
             );
         } catch (Exception $exception) {
             return $this->displayError(
-                $this->l('DeCA Transporte connection failed: ')
+                $this->l('No se pudo conectar con DeCA Transporte: ')
                 . Tools::safeOutput(
                     substr(
                         (string) $exception->getMessage(),
@@ -258,32 +269,82 @@ class PuenteDeca extends Module
             || !Validate::isLoadedObject($order)
             || (int) $order->id_shop !== (int) $this->context->shop->id
         ) {
-            return $this->displayError($this->l('Invalid order.'));
+            return $this->displayError($this->l('Pedido no válido.'));
         }
 
         $this->saveLogistics(
             $orderId,
             array(
                 'transport_date' => trim((string) Tools::getValue('PDECA_TRANSPORT_DATE')),
-                'tractor_registration' => trim((string) Tools::getValue('PDECA_TRACTOR_REGISTRATION')),
-                'trailer_registration' => trim((string) Tools::getValue('PDECA_TRAILER_REGISTRATION')),
+                'tractor_registration' => strtoupper(trim((string) Tools::getValue('PDECA_TRACTOR_REGISTRATION'))),
+                'trailer_registration' => strtoupper(trim((string) Tools::getValue('PDECA_TRAILER_REGISTRATION'))),
                 'carrier_name' => trim((string) Tools::getValue('PDECA_CARRIER_NAME')),
-                'carrier_tax_id' => trim((string) Tools::getValue('PDECA_CARRIER_TAX_ID')),
-                'weight_kg' => trim((string) Tools::getValue('PDECA_WEIGHT_KG')),
+                'carrier_tax_id' => strtoupper(trim((string) Tools::getValue('PDECA_CARRIER_TAX_ID'))),
+                'weight_kg' => str_replace(',', '.', trim((string) Tools::getValue('PDECA_WEIGHT_KG'))),
                 'special_authorization' => trim((string) Tools::getValue('PDECA_SPECIAL_AUTHORIZATION')),
             )
         );
 
         $result = PDECAPrestaShopConnector::processOrder($this, $order);
         if (!empty($result['ok'])) {
-            return $this->displayConfirmation($this->l('DeCA Transporte processed the order successfully.'));
+            return $this->displayConfirmation($this->l('DeCA generado o actualizado correctamente.'));
         }
 
         return $this->displayError(
             isset($result['message'])
                 ? Tools::safeOutput((string) $result['message'])
-                : $this->l('DeCA Transporte could not process the order.')
+                : $this->l('No se pudo generar el DeCA del pedido.')
         );
+    }
+
+    private function missingBasicConfiguration()
+    {
+        $shopId = (int) $this->context->shop->id;
+        $required = array(
+            self::CONFIG_ENDPOINT => $this->l('endpoint DeCA Transporte'),
+            self::CONFIG_SHIPPER_NAME => $this->l('nombre legal del cargador'),
+            self::CONFIG_SHIPPER_TAX_ID => $this->l('NIF/CIF del cargador'),
+            self::CONFIG_SHIPPER_ADDRESS => $this->l('dirección del cargador'),
+            self::CONFIG_ORIGIN => $this->l('origen de carga'),
+        );
+        $missing = array();
+
+        foreach ($required as $key => $label) {
+            if (trim((string) Configuration::get($key, null, null, $shopId)) === '') {
+                $missing[] = $label;
+            }
+        }
+
+        if (PDECAPrestaShopSecretStore::get($shopId) === '') {
+            $missing[] = $this->l('clave API de Cargo Connect');
+        }
+
+        return $missing;
+    }
+
+    private function renderFirstUsePanel()
+    {
+        $missing = $this->missingBasicConfiguration();
+        $html = '<div class="panel"><h3><i class="icon-check-circle"></i> '
+            . $this->l('Primer DeCA') . '</h3>';
+
+        if (empty($missing)) {
+            $html .= '<div class="alert alert-success"><strong>' . $this->l('Configuración básica completa.')
+                . '</strong> ' . $this->l('Ya puedes probar la conexión y generar tu primer DeCA desde un pedido.') . '</div>';
+        } else {
+            $html .= '<div class="alert alert-warning"><strong>' . $this->l('Falta completar:') . '</strong> '
+                . Tools::safeOutput(implode(', ', $missing)) . '.</div>';
+        }
+
+        $html .= '<ol>'
+            . '<li>' . $this->l('Guarda la clave de Cargo Connect y los datos básicos de empresa/origen.') . '</li>'
+            . '<li>' . $this->l('Pulsa “Probar conexión con DeCA Transporte”.') . '</li>'
+            . '<li>' . $this->l('Abre un pedido, pulsa “Completar datos / generar DeCA”, rellena lo necesario y genera el documento.') . '</li>'
+            . '</ol>'
+            . '<p><a href="https://kairoseth.com/products/kairoseth-cargo" target="_blank" rel="noopener noreferrer">'
+            . $this->l('Ver DeCA Transporte y planes Cargo Connect') . '</a></p></div>';
+
+        return $html;
     }
 
     private function renderSettingsForm()
@@ -323,36 +384,36 @@ class PuenteDeca extends Module
         $helper->tpl_vars = array('fields_value' => $values);
 
         $fields = array(
-            array('type' => 'text', 'label' => $this->l('HTTPS endpoint'), 'name' => self::CONFIG_ENDPOINT, 'required' => true),
-            array('type' => 'password', 'label' => $this->l('Connector API key'), 'name' => 'PDECA_PS_API_KEY', 'autocomplete' => false, 'desc' => $this->l('Leave blank to keep the existing encrypted key.')),
+            array('type' => 'text', 'label' => $this->l('Endpoint DeCA Transporte'), 'name' => self::CONFIG_ENDPOINT, 'required' => true, 'desc' => $this->l('Normalmente no necesitas cambiar este valor.')),
+            array('type' => 'password', 'label' => $this->l('Clave API de Cargo Connect'), 'name' => 'PDECA_PS_API_KEY', 'autocomplete' => false, 'desc' => $this->l('Déjala vacía para conservar la clave cifrada existente.')),
             array(
                 'type' => 'switch',
-                'label' => $this->l('Remove stored API key'),
+                'label' => $this->l('Eliminar clave API guardada'),
                 'name' => 'PDECA_PS_CLEAR_API_KEY',
                 'is_bool' => true,
                 'values' => array(
-                    array('id' => 'pdeca_clear_on', 'value' => 1, 'label' => $this->l('Yes')),
+                    array('id' => 'pdeca_clear_on', 'value' => 1, 'label' => $this->l('Sí')),
                     array('id' => 'pdeca_clear_off', 'value' => 0, 'label' => $this->l('No')),
                 ),
             ),
-            array('type' => 'text', 'label' => $this->l('Contractual shipper legal name'), 'name' => self::CONFIG_SHIPPER_NAME, 'required' => true),
-            array('type' => 'text', 'label' => $this->l('Contractual shipper tax ID'), 'name' => self::CONFIG_SHIPPER_TAX_ID, 'required' => true),
-            array('type' => 'text', 'label' => $this->l('Contractual shipper address'), 'name' => self::CONFIG_SHIPPER_ADDRESS, 'required' => true),
-            array('type' => 'text', 'label' => $this->l('Default loading origin'), 'name' => self::CONFIG_ORIGIN, 'required' => true),
-            array('type' => 'text', 'label' => $this->l('Default effective carrier legal name'), 'name' => self::CONFIG_CARRIER_NAME),
-            array('type' => 'text', 'label' => $this->l('Default effective carrier tax ID'), 'name' => self::CONFIG_CARRIER_TAX_ID),
-            array('type' => 'text', 'label' => $this->l('Automatic order-state IDs'), 'name' => self::CONFIG_AUTO_STATES, 'desc' => $this->l('Comma-separated IDs. Leave blank for manual-only mode. Missing logistics data still blocks generation.')),
-            array('type' => 'text', 'label' => $this->l('Request timeout (seconds)'), 'name' => self::CONFIG_TIMEOUT, 'required' => true),
+            array('type' => 'text', 'label' => $this->l('Nombre legal del cargador'), 'name' => self::CONFIG_SHIPPER_NAME, 'required' => true),
+            array('type' => 'text', 'label' => $this->l('NIF/CIF del cargador'), 'name' => self::CONFIG_SHIPPER_TAX_ID, 'required' => true),
+            array('type' => 'text', 'label' => $this->l('Dirección del cargador'), 'name' => self::CONFIG_SHIPPER_ADDRESS, 'required' => true),
+            array('type' => 'text', 'label' => $this->l('Origen de carga por defecto'), 'name' => self::CONFIG_ORIGIN, 'required' => true),
+            array('type' => 'text', 'label' => $this->l('Transportista por defecto'), 'name' => self::CONFIG_CARRIER_NAME, 'desc' => $this->l('Opcional si se indica en cada pedido.')),
+            array('type' => 'text', 'label' => $this->l('NIF/CIF del transportista por defecto'), 'name' => self::CONFIG_CARRIER_TAX_ID),
+            array('type' => 'text', 'label' => $this->l('Avanzado · estados automáticos'), 'name' => self::CONFIG_AUTO_STATES, 'desc' => $this->l('IDs separados por comas. Déjalo vacío para modo manual.')),
+            array('type' => 'text', 'label' => $this->l('Avanzado · timeout HTTP (segundos)'), 'name' => self::CONFIG_TIMEOUT, 'required' => true),
         );
 
         return $helper->generateForm(
             array(
                 array(
                     'form' => array(
-                        'legend' => array('title' => $this->l('DeCA Transporte connection'), 'icon' => 'icon-truck'),
-                        'description' => $this->l('Connect this store to DeCA Transporte to validate shipment data and generate PDF/QR documents with history.'),
+                        'legend' => array('title' => $this->l('Configuración de DeCA Transporte'), 'icon' => 'icon-truck'),
+                        'description' => $this->l('Completa primero la clave de Cargo Connect y los datos básicos. Las opciones marcadas como “Avanzado” pueden dejarse con sus valores por defecto.'),
                         'input' => $fields,
-                        'submit' => array('title' => $this->l('Save'), 'class' => 'btn btn-default pull-right'),
+                        'submit' => array('title' => $this->l('Guardar configuración'), 'class' => 'btn btn-default pull-right'),
                     ),
                 ),
             )
@@ -373,13 +434,13 @@ class PuenteDeca extends Module
         );
 
         return '<div class="panel"><h3>'
-            . $this->l('Connection check')
+            . $this->l('Comprobar conexión')
             . '</h3><p>'
-            . $this->l('After saving the URL and API key, run a non-destructive check before processing a real order.')
+            . $this->l('Después de guardar los datos básicos, comprueba la conexión antes de generar el primer DeCA.')
             . '</p><form method="post" action="'
             . Tools::safeOutput($action)
             . '"><button class="btn btn-default" type="submit" name="submitPuenteDecaTestConnection" value="1">'
-            . $this->l('Test DeCA Transporte connection')
+            . $this->l('Probar conexión con DeCA Transporte')
             . '</button></form></div>';
     }
 
@@ -387,8 +448,8 @@ class PuenteDeca extends Module
     {
         $orderId = (int) Tools::getValue('PDECA_ORDER_ID');
         if ($orderId <= 0) {
-            return '<div class="panel"><h3>' . $this->l('Manual order processing')
-                . '</h3><p>' . $this->l('Open an order and use the DeCA Transporte card to load its logistics controls here.')
+            return '<div class="panel"><h3>' . $this->l('Generar DeCA desde un pedido')
+                . '</h3><p>' . $this->l('Abre un pedido y usa la tarjeta DeCA Transporte para cargar aquí sus datos de transporte.')
                 . '</p></div>';
         }
 
@@ -397,7 +458,7 @@ class PuenteDeca extends Module
             !Validate::isLoadedObject($order)
             || (int) $order->id_shop !== (int) $this->context->shop->id
         ) {
-            return $this->displayError($this->l('Invalid order.'));
+            return $this->displayError($this->l('Pedido no válido.'));
         }
 
         $row = $this->getSyncRow($orderId);
@@ -418,17 +479,18 @@ class PuenteDeca extends Module
         );
 
         $fields = array(
-            'PDECA_TRANSPORT_DATE' => array($this->l('Transport date (YYYY-MM-DD)'), $value('transport_date')),
-            'PDECA_TRACTOR_REGISTRATION' => array($this->l('Tractor registration'), $value('tractor_registration')),
-            'PDECA_TRAILER_REGISTRATION' => array($this->l('Trailer registration'), $value('trailer_registration')),
-            'PDECA_CARRIER_NAME' => array($this->l('Effective carrier legal name'), $value('carrier_name')),
-            'PDECA_CARRIER_TAX_ID' => array($this->l('Effective carrier tax ID'), $value('carrier_tax_id')),
-            'PDECA_WEIGHT_KG' => array($this->l('Shipment weight override (kg)'), $value('weight_kg')),
-            'PDECA_SPECIAL_AUTHORIZATION' => array($this->l('Special traffic authorization'), $value('special_authorization')),
+            'PDECA_TRANSPORT_DATE' => array($this->l('Fecha de transporte (AAAA-MM-DD)'), $value('transport_date')),
+            'PDECA_TRACTOR_REGISTRATION' => array($this->l('Matrícula tractora'), $value('tractor_registration')),
+            'PDECA_TRAILER_REGISTRATION' => array($this->l('Matrícula remolque'), $value('trailer_registration')),
+            'PDECA_CARRIER_NAME' => array($this->l('Transportista efectivo'), $value('carrier_name')),
+            'PDECA_CARRIER_TAX_ID' => array($this->l('NIF/CIF del transportista'), $value('carrier_tax_id')),
+            'PDECA_WEIGHT_KG' => array($this->l('Peso total opcional (kg)'), $value('weight_kg')),
+            'PDECA_SPECIAL_AUTHORIZATION' => array($this->l('Autorización especial opcional'), $value('special_authorization')),
         );
 
-        $html = '<div class="panel"><h3>' . sprintf($this->l('Order #%d transport data'), $orderId)
-            . '</h3><form method="post" action="' . Tools::safeOutput($action) . '">';
+        $html = '<div class="panel"><h3>' . sprintf($this->l('Pedido #%d · datos de transporte'), $orderId)
+            . '</h3><p>' . $this->l('Completa solo los datos necesarios. Si el peso queda vacío, el módulo intentará calcularlo con los productos del pedido.')
+            . '</p><form method="post" action="' . Tools::safeOutput($action) . '">';
 
         foreach ($fields as $name => $field) {
             $html .= '<div class="form-group"><label>' . Tools::safeOutput($field[0])
@@ -439,7 +501,7 @@ class PuenteDeca extends Module
         return $html
             . '<input type="hidden" name="PDECA_ORDER_ID" value="' . (int) $orderId . '">'
             . '<button class="btn btn-primary" type="submit" name="submitPuenteDecaProcess" value="1">'
-            . $this->l('Save transport data and generate / update DeCA')
+            . $this->l('Guardar datos y generar / actualizar DeCA')
             . '</button></form></div>';
     }
 

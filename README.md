@@ -47,10 +47,10 @@ Todo trabajo debe proteger o mejorar este recorrido. La arquitectura que no sea 
 
 ## Paquetes instalables
 
-Versiones actuales:
+Versión actual de Cargo Connect: **0.1.2**.
 
 - **WooCommerce 0.1.2** — configuración guiada, datos de transporte editables desde el pedido y acceso directo al DeCA.
-- **PrestaShop 0.1.1** — generación desde pedido y acceso directo al DeCA.
+- **PrestaShop 0.1.2** — configuración guiada, datos de transporte por pedido, generación/actualización y acceso directo al DeCA.
 
 ```bash
 npm ci
@@ -60,12 +60,12 @@ npm run release:connectors
 Genera:
 
 - `dist/puente-deca-woocommerce-0.1.2.zip`
-- `dist/puentedeca-prestashop-0.1.1.zip`
+- `dist/puentedeca-prestashop-0.1.2.zip`
 - `dist/SHA256SUMS`
 
 Los nombres de archivo e identificadores internos históricos se conservan por compatibilidad. La experiencia visible del cliente utiliza **DeCA Transporte**.
 
-En WooCommerce y PrestaShop el operador puede consultar desde el pedido el estado actual del DeCA y abrir el documento generado cuando existe. WooCommerce permite además completar los datos de transporte desde el propio pedido, sin editar metadatos técnicos.
+En WooCommerce y PrestaShop el operador puede completar los datos necesarios del pedido, generar o actualizar el DeCA, consultar su estado y abrir el documento generado sin editar almacenamiento técnico.
 
 ## Validación de producto
 

@@ -240,7 +240,7 @@ pdeca_assert(class_exists('PuenteDeca'), 'PrestaShop module class did not load.'
 $module = new PuenteDeca();
 
 pdeca_assert($module->name === 'puentedeca', 'PrestaShop module name drifted.');
-pdeca_assert($module->version === '0.1.1', 'PrestaShop module version drifted.');
+pdeca_assert($module->version === '0.1.2', 'PrestaShop module version drifted.');
 pdeca_assert($module->displayName === 'DeCA Transporte', 'PrestaShop commercial product name drifted.');
 pdeca_assert(
     version_compare($targetVersion, $module->ps_versions_compliancy['min'], '>='),

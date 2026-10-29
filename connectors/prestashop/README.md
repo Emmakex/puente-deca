@@ -2,7 +2,7 @@
 
 Módulo instalable de **Cargo Connect** para **PrestaShop 1.7.8.x y 8.x**.
 
-Versión actual del conector: **0.1.1**.
+Versión actual del conector: **0.1.2**.
 
 Su objetivo es reutilizar los datos del pedido y la información logística necesaria para crear o actualizar el DeCA, mantener el documento asociado a la operación y reducir la introducción manual de datos.
 
@@ -11,7 +11,7 @@ Su objetivo es reutilizar los datos del pedido y la información logística nece
 ```text
 Pedido PrestaShop
    |
-pedido + datos logísticos explícitos
+datos del pedido + transporte
    |
 crear/actualizar expedición DeCA
    |
@@ -29,21 +29,27 @@ estado + document ID + abrir documento
 
 PrestaShop 9 queda fuera del rango actual hasta que exista una necesidad real de producto y se valide específicamente.
 
-## Instalación
+## Instalación y primer DeCA
 
-1. Instala `puentedeca-prestashop-0.1.1.zip` desde el gestor de módulos de PrestaShop.
+1. Instala `puentedeca-prestashop-0.1.2.zip` desde el gestor de módulos de PrestaShop.
 2. Abre la configuración de **DeCA Transporte**.
-3. Guarda endpoint, clave API y datos básicos del cargador/origen.
-4. Ejecuta **Probar conexión**.
-5. Desde un pedido, completa los datos logísticos necesarios.
-6. Genera o actualiza el DeCA del pedido.
-7. Cuando el documento esté listo, usa **Abrir documento DeCA** desde la ficha del pedido.
+3. La pantalla te indicará qué datos básicos faltan.
+4. Guarda la clave API de Cargo Connect y los datos del cargador/origen.
+5. Ejecuta **Probar conexión con DeCA Transporte**.
+6. Abre un pedido y pulsa **Completar datos / generar DeCA**.
+7. Completa únicamente los datos de transporte necesarios y pulsa **Guardar datos y generar / actualizar DeCA**.
+8. Cuando esté listo, usa **Abrir documento DeCA** desde la ficha del pedido.
 
-## Actualización desde 0.1.0
+La configuración incluye un panel **Primer DeCA** con este recorrido y un enlace a la landing comercial canónica de DeCA Transporte.
 
-La actualización a 0.1.1 añade automáticamente el campo local necesario para conservar la URL de acceso al documento. No cambia el nombre técnico del módulo (`puentedeca`) ni los identificadores existentes, por lo que las instalaciones anteriores mantienen compatibilidad.
+## Actualización
 
-## Configuración
+- `0.1.1` añadió automáticamente `access_url` para conservar el enlace al documento.
+- `0.1.2` mejora el onboarding y la experiencia de uso sin cambiar el esquema ni los identificadores persistidos.
+
+El nombre técnico del módulo continúa siendo `puentedeca` para conservar compatibilidad.
+
+## Configuración básica
 
 La configuración es por tienda e incluye:
 
@@ -51,17 +57,22 @@ La configuración es por tienda e incluye:
 - clave API de Cargo Connect;
 - nombre legal, NIF/CIF y dirección del cargador contractual;
 - origen de carga;
-- transportista efectivo por defecto, si aplica;
-- estados de pedido opcionales para procesamiento automático;
-- timeout de petición.
+- transportista efectivo por defecto, si aplica.
 
-La clave API se cifra localmente y no vuelve a mostrarse después de guardarla.
+La pantalla indica si esta configuración está completa. La clave API se cifra localmente y no vuelve a mostrarse después de guardarla.
+
+## Opciones avanzadas
+
+Al final del mismo formulario se mantienen, claramente marcadas como avanzadas:
+
+- estados de pedido opcionales para procesamiento automático;
+- timeout HTTP.
 
 La automatización está desactivada por defecto. Sin estados configurados, el módulo funciona de forma manual.
 
 ## Datos de transporte del pedido
 
-Desde el pedido se pueden guardar:
+Desde el flujo del pedido se pueden guardar:
 
 - fecha de transporte;
 - matrícula tractora;
@@ -80,7 +91,14 @@ Si no existe un peso explícito, el módulo suma los pesos nativos de producto y
 
 La primera generación crea la expedición y el DeCA. Las siguientes reutilizan la misma identidad de expedición y actualizan el documento solo cuando existen cambios materiales, conservando la trazabilidad de revisiones.
 
-La ficha del pedido muestra el estado, identificador de expedición, identificador del DeCA, último error cuando existe y un enlace directo al documento generado.
+La ficha del pedido muestra:
+
+- estado del DeCA;
+- identificador de expedición;
+- identificador del DeCA;
+- último error cuando existe;
+- botón **Abrir documento DeCA**;
+- acceso **Completar datos / generar DeCA**.
 
 ## Persistencia local
 
@@ -95,10 +113,6 @@ La clave API no se guarda en esa tabla.
 - no se instala ningún secreto interno de plataforma en PrestaShop;
 - no se copia la URL pública del DeCA en mensajes del pedido.
 
-## Comprobación de conexión
-
-Después de guardar endpoint y clave API, usa **Probar conexión con DeCA Transporte**. Es una comprobación no destructiva que no crea ni modifica pedidos o expediciones.
-
 ## Criterio de producto
 
-Este módulo pertenece a **Cargo Connect**. No depende de Atlas, DR, eCMR, OIDC ni de matrices de aceptación de arquitectura para considerarse entregable. Su criterio es: instalar, configurar, conectar un pedido, generar/actualizar el DeCA y dejar el documento accesible y trazable desde la propia operación.
+Este módulo pertenece a **Cargo Connect**. Su recorrido mínimo es: instalar, completar la configuración básica, probar conexión, abrir un pedido, completar datos de transporte, generar/actualizar el DeCA y abrir el documento desde la propia operación.

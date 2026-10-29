@@ -20,7 +20,7 @@ const directory = await mkdtemp(
 const first = join(directory, "first");
 const second = join(directory, "second");
 const wooVersion = "0.1.2";
-const prestaVersion = "0.1.1";
+const prestaVersion = "0.1.2";
 
 const run = (args, options = {}) => {
   const result = spawnSync(
@@ -87,7 +87,8 @@ try {
         "puentedeca/classes/PDECAPrestaShopConnector.php",
         "puentedeca/classes/PDECAPrestaShopOrderPayload.php",
         "puentedeca/classes/PDECAPrestaShopSecretStore.php",
-        "puentedeca/upgrade/upgrade-0.1.1.php"
+        "puentedeca/upgrade/upgrade-0.1.1.php",
+        "puentedeca/upgrade/upgrade-0.1.2.php"
       ]
     }
   ];
