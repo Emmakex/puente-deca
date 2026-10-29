@@ -46,7 +46,7 @@ jobs:
       - name: Upload release bundle
         uses: actions/upload-artifact@v4
         with:
-          name: puente-deca-connectors-${{ github.ref_name }}
+          name: cargo-connect-0.1.2-test-build
           path: |
             dist/puente-deca-woocommerce-0.1.2.zip
             dist/puentedeca-prestashop-0.1.2.zip
