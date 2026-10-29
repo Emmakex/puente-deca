@@ -44,6 +44,11 @@ requirePattern(
 );
 requirePattern(
   "main",
+  /Version:\s*0\.1\.2[\s\S]*PDECA_WOO_VERSION',\s*'0\.1\.2'/,
+  "WooCommerce plugin and runtime version must be 0.1.2"
+);
+requirePattern(
+  "main",
   /declare_compatibility\(\s*'custom_order_tables'/,
   "WooCommerce connector must declare HPOS compatibility"
 );
@@ -100,16 +105,31 @@ requirePattern(
 requirePattern(
   "connector",
   /woocommerce_admin_order_data_after_order_details/,
-  "WooCommerce orders must expose the DeCA Transporte summary panel"
+  "WooCommerce orders must expose the DeCA Transporte order panel"
 );
 requirePattern(
   "connector",
-  /render_order_panel[\s\S]*Open DeCA document/,
+  /woocommerce_process_shop_order_meta[\s\S]*save_order_transport/,
+  "WooCommerce must save transport data through the order save lifecycle"
+);
+requirePattern(
+  "connector",
+  /order_transport_fields[\s\S]*pdeca_transport_date[\s\S]*pdeca_tractor_registration[\s\S]*pdeca_weight_kg/,
+  "WooCommerce order panel must expose essential transport fields"
+);
+requirePattern(
+  "connector",
+  /save_order_transport[\s\S]*wp_verify_nonce[\s\S]*update_meta_data[\s\S]*save_meta_data/,
+  "WooCommerce transport fields must save with nonce protection and WooCommerce CRUD"
+);
+requirePattern(
+  "connector",
+  /render_order_panel[\s\S]*Abrir documento DeCA/,
   "WooCommerce order panel must expose the generated DeCA document"
 );
 requirePattern(
   "connector",
-  /META_LAST_ERROR[\s\S]*Last error:/,
+  /META_LAST_ERROR[\s\S]*Último error:/,
   "WooCommerce order panel must surface the latest DeCA error"
 );
 requirePattern(
@@ -158,5 +178,5 @@ if (
 }
 
 console.log(
-  "WooCommerce connector contract OK (first-use setup, DeCA Transporte, order document access, HPOS/CRUD, encrypted credentials, async flow)"
+  "WooCommerce connector contract OK (0.1.2, first-use setup, editable transport data, document access, HPOS/CRUD, encrypted credentials)"
 );
