@@ -39,8 +39,8 @@ const requirePattern = (
 
 requirePattern(
   "main",
-  /Plugin Name:\s*Kairoseth Cargo - DeCA for WooCommerce/,
-  "WooCommerce plugin header is missing"
+  /Plugin Name:\s*DeCA Transporte for WooCommerce/,
+  "WooCommerce plugin must expose the DeCA Transporte commercial name"
 );
 requirePattern(
   "main",
@@ -123,5 +123,5 @@ if (
 }
 
 console.log(
-  "WooCommerce connector contract OK (HPOS/CRUD, encrypted credentials, async flow)"
+  "WooCommerce connector contract OK (DeCA Transporte, HPOS/CRUD, encrypted credentials, async flow)"
 );
