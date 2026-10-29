@@ -79,6 +79,21 @@ requirePattern(
 );
 requirePattern(
   "connector",
+  /woocommerce_admin_order_data_after_order_details/,
+  "WooCommerce orders must expose the DeCA Transporte summary panel"
+);
+requirePattern(
+  "connector",
+  /render_order_panel[\s\S]*Open DeCA document/,
+  "WooCommerce order panel must expose the generated DeCA document"
+);
+requirePattern(
+  "connector",
+  /META_LAST_ERROR[\s\S]*Last error:/,
+  "WooCommerce order panel must surface the latest DeCA error"
+);
+requirePattern(
+  "connector",
   /as_enqueue_async_action/,
   "WooCommerce connector should use Action Scheduler when available"
 );
@@ -123,5 +138,5 @@ if (
 }
 
 console.log(
-  "WooCommerce connector contract OK (DeCA Transporte, HPOS/CRUD, encrypted credentials, async flow)"
+  "WooCommerce connector contract OK (DeCA Transporte, order document access, HPOS/CRUD, encrypted credentials, async flow)"
 );
