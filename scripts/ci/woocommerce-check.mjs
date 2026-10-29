@@ -68,6 +68,26 @@ requirePattern(
   "WooCommerce settings must expose the connection test action"
 );
 requirePattern(
+  "settings",
+  /missing_basic_configuration[\s\S]*clave API de Cargo Connect/,
+  "WooCommerce setup must report missing basic configuration"
+);
+requirePattern(
+  "settings",
+  /Primer DeCA en 3 pasos/,
+  "WooCommerce setup must explain the first DeCA flow"
+);
+requirePattern(
+  "settings",
+  /Configuración básica[\s\S]*Opciones avanzadas/,
+  "WooCommerce setup must separate basic and advanced configuration"
+);
+requirePattern(
+  "settings",
+  /https:\/\/kairoseth\.com\/products\/kairoseth-cargo/,
+  "WooCommerce setup must link to the canonical DeCA Transporte commercial page"
+);
+requirePattern(
   "client",
   /update_shipment/,
   "WooCommerce client must support updating an existing shipment"
@@ -138,5 +158,5 @@ if (
 }
 
 console.log(
-  "WooCommerce connector contract OK (DeCA Transporte, order document access, HPOS/CRUD, encrypted credentials, async flow)"
+  "WooCommerce connector contract OK (first-use setup, DeCA Transporte, order document access, HPOS/CRUD, encrypted credentials, async flow)"
 );
