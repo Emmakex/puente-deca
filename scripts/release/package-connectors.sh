@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OUT_DIR="${1:-$ROOT/dist}"
 STAGE="$(mktemp -d)"
 WOO_VERSION="0.1.2"
-PRESTA_VERSION="0.1.1"
+PRESTA_VERSION="0.1.2"
 
 cleanup() {
   rm -rf "$STAGE"
