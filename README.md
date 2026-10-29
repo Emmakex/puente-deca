@@ -1,75 +1,97 @@
-# Puente DeCA
+# DeCA Transporte
 
-Puente DeCA is the transport-compliance engine behind **Kairoseth Cargo inside Kairoseth Platform (kairoseth.com)**. It provides an API-first bridge for generating and managing Spain's electronic Documento de Control Administrativo (DeCA).
+Repositorio de producto para generar y conservar el **Documento de Control Administrativo (DeCA)** con el menor número posible de piezas.
 
-It is deliberately **not a separate customer platform**. Customer authentication, organizations, product RBAC, billing/entitlements and workspace UX belong to Kairoseth Platform.
+## Producto activo
 
-## Goals
+DeCA se entrega de tres formas:
 
-- Keep the transport domain independent from any ERP, ecommerce or TMS.
-- Accept normalized shipment data through a stable API contract.
-- Validate DeCA-required fields before document generation.
-- Generate native PDF documents with QR-backed HTTPS access.
-- Preserve creation/modification history and audit evidence.
-- Support multiple organizations and connectors.
-- Make WooCommerce, PrestaShop, CSV/Excel and custom ERP integrations thin adapters over the same core.
+1. **WordPress / WooCommerce** — plugin instalable para configurar la integración y generar el DeCA desde un pedido.
+2. **PrestaShop** — módulo instalable con el mismo flujo esencial.
+3. **Integración a medida** — ERP, CRM, software propio, CSV/Excel u otros sistemas reutilizando el núcleo DeCA cuando aporte valor.
 
-## Architecture
+Kairoseth.com es la superficie comercial. Este repositorio contiene el producto técnico reutilizable.
+
+## Flujo que importa
 
 ```text
-Kairoseth Platform / kairoseth.com
-  |  customer auth + organization + product RBAC
-  |
-ERP / Ecommerce / TMS / CSV
-            |
-        Connectors
-            |
-       Puente DeCA API
-            |
-   Transport domain core
-      /      |       \
-Validation  Documents  Audit
-              |
-        PDF + QR + URL
+Pedido / datos de transporte
+          |
+          v
+     Datos DeCA
+          |
+          v
+      Validación
+          |
+          v
+      Documento
+          |
+          v
+       Histórico
 ```
 
-Repository layout:
+Todo trabajo debe proteger o mejorar este recorrido. La arquitectura que no sea necesaria para hacerlo funcionar de forma usable y estable se pospone.
 
-- `apps/api` — HTTP API.
-- `packages/contracts` — stable input/output contracts.
-- `packages/core` — transport/DeCA domain rules.
-- `packages/document-engine` — PDF/QR/access-document pipeline.
-- `connectors/` — platform-specific adapters.
-- `docs/` — architecture, legal/technical traceability and runbooks.
-- `examples/` — sample payloads and imports.
+## Componentes que mantenemos activos
 
-## Development principle
+- `connectors/woocommerce` — plugin WordPress/WooCommerce.
+- `connectors/prestashop` — módulo PrestaShop.
+- `connectors/file-import` — base reutilizable para CSV/Excel e integraciones a medida.
+- `packages/contracts` — contrato DeCA compartido.
+- `packages/core` — normalización y validación DeCA.
+- `packages/document-engine` — generación de PDF, QR y snapshot documental.
+- `packages/persistence` — persistencia necesaria para documento e histórico.
+- `apps/api` — servicio reutilizable cuando una instalación/integración lo necesite.
 
-The repository follows the same engineering principle as Puente VeriFactu: a small reusable core, thin connectors, deterministic tests and minimal CI.
+## Paquetes instalables
 
-## Status
-
-The agreed **DeCA product scope remains the only active completion priority**. Internal engineering and internal acceptance are substantially complete; the remaining work is the Kairoseth-controlled live acceptance/evidence layer for Atlas/GridFS, DR, deployed engine/public route, controlled connector stores, Hostinger edge/provider controls and the final evidence freeze.
-
-**eCMR and eFTI are frozen and must not receive new development until DeCA reaches 100% under the acceptance ledger.** Existing Phase 7 work is preserved but is not an active completion track and does not count toward the DeCA percentage.
-
-Sources of truth:
-
-- [`docs/deca-100-percent-acceptance-ledger.md`](docs/deca-100-percent-acceptance-ledger.md) — exact gates required to declare DeCA 100%;
-- [`docs/roadmap.md`](docs/roadmap.md) — full historical/global roadmap;
-- [`docs/deca-first-completion-policy.md`](docs/deca-first-completion-policy.md) — DeCA-first scope rule.
-
-## Kairoseth Platform boundary
-
-Canonical production product identity:
-
-```text
-area        extensions
-product     Kairoseth Cargo
-slug        puente-deca
-platform    Kairoseth Platform
+```bash
+npm ci
+npm run release:connectors
 ```
 
-The local organization/API-key store in this repository exists for deterministic development and service-contract testing. It is **not** the production source of truth for customer accounts or organization membership.
+Genera:
 
-Production integration rules are documented in [`docs/kairoseth-platform-integration.md`](docs/kairoseth-platform-integration.md).
+- `dist/puente-deca-woocommerce-0.1.0.zip`
+- `dist/puentedeca-prestashop-0.1.0.zip`
+- `dist/SHA256SUMS`
+
+El empaquetado es reproducible y valida que ambos ZIP contienen únicamente los archivos necesarios para instalar cada conector.
+
+## Validación de producto
+
+La comprobación normal del repositorio es deliberadamente pequeña:
+
+```bash
+npm run check
+npm test
+npm run release:connectors
+```
+
+Se valida el núcleo DeCA, el documento, los conectores, el empaquetado y los flujos esenciales. Pruebas de infraestructura, DR, Atlas, evidencia de aceptación, OIDC o similares no forman parte del criterio normal de entrega.
+
+## Fuera del alcance activo
+
+No son bloqueantes para el producto actual:
+
+- eCMR / eFTI;
+- Atlas/GridFS como ejercicio de aceptación independiente;
+- DR/restore drills sin una necesidad real;
+- infraestructura de evidencia y promoción de gates;
+- aceptación OIDC/edge creada únicamente para demostrar arquitectura;
+- hardening adicional sin requisito real de cliente, seguridad o producción.
+
+El código histórico puede conservarse temporalmente mientras se completa la limpieza, pero no gobierna el roadmap ni el CI del producto. Git mantiene el historial si en el futuro alguna capacidad vuelve a ser necesaria.
+
+## Definition of Done
+
+La versión actual se considera viable cuando:
+
+- el ZIP de WooCommerce se puede construir e instalar;
+- el ZIP de PrestaShop se puede construir e instalar;
+- ambos pueden completar el flujo esencial DeCA con datos sintéticos;
+- el documento queda disponible para consulta/descarga y su histórico se conserva;
+- existe documentación corta de instalación/configuración;
+- los tests proporcionales al flujo anterior están verdes.
+
+Después de ese punto, cualquier arquitectura o integración adicional se desarrolla por necesidad real de cliente o producción, no por anticipación.
