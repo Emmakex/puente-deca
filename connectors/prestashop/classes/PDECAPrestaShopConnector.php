@@ -42,7 +42,7 @@ final class PDECAPrestaShopConnector
 
                 if ($shipmentId === '') {
                     throw new RuntimeException(
-                        'Puente DeCA did not return a shipment ID.'
+                        'DeCA Transporte did not return a shipment ID.'
                     );
                 }
             } else {
@@ -60,10 +60,13 @@ final class PDECAPrestaShopConnector
             $documentId = isset($document['documentId'])
                 ? trim((string) $document['documentId'])
                 : '';
+            $accessUrl = isset($document['accessUrl'])
+                ? trim((string) $document['accessUrl'])
+                : '';
 
-            if ($documentId === '') {
+            if ($documentId === '' || $accessUrl === '') {
                 throw new RuntimeException(
-                    'Puente DeCA did not return a document ID.'
+                    'DeCA Transporte returned incomplete document metadata.'
                 );
             }
 
@@ -71,6 +74,7 @@ final class PDECAPrestaShopConnector
                 $order,
                 $shipmentId,
                 $documentId,
+                $accessUrl,
                 !empty($generated['reused'])
                     ? 'ready_reused'
                     : 'ready',
@@ -81,6 +85,7 @@ final class PDECAPrestaShopConnector
                 'ok' => true,
                 'shipment_id' => $shipmentId,
                 'document_id' => $documentId,
+                'access_url' => $accessUrl,
                 'reused' => !empty($generated['reused']),
             );
         } catch (Exception $exception) {
@@ -97,6 +102,9 @@ final class PDECAPrestaShopConnector
                     : '',
                 is_array($existing)
                     ? (string) $existing['document_id']
+                    : '',
+                is_array($existing) && isset($existing['access_url'])
+                    ? (string) $existing['access_url']
                     : '',
                 'blocked',
                 $message
