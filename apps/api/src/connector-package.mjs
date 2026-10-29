@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 
 const CONNECTOR_PACKAGES = {
   woocommerce: {
-    filename: "puente-deca-woocommerce-0.1.0.zip",
+    filename: "puente-deca-woocommerce-0.1.1.zip",
     root: "puente-deca-woocommerce",
     files: [
       ["connectors/woocommerce/puente-deca-woocommerce.php", "puente-deca-woocommerce.php"],
@@ -16,14 +16,15 @@ const CONNECTOR_PACKAGES = {
     ]
   },
   prestashop: {
-    filename: "puentedeca-prestashop-0.1.0.zip",
+    filename: "puentedeca-prestashop-0.1.1.zip",
     root: "puentedeca",
     files: [
       ["connectors/prestashop/puentedeca.php", "puentedeca.php"],
       ["connectors/prestashop/classes/PDECAPrestaShopClient.php", "classes/PDECAPrestaShopClient.php"],
       ["connectors/prestashop/classes/PDECAPrestaShopConnector.php", "classes/PDECAPrestaShopConnector.php"],
       ["connectors/prestashop/classes/PDECAPrestaShopOrderPayload.php", "classes/PDECAPrestaShopOrderPayload.php"],
-      ["connectors/prestashop/classes/PDECAPrestaShopSecretStore.php", "classes/PDECAPrestaShopSecretStore.php"]
+      ["connectors/prestashop/classes/PDECAPrestaShopSecretStore.php", "classes/PDECAPrestaShopSecretStore.php"],
+      ["connectors/prestashop/upgrade/upgrade-0.1.1.php", "upgrade/upgrade-0.1.1.php"]
     ]
   }
 };
