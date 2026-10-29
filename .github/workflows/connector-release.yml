@@ -3,6 +3,8 @@ name: connector-release
 on:
   workflow_dispatch:
   push:
+    branches:
+      - "ops/package-connectors-0.1.2"
     tags:
       - "connectors-v*"
 
