@@ -32,4 +32,4 @@ jobs:
       - name: Build installable connector packages
         run: npm run release:connectors
       - name: Verify package checksums
-        run: sha256sum --check dist/SHA256SUMS
+        run: cd dist && sha256sum --check SHA256SUMS
