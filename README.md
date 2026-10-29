@@ -1,47 +1,49 @@
 # DeCA Transporte
 
-Repositorio de producto para generar y conservar el **Documento de Control Administrativo (DeCA)** con el menor número posible de piezas.
+Repositorio de producto para generar y conservar el **Documento Electrónico de Control Administrativo (DeCA)** con el menor número posible de piezas.
+
+> **Regla del proyecto:** producto primero. El contrato de alcance, oferta comercial, Definition of Done y orden de trabajo está fijado en [`docs/PRODUCT_FOCUS.md`](docs/PRODUCT_FOCUS.md). Si una tarea no mejora el producto actual o responde a una necesidad real, no bloquea y se pospone.
 
 ## Producto activo
 
-DeCA se entrega de tres formas:
+DeCA se entrega de tres formas alineadas con `kairoseth.com`:
 
-1. **WordPress / WooCommerce** — plugin instalable para configurar la integración y generar el DeCA desde un pedido.
-2. **PrestaShop** — módulo instalable con el mismo flujo esencial.
-3. **Integración a medida** — ERP, CRM, software propio, CSV/Excel u otros sistemas reutilizando el núcleo DeCA cuando aporte valor.
+1. **Cargo Web** — creación manual + Excel/CSV.
+2. **Cargo Connect** — conectores instalables para WordPress/WooCommerce y PrestaShop.
+3. **Cargo API** — ERP, TMS, CRM, software propio e integraciones personalizadas reutilizando el núcleo DeCA cuando aporta valor.
 
-Kairoseth.com es la superficie comercial. Este repositorio contiene el producto técnico reutilizable.
+La superficie comercial canónica es `https://kairoseth.com/products/kairoseth-cargo`. Este repositorio contiene la implementación técnica reutilizable.
 
 ## Flujo que importa
 
 ```text
-Pedido / datos de transporte
-          |
-          v
-     Datos DeCA
-          |
-          v
-      Validación
-          |
-          v
-      Documento
-          |
-          v
-       Histórico
+Pedido / Excel / API / datos de transporte
+                 |
+                 v
+             Datos DeCA
+                 |
+                 v
+             Validación
+                 |
+                 v
+          Documento PDF/QR
+                 |
+                 v
+        Consulta + histórico
 ```
 
 Todo trabajo debe proteger o mejorar este recorrido. La arquitectura que no sea necesaria para hacerlo funcionar de forma usable y estable se pospone.
 
-## Componentes que mantenemos activos
+## Componentes activos
 
-- `connectors/woocommerce` — plugin WordPress/WooCommerce.
-- `connectors/prestashop` — módulo PrestaShop.
-- `connectors/file-import` — base reutilizable para CSV/Excel e integraciones a medida.
+- `connectors/woocommerce` — plugin WordPress/WooCommerce para Cargo Connect.
+- `connectors/prestashop` — módulo PrestaShop para Cargo Connect.
+- `connectors/file-import` — Excel/CSV y base reutilizable para Cargo Web/integraciones.
 - `packages/contracts` — contrato DeCA compartido.
 - `packages/core` — normalización y validación DeCA.
-- `packages/document-engine` — generación de PDF, QR y snapshot documental.
+- `packages/document-engine` — PDF, QR y snapshot documental.
 - `packages/persistence` — persistencia necesaria para documento e histórico.
-- `apps/api` — servicio reutilizable cuando una instalación/integración lo necesite.
+- `apps/api` — servicio reutilizable para Cargo API y conectores cuando lo necesiten.
 
 ## Paquetes instalables
 
@@ -56,7 +58,7 @@ Genera:
 - `dist/puentedeca-prestashop-0.1.0.zip`
 - `dist/SHA256SUMS`
 
-El empaquetado es reproducible y valida que ambos ZIP contienen únicamente los archivos necesarios para instalar cada conector.
+Los nombres de archivo e identificadores internos históricos se conservan por compatibilidad. La experiencia visible del cliente utiliza **DeCA Transporte**.
 
 ## Validación de producto
 
@@ -75,13 +77,13 @@ Se valida el núcleo DeCA, el documento, los conectores, el empaquetado y los fl
 No son bloqueantes para el producto actual:
 
 - eCMR / eFTI;
-- Atlas/GridFS como ejercicio de aceptación independiente;
+- Atlas/GridFS como ejercicio independiente;
 - DR/restore drills sin una necesidad real;
-- infraestructura de evidencia y promoción de gates;
-- aceptación OIDC/edge creada únicamente para demostrar arquitectura;
-- hardening adicional sin requisito real de cliente, seguridad o producción.
+- infraestructura de evidence gates;
+- OIDC/edge creado únicamente para demostrar arquitectura;
+- escalabilidad, observabilidad o hardening adicional sin requisito real de cliente, seguridad o producción.
 
-El código histórico puede conservarse temporalmente mientras se completa la limpieza, pero no gobierna el roadmap ni el CI del producto. Git mantiene el historial si en el futuro alguna capacidad vuelve a ser necesaria.
+Git conserva el historial si alguna capacidad vuelve a ser necesaria.
 
 ## Definition of Done
 
@@ -89,9 +91,12 @@ La versión actual se considera viable cuando:
 
 - el ZIP de WooCommerce se puede construir e instalar;
 - el ZIP de PrestaShop se puede construir e instalar;
-- ambos pueden completar el flujo esencial DeCA con datos sintéticos;
-- el documento queda disponible para consulta/descarga y su histórico se conserva;
-- existe documentación corta de instalación/configuración;
-- los tests proporcionales al flujo anterior están verdes.
+- ambos completan el flujo esencial DeCA con una configuración comprensible;
+- los datos que faltan producen errores útiles en lugar de datos inventados;
+- el documento queda disponible para consulta/descarga y asociado a la expedición/pedido;
+- el histórico o trazabilidad de revisiones se conserva;
+- existe documentación corta de instalación/configuración y primer DeCA;
+- los tests proporcionales al flujo anterior están verdes;
+- `kairoseth.com` vende exactamente lo que el producto entrega.
 
 Después de ese punto, cualquier arquitectura o integración adicional se desarrolla por necesidad real de cliente o producción, no por anticipación.
