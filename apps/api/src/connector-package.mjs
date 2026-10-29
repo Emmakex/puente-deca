@@ -16,7 +16,7 @@ const CONNECTOR_PACKAGES = {
     ]
   },
   prestashop: {
-    filename: "puentedeca-prestashop-0.1.1.zip",
+    filename: "puentedeca-prestashop-0.1.2.zip",
     root: "puentedeca",
     files: [
       ["connectors/prestashop/puentedeca.php", "puentedeca.php"],
@@ -24,7 +24,8 @@ const CONNECTOR_PACKAGES = {
       ["connectors/prestashop/classes/PDECAPrestaShopConnector.php", "classes/PDECAPrestaShopConnector.php"],
       ["connectors/prestashop/classes/PDECAPrestaShopOrderPayload.php", "classes/PDECAPrestaShopOrderPayload.php"],
       ["connectors/prestashop/classes/PDECAPrestaShopSecretStore.php", "classes/PDECAPrestaShopSecretStore.php"],
-      ["connectors/prestashop/upgrade/upgrade-0.1.1.php", "upgrade/upgrade-0.1.1.php"]
+      ["connectors/prestashop/upgrade/upgrade-0.1.1.php", "upgrade/upgrade-0.1.1.php"],
+      ["connectors/prestashop/upgrade/upgrade-0.1.2.php", "upgrade/upgrade-0.1.2.php"]
     ]
   }
 };
