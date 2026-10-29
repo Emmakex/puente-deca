@@ -1,8 +1,8 @@
 <?php
 /**
- * Plugin Name: Kairoseth Cargo - DeCA for WooCommerce
+ * Plugin Name: DeCA Transporte for WooCommerce
  * Plugin URI: https://kairoseth.com/products/kairoseth-cargo
- * Description: Connect WooCommerce with Kairoseth Cargo to create and keep DeCA transport documents up to date.
+ * Description: Genera y mantiene documentos DeCA desde pedidos WooCommerce con DeCA Transporte de Kairoseth.
  * Version: 0.1.0
  * Author: Kairoseth Extensions
  * Text Domain: puente-deca-woocommerce
@@ -37,7 +37,7 @@ add_action(
                 'admin_notices',
                 static function () {
                     if ( current_user_can( 'activate_plugins' ) ) {
-                        echo '<div class="notice notice-error"><p>' . esc_html__( 'Kairoseth Cargo - DeCA requires WooCommerce to be active.', 'puente-deca-woocommerce' ) . '</p></div>';
+                        echo '<div class="notice notice-error"><p>' . esc_html__( 'DeCA Transporte requires WooCommerce to be active.', 'puente-deca-woocommerce' ) . '</p></div>';
                     }
                 }
             );
